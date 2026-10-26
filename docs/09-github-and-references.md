@@ -5,7 +5,7 @@
 - **Description:** "Verifies AI conclusions against documents: every link checked independently, every verdict labelled by its weakest link. Built on Meta Muse Spark, SAM 3.1 and Muse Spark Open."
 - **Topics:** `meta-hackathon`, `muse-spark`, `sam`, `verification`, `document-ai`, `llm-evaluation`
 - **First commit:** this docs pack + scaffold (T1). Commit message: `chore: scaffold ProofGraph (hackathon day 1)`
-- **Branching:** trunk-based on `main`, with small commits. Short feature branches only for risky work (`feat/objection-loop`). Squash-merge.
+- **Branching:** every code change is pushed on a relevant branch (`feat/`, `fix/`, `docs/`, `chore/`, `test/`, `eval/`). Do not push commits straight to `main`. Open a pull request and squash-merge.
 - **Commit style:** `feat:`, `fix:`, `test:`, `docs:`, `chore:`, `eval:` (for committed run outputs)
 - **Tags:** `v0.1-day1` after Checkpoint C; `v1.0-submission` on Nov 4
 - **Secrets:** never in the repo. CI needs none: tests use fixtures and the cache. Deploy secrets go in Streamlit Cloud's secrets settings.
