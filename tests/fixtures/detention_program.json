@@ -1,0 +1,84 @@
+{
+  "case": {
+    "id": "detention-001",
+    "dataset": "freight",
+    "mode": "passage",
+    "claim": "The invoice detention charge of $450.00 is correct.",
+    "sources": [
+      {
+        "id": "rate_conf",
+        "kind": "text",
+        "text": "Detention: $75.00/hour after 2 hours free time"
+      },
+      {
+        "id": "pod",
+        "kind": "text",
+        "text": "Arrived: 10:00 Departed: 14:12"
+      },
+      {
+        "id": "invoice",
+        "kind": "text",
+        "text": "Detention: $450.00"
+      }
+    ],
+    "answer": null,
+    "gold_evidence": []
+  },
+  "program": {
+    "facts": [
+      {
+        "id": "f_rate",
+        "label": "detention rate",
+        "source_id": "rate_conf",
+        "quote": "Detention: $75.00/hour after 2 hours free time",
+        "value": 75,
+        "kind": "number"
+      },
+      {
+        "id": "f_free",
+        "label": "free time",
+        "source_id": "rate_conf",
+        "quote": "2 hours free time",
+        "value": 2,
+        "kind": "number"
+      },
+      {
+        "id": "f_arrived",
+        "label": "arrived",
+        "source_id": "pod",
+        "quote": "Arrived: 10:00",
+        "value": "10:00",
+        "kind": "time"
+      },
+      {
+        "id": "f_departed",
+        "label": "departed",
+        "source_id": "pod",
+        "quote": "Departed: 14:12",
+        "value": "14:12",
+        "kind": "time"
+      },
+      {
+        "id": "f_invoice",
+        "label": "detention charge",
+        "source_id": "invoice",
+        "quote": "Detention: $450.00",
+        "value": 450,
+        "kind": "number"
+      }
+    ],
+    "links": [
+      {
+        "id": "l_detention",
+        "kind": "compute",
+        "inputs": ["f_arrived", "f_departed", "f_free", "f_rate", "f_invoice"],
+        "statement": "Billable detention hours times the rate equals the invoice charge",
+        "expr": "(hours_between(f_arrived, f_departed) - f_free) * f_rate == f_invoice",
+        "rule_source": null,
+        "claim_span": "$450.00"
+      }
+    ],
+    "required": ["l_detention"],
+    "unverifiable_parts": []
+  }
+}

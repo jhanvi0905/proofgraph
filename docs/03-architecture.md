@@ -56,6 +56,8 @@ class Fact(BaseModel):
     value: float | str | None
     scale: Literal["units", "thousands", "millions", "billions", "percent"] | None
     kind: Literal["number", "date", "time", "text", "count"]
+    entity: str | None = None     # conflict key; absent does not conflict
+    period: str | None = None
 
 class Link(BaseModel):
     id: str; kind: Literal["compute", "temporal", "wording", "rule"]
@@ -89,6 +91,7 @@ class Verdict(BaseModel):
     fetch: list[str]              # "what to fetch" lines when UNRESOLVED
     rounds: int                   # objection rounds used
     fact_checks: list[FactCheck]; link_results: list[LinkResult]
+    flags: list[str] = []         # operational notes only, e.g. checker=fallback
 ```
 
 ## 3. Pipeline (`proofgraph/pipeline.py`)
@@ -110,7 +113,7 @@ verify(case) -> Verdict
 | Digital PDF | Text in box | pdfplumber words whose centres fall inside the box (2% margin) contain the value |
 | Handwriting / scan / photo text | Blind re-read | Muse Spark Open, given only the crop and "Read the value in this image," returns the same value after normalisation |
 | Goods in a photo | Count agreement | SAM 3.1 mask count for the noun equals Muse's pointed count |
-| Any fact | Conflict | Two grounded facts with the same (label, entity, period) differ by more than 0.5% → both marked `conflict` |
+| Any fact | Conflict | Two grounded facts whose label, entity, and period are all present and equal, and whose numeric values differ by more than 0.5%, are both marked `conflict`. A missing entity or period does not conflict. |
 
 Parentheses mean negative: `( 2,483 )` → −2483. Handle `$`, commas, `%`, `—` (zero) and `(…)`.
 
@@ -122,12 +125,12 @@ Parentheses mean negative: `( 2,483 )` → −2483. Handle `$`, commas, `%`, `�
 ## 6. Wording checks (`clients/checker.py`)
 - Input: **one quote (or one clause) and one statement.** Nothing else. Not the proposer's reasoning or answer, not other clauses, not the claim's numbers where the statement can avoid them.
 - Output: `entails` | `contradicts` | `not_mentioned`.
-- The model is Muse Spark Open on Baseten. The fallback is a fresh Muse Spark call with the same restricted input (logged as `checker=fallback`).
+- The model is Muse Spark Open on Baseten. The fallback is a fresh Muse Spark call with the same restricted input (logged as `checker=fallback` on `Verdict.flags`, not in `reason_codes`).
 - Independence comes from **what the checker sees** and from **different mechanisms** (text layer, SAM). Muse Spark Open shares lineage with Muse Spark, so we never call it an "independent witness" on weights alone.
 
 ## 7. Combine rules (`engine/combine.py`)
 1. **Coverage:** extract every number from the claim. Skip integer years 1900–2100 without `$` or `%`. Each remaining number must be tested by a link or equal a grounded fact. Otherwise → `UNCOVERED_NUMBER`.
-2. **Contradiction:** a required link `fail`s, its inputs are all `grounded`, and there's no conflict → **CONTRADICTED**.
+2. **Contradiction:** a required link `fail`s, its inputs are all `grounded`, and there's no conflict → **CONTRADICTED**. A required input marked `conflict` cannot be reduced to one number: **UNRESOLVED** with reason code `CONFLICT` (this does not start an objection round).
 3. **Support:** all required links `pass`, coverage is complete, and `unverifiable_parts` is empty → **SUPPORTED**.
 4. **For NLI-style claims (ContractNLI):** at least one grounded clause `contradicts` and none `entails` → CONTRADICTED; at least one `entails` and none `contradicts` → SUPPORTED; both → UNRESOLVED (`CLAUSE_CONFLICT`); none decides → UNRESOLVED (`NOT_MENTIONED`).
 5. **Otherwise → UNRESOLVED**, with reason codes and `fetch` lines.

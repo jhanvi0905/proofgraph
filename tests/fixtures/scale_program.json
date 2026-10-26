@@ -1,0 +1,90 @@
+{
+  "stated": {
+    "case": {
+      "id": "scale-stated",
+      "dataset": "findver",
+      "mode": "passage",
+      "claim": "Revenue was $183,479,000.",
+      "sources": [
+        {
+          "id": "p107",
+          "kind": "text",
+          "text": "Revenue 183,479 (in thousands)."
+        }
+      ],
+      "answer": null,
+      "gold_evidence": []
+    },
+    "program": {
+      "facts": [
+        {
+          "id": "f3",
+          "label": "revenue",
+          "source_id": "p107",
+          "quote": "183,479 (in thousands)",
+          "value": 183479,
+          "scale": "thousands",
+          "kind": "number",
+          "entity": "Ryman",
+          "period": "FY"
+        }
+      ],
+      "links": [
+        {
+          "id": "l_scale",
+          "kind": "compute",
+          "inputs": ["f3"],
+          "statement": "Revenue in thousands times 1,000 equals $183,479,000",
+          "expr": "(f3*1000) == 183479000",
+          "rule_source": null,
+          "claim_span": "$183,479,000"
+        }
+      ],
+      "required": ["l_scale"],
+      "unverifiable_parts": []
+    }
+  },
+  "ambiguous": {
+    "case": {
+      "id": "scale-ambiguous",
+      "dataset": "findver",
+      "mode": "passage",
+      "claim": "Revenue was $183,479,000.",
+      "sources": [
+        {
+          "id": "p107",
+          "kind": "text",
+          "text": "Revenue 183,479."
+        }
+      ],
+      "answer": null,
+      "gold_evidence": []
+    },
+    "program": {
+      "facts": [
+        {
+          "id": "f3",
+          "label": "revenue",
+          "source_id": "p107",
+          "quote": "183,479",
+          "value": 183479,
+          "scale": null,
+          "kind": "number"
+        }
+      ],
+      "links": [
+        {
+          "id": "l_scale",
+          "kind": "compute",
+          "inputs": ["f3"],
+          "statement": "Revenue equals $183,479,000",
+          "expr": "f3 == 183479000",
+          "rule_source": null,
+          "claim_span": "$183,479,000"
+        }
+      ],
+      "required": ["l_scale"],
+      "unverifiable_parts": []
+    }
+  }
+}
