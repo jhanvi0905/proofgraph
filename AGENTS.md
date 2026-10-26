@@ -24,6 +24,12 @@ That skill is the authoritative workflow for feature research, planning, user ap
 - Preserve user changes. Do not revert work you did not make.
 - Remove only unused code created by your own change.
 
+### Git
+
+- Push every code change on a relevant branch named for the work (`feat/…`, `fix/…`, `docs/…`, `chore/…`, `test/…`, `eval/…`).
+- Do not push commits straight to `main`. Open a pull request to land the branch.
+- Commit with `feat:`, `fix:`, `test:`, `docs:`, `chore:`, or `eval:`, an imperative subject, and a body that says why.
+
 ### Verify And Report
 
 - Define success criteria for non-trivial work.
