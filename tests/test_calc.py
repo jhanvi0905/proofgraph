@@ -135,6 +135,59 @@ def test_missing_scale_is_ambiguous_when_verdicts_differ():
     assert result.code == "SCALE_AMBIGUOUS"
 
 
+def test_dollar_quote_with_omitted_scale_is_units_and_the_sum_passes():
+    facts = [
+        Fact(
+            id="f_nov_amt",
+            label="november redemption",
+            source_id="p87",
+            value=40622540,
+            kind="number",
+            quote=(
+                "at a price of approximately $10.29 per share, in an "
+                "aggregate amount of $40,622,540."
+            ),
+        ),
+        Fact(
+            id="f_aug_amt",
+            label="august redemption",
+            source_id="p88",
+            value=2756068,
+            kind="number",
+            quote=(
+                "at a price of approximately $10.88 per share or $2,756,068, "
+                "including income"
+            ),
+        ),
+    ]
+    result = check_compute(
+        "f_nov_amt+f_aug_amt == 43378608",
+        facts,
+        "The combined redemptions equal $43,378,608.",
+    )
+    assert result.status == "pass"
+    assert result.code is None
+    assert "SCALE_AMBIGUOUS" not in result.detail
+
+
+def test_bare_number_with_omitted_scale_stays_ambiguous():
+    fact = Fact(
+        id="f3",
+        label="revenue",
+        source_id="s",
+        value=183479,
+        kind="number",
+        quote="Revenue 183,479.",
+    )
+    result = check_compute(
+        "f3 == 183479000",
+        [fact],
+        "Revenue was $183,479,000.",
+    )
+    assert result.status == "blocked"
+    assert result.code == "SCALE_AMBIGUOUS"
+
+
 def test_same_result_under_every_scale_stands():
     assert check_compute("f3 == 0", [_fact(0)], "The figure is 0.").status == "pass"
 

@@ -86,7 +86,11 @@ def evaluate(
 
 
 def check_compute(expr: str | None, facts: list[Fact], claim: str) -> ComputeResult:
-    """Evaluate a compute link, searching plausible scales when none is stated."""
+    """Evaluate a compute link, searching plausible scales when none is stated.
+
+    A `$` figure in the quote that equals the fact value is units. A bare
+    number with no dollar sign stays in the units, thousands, and millions search.
+    """
     if expr is None or not expr.strip():
         return ComputeResult("blocked", "EVAL_ERROR", "EVAL_ERROR")
     missing = [fact for fact in facts if _needs_scale_search(fact)]
@@ -109,7 +113,28 @@ def check_compute(expr: str | None, facts: list[Fact], claim: str) -> ComputeRes
 
 
 def _needs_scale_search(fact: Fact) -> bool:
-    return fact.scale is None and fact.kind == "number" and numeric_value(fact.value) is not None
+    return (
+        fact.scale is None
+        and fact.kind == "number"
+        and numeric_value(fact.value) is not None
+        and not _quoted_as_dollars(fact)
+    )
+
+
+def _quoted_as_dollars(fact: Fact) -> bool:
+    """True when this fact's value appears in the quote as a `$` amount."""
+    number = numeric_value(fact.value)
+    quote = fact.quote or ""
+    if number is None or "$" not in quote:
+        return False
+    for match in _AMOUNT.finditer(quote):
+        token = match.group(0)
+        if not token.lstrip().startswith("$"):
+            continue
+        parsed = parse_number(token)
+        if parsed is not None and parsed == number:
+            return True
+    return False
 
 
 def _bind(
