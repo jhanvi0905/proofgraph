@@ -10,7 +10,7 @@ from decimal import Decimal, DivisionByZero, InvalidOperation
 from typing import Literal
 
 from proofgraph.engine.numbers import Literal as NumberLiteral
-from proofgraph.engine.numbers import iter_literals, numeric_value
+from proofgraph.engine.numbers import iter_literals, numeric_value, parse_number
 from proofgraph.schema import Fact
 
 _FUNCS = {"abs", "min", "max", "round", "hours_between", "days_between"}
@@ -25,6 +25,12 @@ _SCALES = {
     "thousands": Decimal(1000),
     "millions": Decimal(1_000_000),
 }
+_AMOUNT = re.compile(
+    r"\$\s*\d{1,3}(?:,\d{3})+(?:\.\d+)?"
+    r"|\$\s*\d+(?:\.\d+)?"
+    r"|(?<![\w.])\d{1,3}(?:,\d{3})+(?:\.\d+)?%?"
+    r"|(?<![\w.])\d+(?:\.\d+)?%?"
+)
 
 
 class EvalError(Exception):
@@ -88,7 +94,7 @@ def check_compute(expr: str | None, facts: list[Fact], claim: str) -> ComputeRes
         if not missing:
             bindings = _bind(facts)
             holds = _as_bool(expr, bindings, claim)
-            return _from_bool(holds, expr, bindings)
+            return _from_bool(holds, expr, bindings, facts, claim)
         trials: list[tuple[bool, dict[str, object]]] = []
         for name in ("units", "thousands", "millions"):
             multipliers = {fact.id: _SCALES[name] for fact in missing}
@@ -99,7 +105,7 @@ def check_compute(expr: str | None, facts: list[Fact], claim: str) -> ComputeRes
     outcomes = {item[0] for item in trials}
     if len(outcomes) > 1:
         return ComputeResult("blocked", "SCALE_AMBIGUOUS", "SCALE_AMBIGUOUS")
-    return _from_bool(trials[0][0], expr, trials[0][1])
+    return _from_bool(trials[0][0], expr, trials[0][1], facts, claim)
 
 
 def _needs_scale_search(fact: Fact) -> bool:
@@ -130,13 +136,89 @@ def _as_bool(expr: str, bindings: dict[str, object], claim: str) -> bool:
     raise EvalError("EVAL_ERROR")
 
 
-def _from_bool(holds: bool, expr: str, bindings: dict[str, object]) -> ComputeResult:
+def _from_bool(
+    holds: bool,
+    expr: str,
+    bindings: dict[str, object],
+    facts: list[Fact],
+    claim: str,
+) -> ComputeResult:
     if holds:
-        return ComputeResult("pass", None, "expression holds")
+        return ComputeResult("pass", None, _holding_reason(expr, bindings, facts, claim))
     reason = _detention_reason(expr, bindings)
     if reason is not None:
         return ComputeResult("fail", None, reason)
     return ComputeResult("fail", None, "expression does not hold")
+
+
+def _holding_reason(
+    expr: str,
+    bindings: dict[str, object],
+    facts: list[Fact],
+    claim: str,
+) -> str:
+    """One forwardable line for a comparison that already holds."""
+    sources = _fact_sources(facts)
+    lead = f"The figures in the quotes ({sources})" if sources else "The grounded figures"
+    sides = _comparison_sides(expr, bindings, claim)
+    if sides is None:
+        claimed = _claim_amount(claim)
+        if claimed:
+            return f"{lead} match the claimed {claimed}, so the check holds."
+        return f"{lead} match the claim, so the check holds."
+    computed, claimed = sides
+    return (
+        f"{lead} compute to {_surface(computed, claim)}, "
+        f"matching the claimed {_surface(claimed, claim)}, so the check holds."
+    )
+
+
+def _fact_sources(facts: list[Fact]) -> str:
+    parts: list[str] = []
+    for fact in facts:
+        quote = fact.quote.strip() if fact.quote else ""
+        parts.append(quote or fact.label.strip())
+    return "; ".join(part for part in parts if part)
+
+
+def _comparison_sides(
+    expr: str,
+    bindings: dict[str, object],
+    claim: str,
+) -> tuple[Decimal, Decimal] | None:
+    try:
+        if "__" in expr:
+            return None
+        tree = ast.parse(_PERCENT.sub(r"(\1/100)", expr), mode="eval")
+        node = tree.body
+        if not isinstance(node, ast.Compare) or len(node.comparators) != 1:
+            return None
+        literals = iter_literals(claim)
+        left = _eval(node.left, bindings, literals)
+        right = _eval(node.comparators[0], bindings, literals)
+    except (EvalError, SyntaxError, ValueError, ArithmeticError):
+        return None
+    if not isinstance(left.value, Decimal) or not isinstance(right.value, Decimal):
+        return None
+    return left.value, right.value
+
+
+def _claim_amount(claim: str) -> str | None:
+    match = _AMOUNT.search(claim)
+    if match is None:
+        return None
+    return re.sub(r"\s+", "", match.group(0))
+
+
+def _surface(number: Decimal, claim: str) -> str:
+    for match in _AMOUNT.finditer(claim):
+        token = re.sub(r"\s+", "", match.group(0))
+        parsed = parse_number(token)
+        if parsed == number:
+            return token
+    if number == number.to_integral_value():
+        return f"{int(number.to_integral_value()):,}"
+    return _count(number)
 
 
 def _detention_reason(expr: str, bindings: dict[str, object]) -> str | None:
