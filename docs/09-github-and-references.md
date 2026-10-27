@@ -53,7 +53,7 @@ One section per day: date, what was built (files and modules), what was measured
 | FinDVer paper | https://arxiv.org/abs/2411.05764 |
 | ContractNLI dataset (CC BY 4.0) | https://stanfordnlp.github.io/contract-nli/ |
 | ContractNLI paper | https://arxiv.org/abs/2110.01799 |
-| Baseten (Muse Spark Open) | Quickstart linked from the hackathon guide; model `meta-models/muse-spark-open-1026` |
+| Baseten (Muse Spark Open) | `https://inference.baseten.co/v1`, Chat Completions; model `meta-models/muse-spark-open-1026` |
 
 ## Attribution text (README and app footer)
 - FinDVer: Zhao et al., "FinDVer: Explainable Claim Verification over Long and Hybrid-Content Financial Documents," EMNLP 2024. MIT licence.

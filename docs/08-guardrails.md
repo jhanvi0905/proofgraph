@@ -30,7 +30,7 @@ Every rule here exists because breaking it would either break the core claim or 
 19. Use the exact model IDs in `.env`. Every model in the product must be a Meta model. Meta proposes. Baseten runs the blind checker only (`meta-models/muse-spark-open-1026`). Modal and Fireworks stay unused.
 20. Retries: at most 4 with exponential backoff on 429/5xx; one repair retry on invalid JSON; then fail honestly (`EXTRACTION_FAILED`). Do not start that repair in the same step as the first paid call.
 
-Minimum budget, 28 Oct 2026. Meta $150 is for proposes. Baseten $100 is for checks. The next spends are one Meta detention propose, then one Baseten checker call on one quote and one statement. One call each, then stop. Ten dev-slice proposes wait until both of those calls settle. Keys stay in an untracked `.env` and are never printed.
+Minimum budget, 28 Oct 2026. Meta $150 is for proposes. Baseten $100 is for checks, Chat Completions at `https://inference.baseten.co/v1`, model `meta-models/muse-spark-open-1026` only. The next spends are one Meta detention propose, then one Baseten checker call on one quote and one statement. One call each, then stop. Ten dev-slice proposes wait until both of those calls settle. Keys stay in an untracked `.env` and are never printed.
 
 ## E. Hackathon rules
 21. **Operative build start is Mon Oct 26, 21:30 IST** (decision D20). Log each day in `BUILT_DURING_HACKATHON.md`.
