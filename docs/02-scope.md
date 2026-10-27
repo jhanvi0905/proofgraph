@@ -22,8 +22,8 @@ Build in this order. Don't start a tier until the one before it works and is tes
 3. Objection loop (call 4, max 3 rounds), ContractNLI run (~300 pairs, whole NDA), FinDVer whole-filing mode (50 claims)
 4. Visual citations: Muse boxes on PDF pages and photos, text-in-box check, blind re-read of crops, SAM 3.1 count, overlay
 5. Freight bundles (16) and Test 4; the "what to fetch" line
-6. App: case browser, proof graph drawn on the documents, objection timeline, replay mode
-7. Public deploy (replay mode by default; live mode behind a passcode and spend cap)
+6. App: case browser, proof graph drawn on the documents, objection timeline. A judge action runs a live check (decision D25)
+7. Deploy on Streamlit Community Cloud for judges. The key stays in the host secret store. A spend cap bounds the remaining Meta credit. The app does not play a saved verdict
 
 ## Stretch: only if ahead after Tier 1 item 5
 - **Muse Code "verify before acting" gate:** expose `verify()` as a tool, so a Muse Code agent asked to "approve invoice INV-2207" calls ProofGraph, gets CONTRADICTED, and refuses. About half a day.
@@ -53,7 +53,7 @@ Build in this order. Don't start a tier until the one before it works and is tes
 - [ ] Public GitHub repo, MIT licence, README with the scope sentence and generated results
 - [ ] `make test` green in CI
 - [ ] `results/report.md` generated from committed `runs/`
-- [ ] App deployed in replay mode
-- [ ] 3-minute video showing only hackathon-built work
+- [ ] App deployed for judges, and a live check runs under the spend cap
+- [ ] 3-minute animation, made from a real run, showing only hackathon-built work
 - [ ] `BUILT_DURING_HACKATHON.md` with the daily log
 - [ ] Submitted on the CV platform before **Nov 4, 22:00 IST** (deadline Nov 5, 07:30 IST)

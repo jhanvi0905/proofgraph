@@ -50,10 +50,10 @@ Resequenced Wed 28 (decision D21). Wednesday morning is the early slice only. Th
 | **Thu 29** | HTTP retries first. Then Contender A, `run_eval`, `report`, and the 30-claim numeric scoreboard (Checkpoint B). Then one counterevidence/illegible line in `prompts/extract.md`, dev slice only. Then the full numeric passage run. Skip IE. Contender B, the −quote ablation, and the −coverage cache rerun only after the report script exists. Fixture-test the objection loop at the end of the day only if that scoreboard is already in `runs/`. | Checkpoint B is in `runs/`. The prompt line is frozen for the numeric run. IE is not run. |
 | **Fri 30** | Objection loop on cached cases if Thursday did not finish it. Then Files API and the SAM token parser, text-in-box, and blind re-read. | One hand-made bundle verifies with boxes. `hours_between` is already in `calc.py`. *21:30 Fireworks session (optional).* |
 | **Sat 31** | ContractNLI (~300), FinDVer whole-filing (50), conflict traps, self-check. Then 16 freight bundles, what-to-fetch, `pick_demo_cases.py`. | Those rows are in the report. Freight rows exist before any Muse Code gate. |
-| **Sun Nov 1** | App. Objection timeline reads plan / act / observe, red refusal, what-to-fetch handoff. No new backend. | The app replays with no API key. The current fixture screen is not this app. |
-| **Mon Nov 2** | Deploy (Streamlit Community Cloud). **Feature freeze tonight.** | Public URL works in replay mode |
-| **Tue Nov 3** | Video from real runs only (`10-demo-and-submission.md`). Office hours 20:30–21:30 | 3:00 video uploaded (unlisted) |
-| **Wed Nov 4** | Buffer. Re-record if needed. **Submit by 22:00.** Post on X. | Submission confirmed |
+| **Sun Nov 1** | Streamlit app (decision D25). A judge action runs propose and the engine on a prepared document or a pasted claim. The screen shows the verdict, the reasons, plan / act / observe, a red refusal, what-to-fetch, and the box when the bundle has one. The key is in the host secret store. A spend cap bounds the call. | One live check returns on that screen. It does not play a stored verdict. The current fixture screen is not this app. |
+| **Mon Nov 2** | Deploy on Streamlit Community Cloud. The URL is for judges. README and rough edges. **Feature freeze tonight.** | The judge URL runs a live check under the spend cap. Features are frozen. |
+| **Tue Nov 3** | The human makes the 3-minute animation from a real run (`10-demo-and-submission.md`). Office hours 20:30–21:30 | The animation is uploaded, unlisted, and matches a real run. Tuesday is not the day the app first works. |
+| **Wed Nov 4** | Buffer. Re-cut the animation if needed. **Submit by 22:00.** Post on X. The live app URL stays with the judges. | Submission confirmed |
 
 Wednesday do-not-start list: do not edit `prompts/extract.md`. Do not start Files API, SAM, retries, demo framing, or the Muse Code gate. If a Wednesday probe returns 429, then and only then add the retry cap before any further calls. The counterevidence line is required on Thursday, and Files API and SAM are required on Friday. That list only holds them until the live program returns.
 
@@ -87,14 +87,14 @@ Critical path: live probe → retries → scoreboard → numeric run → objecti
 10. **text-in-box and blind re-read.** text-in-box depends on Files API plus pdf words. Blind re-read depends on `input_image` crops. Neither depends on SAM. Must not block each other. The bundle waits for both, and for SAM.
 11. **ContractNLI, whole-filing, traps, self-check.** Depend on the objection loop and on the numeric scoreboard pattern (same eval and report). Independent of SAM and of freight photos. Must not block Friday's one boxed bundle.
 12. **Freight bundles and what-to-fetch.** Depend on boxes (Files API, text-in-box, blind re-read, SAM count) and on the engine. The Muse Code gate depends on freight rows. Must not start while the scoreboard is still missing.
-13. **App timeline (plan / act / observe).** Depends on a verdict object. The handoff is meaningful once fetch lines exist. It can be built against fixtures before deploy. Independent of the video edit. Must not block the boxed bundle.
-14. **Deploy, video, submit.** Deploy depends on the app running with no key. Video depends on real runs (the scoreboard plus at least one boxed freight case). Submit depends on a public repo, the video, and `BUILT_DURING_HACKATHON.md`. Deploy must not wait on the video edit.
+13. **Live Streamlit app (plan / act / observe).** Depends on the propose path. The handoff is meaningful once fetch lines exist. Prepared documents may sit on the server. The check runs when the judge acts. Independent of the animation. Must not block the boxed bundle.
+14. **Deploy, animation, submit.** Deploy depends on that live app, with the key in Streamlit secrets and the spend cap on. The URL is for judges. The animation depends on a real run (the scoreboard plus at least one boxed freight case) and the human makes it. Submit depends on a public repo, the animation, and `BUILT_DURING_HACKATHON.md`. Deploy must not wait on the animation.
 
 ### Side by side
 - After Checkpoint B, the prompt-line dev slice can be prepared while report formatting is cleaned. The prompt must not change during the scored numeric run.
 - Friday, the SAM parser and text-in-box can be written in parallel after the upload path exists. The bundle waits for both.
 - Saturday, ContractNLI eval and freight document staging can overlap only after the objection loop is capped and tested. Do not overlap them if the scoreboard is still missing.
-- Sunday app and Monday deploy are sequential. The video script can be outlined Sunday from `docs/10-demo-and-submission.md`. Recording waits for real runs.
+- Sunday app and Monday deploy are sequential. The animation can be outlined Sunday from `docs/10-demo-and-submission.md`. The animation waits for a real run. The app does not wait for the animation.
 
 ## Rescue decisions
 | If… | Then… |
@@ -104,5 +104,5 @@ Critical path: live probe → retries → scoreboard → numeric run → objecti
 | The objection loop is flaky, or Thursday is slipping | Cap it at 1 round, log it, and do not start it before the scoreboard. Still protect the numeric scoreboard and Friday's one boxed bundle |
 | About to add `hours_between` | Stop. It already exists in `calc.py` |
 | SAM counts are poor | Re-stage the photos; keep the count check, report agreement honestly |
-| The app eats more than one day | Ship the Streamlit table + Graphviz; the overlay becomes video-only |
+| The app eats more than one day | Ship the Streamlit table and Graphviz with a live check. The painted overlay can move into the animation |
 | Behind on Nov 2 | Cut in the order given in `02-scope.md` |

@@ -6,7 +6,9 @@ Waiting means later today, or a later day. Waiting is not a cut.
 
 **Hard deadline: Thu 5 Nov 2026, 07:30 IST (Nov 4, 9:00 PM ET). Team submit target: Wed 4 Nov 2026, 22:00 IST.**
 
-A running product exists by the end of **Tue 3 Nov 2026**. Wed 4 is buffer and submit. The video is Tuesday. The product is already running before Tuesday starts.
+A running product exists by the end of **Tue 3 Nov 2026**. Wed 4 is buffer and submit. Tuesday is the animation, which the human makes from a real run. The product is already running before Tuesday starts.
+
+D25 (28 Oct): the judge-facing Streamlit app runs a live check. It does not play a saved verdict. The app URL is for judges. The key stays in the host secret store, and a spend cap bounds the remaining Meta credit. Scored `runs/` stay the report record. Streamlit stays. Vercel stays out.
 
 ## Job
 
@@ -65,10 +67,10 @@ Later on 28 Oct both probes returned. The Wed 28 exit sentence is met. Neither p
 | what-to-fetch | Product & Hackathon Strategy Lead | Sat 31 | The freight bundles. | With the freight work. | Fetch lines exist, so the app handoff is real. | Waiting |
 | `pick_demo_cases.py` | Product & Hackathon Strategy Lead | Sat 31 | The freight bundles. | With the freight work. | The script picks the demo cases. | Waiting |
 | Muse Code verify-before-acting gate | Staff Applied AI Engineer | Sat 31. Stretch. The only stretch. | Freight rows exist. | No. It waits for those rows. | The gate has run on a freight case. This item may be skipped. | Waiting |
-| App replay with no API key | Senior Software Engineer | Sun 1 | A verdict object. Fetch lines make the what-to-fetch handoff real. | Yes. It can be built on fixtures the same day real runs are wired. | Replay shows the verdict, the reasons, plan / act / observe, a red refusal, and the what-to-fetch handoff. | Waiting |
-| Public deploy | Senior Software Engineer | Mon 2 | That replay. | No. | The public URL loads the replay. Feature freeze that night. | Waiting |
-| Video from real runs | Product & Hackathon Strategy Lead | Tue 3 | The product is already running: live verdict, scoreboard, and at least one boxed bundle. | A script outline may be written on an earlier day. Recording waits for real runs. | A 3:00 video is uploaded, unlisted. Tuesday is not the day the app first works. | Waiting |
-| Buffer and submit | Principal Engineer & Technical Lead | Wed 4 | The deploy, the video, the public repo, and `BUILT_DURING_HACKATHON.md`. | Re-record only if the cut needs it. | Submitted by 22:00 IST. Post on X. | Waiting |
+| Live Streamlit check for judges | Senior Software Engineer | Sun 1 | The propose path, and a prepared document or a pasted claim. Fetch lines make the what-to-fetch handoff real. | Yes, beside wiring the host secret. | A judge action runs propose and the engine. The screen shows the verdict, the reasons, plan / act / observe, a red refusal, and what-to-fetch from that run. It does not play a stored verdict. | Waiting |
+| Judge deploy | Senior Software Engineer | Mon 2 | That live app. | No. | The judge URL runs a live check. The key is in Streamlit secrets. The spend cap is on. Feature freeze that night. | Waiting |
+| Animation from a real run | Product & Hackathon Strategy Lead | Tue 3 | The product is already running: live verdict, scoreboard, and at least one boxed bundle. | An outline may be written on an earlier day. The animation waits for a real run. | A 3:00 animation is uploaded, unlisted, and matches a real run. The human makes it. Tuesday is not the day the app first works. | Waiting |
+| Buffer and submit | Principal Engineer & Technical Lead | Wed 4 | The deploy, the animation, the public repo, and `BUILT_DURING_HACKATHON.md`. | Re-cut the animation only if the cut needs it. The live URL stays with the judges. | Submitted by 22:00 IST. Post on X. | Waiting |
 
 ### Holds
 
@@ -88,9 +90,9 @@ The QA & Reliability Engineer accepts the exit after that result exists. Accepta
 | Thu 29 | The scoreboard is in `runs/`. The prompt line is frozen. The numeric passage run is scored on that line. |
 | Fri 30 | One hand-made bundle verifies with boxes, including a SAM count. |
 | Sat 31 | ContractNLI, whole-filing, traps, self-check, and freight rows are in the report. |
-| Sun 1 | The app replays with no API key. |
-| Mon 2 | The public URL loads that replay. Features are frozen. |
-| Tue 3 | The video is uploaded from real runs. |
+| Sun 1 | The Streamlit app runs one live check. It does not play a stored verdict. |
+| Mon 2 | The judge URL runs that live check under the spend cap. Features are frozen. |
+| Tue 3 | The human's animation is uploaded and matches a real run. |
 | Wed 4 | The entry is submitted by 22:00 IST. |
 
 28 Oct: the Wed 28 exit sentence is met. The legal-hours product-path re-probe is recorded. `EVAL_ERROR` is absent, so the stricter task bar is accepted. A null label stays the accepted label on an UNRESOLVED fall-through.
@@ -106,7 +108,7 @@ Cut only after that move still cannot fit. Cut only in this order:
 3. Freight count above 6. Six bundles still ship.
 4. App polish.
 
-Do not cut Files API, SAM, the prompt line, the numeric scoreboard, one boxed bundle, replay, or deploy in order to look minimal. A Tuesday product with no file attachment and no SAM count has missed the Meta tooling story.
+Do not cut Files API, SAM, the prompt line, the numeric scoreboard, one boxed bundle, the live judge app, or deploy in order to look minimal. A Tuesday product with no file attachment and no SAM count has missed the Meta tooling story.
 
 ContractNLI and the full freight set should be in by Saturday. If Saturday slips, a smaller ContractNLI slice and 6 freight bundles still ship. The Muse Code gate may be absent.
 
@@ -121,4 +123,4 @@ By the end of Tue 3 Nov, all of these are true:
 - The counterevidence prompt line is already in the frozen prompt.
 - One bundle has a Files API attachment, a box, text-in-box or blind re-read, and a SAM count.
 - The objection loop is capped, and it has been used on the fixture or on that bundle.
-- The replay app is deployed, with plan / act / observe and what-to-fetch.
+- The Streamlit app is deployed for judges and runs a live check, with plan / act / observe and what-to-fetch. It does not play a saved verdict.
