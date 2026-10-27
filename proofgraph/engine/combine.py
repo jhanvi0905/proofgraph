@@ -1,7 +1,9 @@
 """Coverage, verdict, label, and reason lines."""
 
-from proofgraph.engine.numbers import iter_literals, numeric_value
-from proofgraph.schema import ClaimProgram, FactCheck, Link, LinkResult, Verdict
+import re
+
+from proofgraph.engine.numbers import iter_literals, numeric_value, parse_number
+from proofgraph.schema import ClaimProgram, Fact, FactCheck, Link, LinkResult, Verdict
 
 _CODES = {
     "UNGROUNDED_QUOTE",
@@ -34,6 +36,12 @@ _FETCH = {
     "NOT_MENTIONED": "Need text that mentions this statement.",
     "CLAUSE_CONFLICT": "Need a reading that resolves the contradicting clauses.",
 }
+_MONTH_YEAR = re.compile(
+    r"^(January|February|March|April|May|June|July|August|September|"
+    r"October|November|December)\s+((?:19|20)\d{2})$",
+    re.IGNORECASE,
+)
+_DOLLAR = re.compile(r"\$\s*\d{1,3}(?:,\d{3})+(?:\.\d+)?|\$\s*\d+(?:\.\d+)?")
 
 
 def combine(
@@ -47,6 +55,12 @@ def combine(
     fact_by_id = {item.fact_id: item for item in facts}
     result_by_id = {item.link_id: item for item in links}
     required = [link for link in program.links if link.id in set(program.required)]
+    waived_ids = {
+        link.id
+        for link in required
+        if _covered_wording(link, program, fact_by_id, result_by_id)
+    }
+    deciding = [link for link in required if link.id not in waived_ids]
     codes: list[str] = []
     reasons: list[str] = []
     fetch: list[str] = []
@@ -87,7 +101,7 @@ def combine(
             detail = result_of(link).detail
             if detail and detail not in _CODES and detail not in reasons:
                 reasons.append(detail)
-        for link in required:
+        for link in deciding:
             detail = result_of(link).detail
             if result_of(link).status == "blocked" and detail in _CODES:
                 add_code(detail)
@@ -104,19 +118,23 @@ def combine(
         )
 
     if (
-        all(result_of(link).status == "pass" for link in required)
+        deciding
+        and all(result_of(link).status == "pass" for link in deciding)
         and "UNCOVERED_NUMBER" not in codes
         and "UNVERIFIABLE_PART" not in codes
     ):
-        label = _weakest([result_of(link).strength for link in required])
-        support: list[str] = []
-        for link in required:
-            detail = result_of(link).detail
-            if detail and detail not in _CODES and detail not in support:
-                support.append(detail)
+        label = _weakest([result_of(link).strength for link in deciding])
+        if waived_ids:
+            support = [_aggregate_sentence(program, deciding, claim)]
+        else:
+            support = []
+            for link in deciding:
+                detail = result_of(link).detail
+                if detail and detail not in _CODES and detail not in support:
+                    support.append(detail)
         return _verdict(case_id, "SUPPORTED", label, support, [], [], facts, links)
 
-    for link in required:
+    for link in deciding:
         detail = result_of(link).detail
         if detail in _CODES:
             add_code(detail)
@@ -125,6 +143,120 @@ def combine(
     if not reasons:
         reasons.append("The claim could not be settled from the grounded evidence.")
     return _verdict(case_id, "UNRESOLVED", None, reasons, codes, fetch, facts, links)
+
+
+def _covered_wording(
+    link: Link,
+    program: ClaimProgram,
+    fact_by_id: dict[str, FactCheck],
+    result_by_id: dict[str, LinkResult],
+) -> bool:
+    """A month-year wording span already inside a passing compute quote.
+
+    The checker never runs. The span does not block when both the month and
+    the year sit in a grounded quote that a passing compute link reads.
+    """
+
+    if link.kind != "wording":
+        return False
+    result = result_by_id.get(link.id)
+    if result is None or result.status != "blocked" or result.detail != "CHECKER_UNAVAILABLE":
+        return False
+    parsed = _MONTH_YEAR.fullmatch(link.claim_span.strip())
+    if parsed is None:
+        return False
+    month, year = parsed.group(1), parsed.group(2)
+    facts = {fact.id: fact for fact in program.facts}
+    for other in program.links:
+        if other.kind != "compute":
+            continue
+        other_result = result_by_id.get(other.id)
+        if other_result is None or other_result.status != "pass":
+            continue
+        for fact_id in other.inputs:
+            check = fact_by_id.get(fact_id)
+            fact = facts.get(fact_id)
+            if check is None or fact is None or check.status != "grounded":
+                continue
+            if _month_year_in_quote(month, year, fact.quote or ""):
+                return True
+    return False
+
+
+def _month_year_in_quote(month: str, year: str, quote: str) -> bool:
+    collapsed = re.sub(r"\s+", " ", quote)
+    return (
+        re.search(
+            rf"\b{re.escape(month)}\b(?: \d{{1,2}},)? {re.escape(year)}\b",
+            collapsed,
+            re.IGNORECASE,
+        )
+        is not None
+    )
+
+
+def _aggregate_sentence(program: ClaimProgram, deciding: list[Link], claim: str) -> str:
+    """Name the compute inputs and the claim total, without pasting a passage."""
+
+    facts = {fact.id: fact for fact in program.facts}
+    parts: list[str] = []
+    for link in deciding:
+        if link.kind != "compute":
+            continue
+        for fact_id in link.inputs:
+            fact = facts.get(fact_id)
+            if fact is None:
+                continue
+            part = _name_aggregate(fact)
+            if part and part not in parts:
+                parts.append(part)
+    total = _stated_total(deciding, claim)
+    if not parts or total is None:
+        return "The grounded amounts support the claim."
+    named = _join_names(parts)
+    verb = "totals" if len(parts) == 1 else "total"
+    sentence = f"{named} {verb} the claimed {total}."
+    return sentence[:1].upper() + sentence[1:]
+
+
+def _name_aggregate(fact: Fact) -> str:
+    label = fact.label.strip()
+    amount = _matching_dollar(fact)
+    if label and amount:
+        return f"the {label} of {amount}"
+    return label or amount or ""
+
+
+def _matching_dollar(fact: Fact) -> str | None:
+    number = numeric_value(fact.value)
+    if number is None or not fact.quote:
+        return None
+    for match in _DOLLAR.finditer(fact.quote):
+        token = re.sub(r"\s+", "", match.group(0))
+        if parse_number(token) == number:
+            return token
+    return None
+
+
+def _stated_total(deciding: list[Link], claim: str) -> str | None:
+    for link in deciding:
+        if link.kind != "compute":
+            continue
+        match = _DOLLAR.search(link.claim_span)
+        if match is not None:
+            return re.sub(r"\s+", "", match.group(0))
+    matches = list(_DOLLAR.finditer(claim))
+    if not matches:
+        return None
+    return re.sub(r"\s+", "", matches[-1].group(0))
+
+
+def _join_names(parts: list[str]) -> str:
+    if len(parts) == 1:
+        return parts[0]
+    if len(parts) == 2:
+        return f"{parts[0]} and {parts[1]}"
+    return ", ".join(parts[:-1]) + ", and " + parts[-1]
 
 
 def _has_status(link: Link, fact_by_id: dict[str, FactCheck], status: str) -> bool:
