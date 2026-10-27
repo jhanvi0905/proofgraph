@@ -7,9 +7,8 @@ from typing import Any, Mapping, get_args, get_type_hints
 
 import pytest
 
-from proofgraph.clients.checker import CheckerError, WordingAnswer, blind_wording
-from proofgraph.clients.muse import ExtractionFailed, MissingApiKeyError, MuseClient
-from proofgraph.config import load_settings
+from proofgraph.clients.checker import CheckerClient, CheckerError, blind_wording
+from proofgraph.config import BASETEN_BASE_URL, DEFAULT_CHECKER_MODEL, load_settings
 from proofgraph.schema import Case, ClaimProgram
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,24 +20,21 @@ _SENTENCE = "<<one plain sentence>>"
 
 
 def _settings(tmp_path, **env: str):
-    base = {"MODEL_API_KEY": "test-key", "CACHE_DIR": str(tmp_path)}
+    base = {"BASETEN_API_KEY": "test-key", "CACHE_DIR": str(tmp_path)}
     base.update(env)
     return load_settings(base)
 
 
-def _envelope(text: str) -> dict[str, Any]:
+def _chat(text: str) -> dict[str, Any]:
     return {
-        "id": "resp_test",
-        "object": "response",
-        "status": "completed",
-        "model": "muse-spark-1.3",
-        "output": [
+        "id": "chatcmpl_test",
+        "object": "chat.completion",
+        "model": DEFAULT_CHECKER_MODEL,
+        "choices": [
             {
-                "id": "msg_test",
-                "type": "message",
-                "role": "assistant",
-                "status": "completed",
-                "content": [{"type": "output_text", "text": text, "annotations": []}],
+                "index": 0,
+                "message": {"role": "assistant", "content": text},
+                "finish_reason": "stop",
             }
         ],
     }
@@ -60,15 +56,15 @@ class FakeTransport:
         return len(self.bodies)
 
 
-def _use(monkeypatch: pytest.MonkeyPatch, client: MuseClient) -> None:
+def _use(monkeypatch: pytest.MonkeyPatch, client: CheckerClient) -> None:
     monkeypatch.setattr(
-        "proofgraph.clients.checker.MuseClient",
+        "proofgraph.clients.checker.CheckerClient",
         lambda *args, **kwargs: client,
     )
 
 
-def _client(tmp_path, transport: FakeTransport, **env: str) -> MuseClient:
-    return MuseClient(_settings(tmp_path, **env), transport=transport)
+def _client(tmp_path, transport: FakeTransport, **env: str) -> CheckerClient:
+    return CheckerClient(_settings(tmp_path, **env), transport=transport)
 
 
 def test_blind_wording_signature_is_quote_and_statement():
@@ -93,24 +89,28 @@ def test_blind_request_is_one_quote_and_one_statement(tmp_path, monkeypatch):
     statement = "The rate applies after free time."
     assert isinstance(quote, str)
     template = PROMPT.read_text(encoding="utf-8").strip()
-    transport = FakeTransport([_envelope(json.dumps({"answer": "entails"}))])
+    transport = FakeTransport([_chat(json.dumps({"answer": "entails"}))])
     _use(monkeypatch, _client(tmp_path, transport))
 
     assert blind_wording(quote, statement) == "entails"
 
     assert transport.calls == 1
     body = transport.bodies[0]
-    assert set(body) == {"model", "input", "reasoning", "text"}
-    assert body["model"] == "muse-spark-1.3"
-    assert body["reasoning"] == {"effort": "medium"}
-    assert set(body["text"]) == {"format"}
-    assert set(body["text"]["format"]) == {"type", "name", "schema"}
-    assert body["text"]["format"]["type"] == "json_schema"
-    assert body["text"]["format"]["name"] == "WordingAnswer"
-    assert body["text"]["format"]["schema"] == WordingAnswer.model_json_schema()
-    assert set(body["text"]["format"]["schema"]["properties"]) == {"answer"}
-    assert "response_format" not in body
-    assert "strict" not in body["text"]["format"]
+    assert set(body) == {"model", "messages", "response_format"}
+    assert body["model"] == DEFAULT_CHECKER_MODEL
+    assert body["model"] != "muse-spark-1.3"
+    format_ = body["response_format"]
+    assert format_["type"] == "json_schema"
+    assert format_["json_schema"]["name"] == "WordingAnswer"
+    assert format_["json_schema"]["strict"] is True
+    schema = format_["json_schema"]["schema"]
+    assert set(schema["properties"]) == {"answer"}
+    assert schema["properties"]["answer"]["enum"] == [
+        "entails",
+        "contradicts",
+        "not_mentioned",
+    ]
+    assert schema["additionalProperties"] is False
     assert "test-key" not in json.dumps(body)
 
     expected = (
@@ -120,11 +120,12 @@ def test_blind_request_is_one_quote_and_one_statement(tmp_path, monkeypatch):
         + statement
         + template[template.find(_SENTENCE) + len(_SENTENCE) :]
     )
-    assert body["input"] == expected
-    assert body["input"].count(quote) == 1
-    assert body["input"].count(statement) == 1
-    assert _PASSAGE not in body["input"]
-    assert _SENTENCE not in body["input"]
+    content = body["messages"][0]["content"]
+    assert body["messages"] == [{"role": "user", "content": expected}]
+    assert content.count(quote) == 1
+    assert content.count(statement) == 1
+    assert _PASSAGE not in content
+    assert _SENTENCE not in content
 
     wire = json.dumps(body)
     assert wire.count(quote) == 1
@@ -152,9 +153,9 @@ def test_blind_request_is_one_quote_and_one_statement(tmp_path, monkeypatch):
 def test_one_client_repair_returns_the_label(tmp_path, monkeypatch):
     transport = FakeTransport(
         [
-            _envelope("not json"),
-            _envelope(json.dumps({"answer": "contradicts"})),
-            _envelope(json.dumps({"answer": "entails"})),
+            _chat("not json"),
+            _chat(json.dumps({"answer": "contradicts"})),
+            _chat(json.dumps({"answer": "entails"})),
         ]
     )
     _use(monkeypatch, _client(tmp_path, transport))
@@ -162,17 +163,19 @@ def test_one_client_repair_returns_the_label(tmp_path, monkeypatch):
     assert blind_wording("The dock is closed.", "The dock is open.") == "contradicts"
 
     assert transport.calls == 2
-    assert transport.bodies[1]["input"].startswith(transport.bodies[0]["input"])
+    first = transport.bodies[0]["messages"][0]["content"]
+    second = transport.bodies[1]["messages"][0]["content"]
+    assert second.startswith(first)
     assert transport.bodies[1]["model"] == transport.bodies[0]["model"]
-    assert "not json" in transport.bodies[1]["input"]
+    assert "not json" in second
 
 
 def test_second_malformed_reply_is_extraction_failed(tmp_path, monkeypatch):
     transport = FakeTransport(
         [
-            _envelope("not json"),
-            _envelope("{still"),
-            _envelope(json.dumps({"answer": "entails"})),
+            _chat("not json"),
+            _chat("{still"),
+            _chat(json.dumps({"answer": "entails"})),
         ]
     )
     _use(monkeypatch, _client(tmp_path, transport))
@@ -181,34 +184,98 @@ def test_second_malformed_reply_is_extraction_failed(tmp_path, monkeypatch):
         blind_wording("The dock is closed.", "The dock is open.")
 
     assert caught.value.reason_code == "EXTRACTION_FAILED"
-    assert isinstance(caught.value.__cause__, ExtractionFailed)
     assert transport.calls == 2
 
 
 def test_missing_key_does_not_call_transport(tmp_path, monkeypatch):
-    transport = FakeTransport([_envelope(json.dumps({"answer": "not_mentioned"}))])
-    client = MuseClient(load_settings({"CACHE_DIR": str(tmp_path)}), transport=transport)
+    transport = FakeTransport([_chat(json.dumps({"answer": "not_mentioned"}))])
+    client = CheckerClient(load_settings({"CACHE_DIR": str(tmp_path)}), transport=transport)
     _use(monkeypatch, client)
 
-    with pytest.raises(CheckerError, match="MODEL_API_KEY") as caught:
+    with pytest.raises(CheckerError, match="BASETEN_API_KEY") as caught:
         blind_wording("The dock is closed.", "The dock is open.")
 
     assert caught.value.reason_code == "CHECKER_UNAVAILABLE"
-    assert isinstance(caught.value.__cause__, MissingApiKeyError)
     assert transport.calls == 0
     assert list(tmp_path.glob("*.json")) == []
 
 
 def test_blank_quote_does_not_construct_a_client(monkeypatch):
     def _boom(*_args, **_kwargs):
-        raise AssertionError("muse constructed")
+        raise AssertionError("checker constructed")
 
-    monkeypatch.setattr("proofgraph.clients.checker.MuseClient", _boom)
+    monkeypatch.setattr("proofgraph.clients.checker.CheckerClient", _boom)
 
     with pytest.raises(CheckerError, match="quote") as caught:
         blind_wording("  ", "The dock is open.")
 
     assert caught.value.reason_code == "CHECKER_UNAVAILABLE"
+
+
+def test_blind_wording_posts_chat_completions_to_baseten(tmp_path, monkeypatch):
+    captured: dict[str, Any] = {}
+
+    class _Response:
+        def model_dump(self, mode: str = "python") -> dict[str, Any]:
+            assert mode == "json"
+            return _chat(json.dumps({"answer": "entails"}))
+
+    class _Completions:
+        def create(self, **kwargs: Any) -> _Response:
+            captured["kwargs"] = kwargs
+            captured["api"] = "chat.completions.create"
+            return _Response()
+
+    class _Chat:
+        def __init__(self) -> None:
+            self.completions = _Completions()
+
+    class _OpenAI:
+        def __init__(self, **kwargs: Any) -> None:
+            captured["init"] = kwargs
+            self.chat = _Chat()
+
+    import openai
+
+    monkeypatch.setattr(openai, "OpenAI", _OpenAI)
+    monkeypatch.setenv("BASETEN_API_KEY", "test-key")
+    monkeypatch.setenv("CACHE_DIR", str(tmp_path))
+    monkeypatch.delenv("CHECKER_MODEL", raising=False)
+    monkeypatch.delenv("BASETEN_BASE_URL", raising=False)
+
+    assert blind_wording("The dock is closed.", "The dock is closed.") == "entails"
+
+    assert captured["api"] == "chat.completions.create"
+    assert captured["init"]["base_url"] == BASETEN_BASE_URL
+    assert captured["init"]["base_url"] == "https://inference.baseten.co/v1"
+    assert captured["init"]["max_retries"] == 0
+    assert captured["init"]["api_key"] == "test-key"
+    assert captured["kwargs"]["model"] == DEFAULT_CHECKER_MODEL
+    assert captured["kwargs"]["model"] == "meta-models/muse-spark-open-1026"
+    assert set(captured["kwargs"]) == {"model", "messages", "response_format"}
+    assert "test-key" not in json.dumps(captured["kwargs"])
+
+
+def test_checker_does_not_call_muse_structured():
+    tree = ast.parse((ROOT / "proofgraph" / "clients" / "checker.py").read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                assert "muse" not in alias.name.split(".")
+        elif isinstance(node, ast.ImportFrom):
+            assert "muse" not in (node.module or "").split(".")
+        elif isinstance(node, ast.Attribute):
+            assert node.attr != "structured"
+
+
+def test_cached_wording_does_not_call_transport_twice(tmp_path, monkeypatch):
+    transport = FakeTransport([_chat(json.dumps({"answer": "entails"}))])
+    _use(monkeypatch, _client(tmp_path, transport))
+
+    assert blind_wording("The dock is closed.", "The dock is closed.") == "entails"
+    assert blind_wording("The dock is closed.", "The dock is closed.") == "entails"
+
+    assert transport.calls == 1
 
 
 def test_engine_does_not_import_proposer_or_muse():
