@@ -109,7 +109,12 @@ def combine(
         and "UNVERIFIABLE_PART" not in codes
     ):
         label = _weakest([result_of(link).strength for link in required])
-        return _verdict(case_id, "SUPPORTED", label, [], [], [], facts, links)
+        support: list[str] = []
+        for link in required:
+            detail = result_of(link).detail
+            if detail and detail not in _CODES and detail not in support:
+                support.append(detail)
+        return _verdict(case_id, "SUPPORTED", label, support, [], [], facts, links)
 
     for link in required:
         detail = result_of(link).detail

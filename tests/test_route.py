@@ -2,6 +2,7 @@
 
 import ast
 import json
+import re
 from pathlib import Path
 
 from proofgraph.engine.graph import to_dot
@@ -29,6 +30,30 @@ def test_detention_program_is_contradicted_and_computed():
     assert verdict.flags == []
     assert "checker=fallback" not in verdict.reason_codes
     assert case.answer is None
+
+
+def test_supported_sum_names_the_claim_total_and_keeps_detention():
+    payload = json.loads((FIXTURES / "sum_program.json").read_text())
+    case, program = _bundle(payload)
+    verdict = run_program(case, program)
+    assert verdict.verdict == "SUPPORTED"
+    assert verdict.label == "COMPUTED"
+    assert len(verdict.reasons) == 1
+    reason = verdict.reasons[0]
+    totals = re.findall(r"\$\d{1,3}(?:,\d{3})+(?:\.\d+)?", case.claim)
+    assert totals
+    assert totals[-1] in reason
+    assert "check holds" in reason
+    for fact in program.facts:
+        assert fact.quote
+        assert fact.quote in reason
+
+    detention_payload = json.loads((FIXTURES / "detention_program.json").read_text())
+    detention_case, detention_program = _bundle(detention_payload)
+    detention = run_program(detention_case, detention_program)
+    assert detention.verdict == "CONTRADICTED"
+    assert detention.label == "COMPUTED"
+    assert detention.reasons == [DETENTION_REASON]
 
 
 def test_detention_graph_emits_dot():
