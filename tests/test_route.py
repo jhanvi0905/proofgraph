@@ -5,6 +5,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 from proofgraph.adapters.findver import _case_from_record
 from proofgraph.clients.muse import MuseError, _parse
 from proofgraph.engine.graph import to_dot
@@ -210,6 +212,9 @@ def _cached_numeric_301() -> tuple[Case, ClaimProgram]:
 
 
 def test_cached_numeric_301_month_year_wording_does_not_block():
+    dataset = Path("data/FinDVer/data/test.json")
+    if not dataset.is_file() or not any(Path("cache").glob("*.json")):
+        pytest.skip("numeric-test-301 replay needs the local FinDVer download and cache")
     case, program = _cached_numeric_301()
     assert case.id == "numeric-test-301"
     verdict = run_program(case, program)
