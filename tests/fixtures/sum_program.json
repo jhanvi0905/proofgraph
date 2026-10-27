@@ -1,0 +1,57 @@
+{
+  "case": {
+    "id": "sum-001",
+    "dataset": "findver",
+    "mode": "passage",
+    "claim": "November and August cash collected together equal $43,378,608.",
+    "sources": [
+      {
+        "id": "nov",
+        "kind": "text",
+        "text": "Figures are in dollars. November cash collected was $18,450,000."
+      },
+      {
+        "id": "aug",
+        "kind": "text",
+        "text": "Figures are in dollars. August cash collected was $24,928,608."
+      }
+    ],
+    "answer": null,
+    "gold_evidence": []
+  },
+  "program": {
+    "facts": [
+      {
+        "id": "f_nov_amt",
+        "label": "november cash collected",
+        "source_id": "nov",
+        "quote": "November cash collected was $18,450,000",
+        "value": 18450000,
+        "scale": "units",
+        "kind": "number"
+      },
+      {
+        "id": "f_aug_amt",
+        "label": "august cash collected",
+        "source_id": "aug",
+        "quote": "August cash collected was $24,928,608",
+        "value": 24928608,
+        "scale": "units",
+        "kind": "number"
+      }
+    ],
+    "links": [
+      {
+        "id": "l_sum",
+        "kind": "compute",
+        "inputs": ["f_nov_amt", "f_aug_amt"],
+        "statement": "November cash plus August cash equals the claimed total",
+        "expr": "f_nov_amt+f_aug_amt == 43378608",
+        "rule_source": null,
+        "claim_span": "$43,378,608"
+      }
+    ],
+    "required": ["l_sum"],
+    "unverifiable_parts": []
+  }
+}

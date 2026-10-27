@@ -8,6 +8,7 @@ license = { text = "MIT" }
 dependencies = [
     "openai",
     "pydantic>=2",
+    "streamlit",
 ]
 
 [dependency-groups]

@@ -120,7 +120,7 @@ Parentheses mean negative: `( 2,483 )` → −2483. Handle `$`, commas, `%`, `�
 ## 5. Compute rules (`engine/calc.py`)
 - **Safe calculator:** an `ast` whitelist (numbers, fact ids, `+ - * / ( )`, comparisons, `%` literal suffix, `abs min max round`, `hours_between`, `days_between`). Anything else → `EVAL_ERROR`. Models never write Python.
 - **Rounding tolerance comes from the claim text, never from the model.** An exact literal gets ± half a unit of its last digit ("$183,479,000" → ±$500; "18.2%" → ±0.05 points). Hedge words ("about," "approximately," "nearly," "around") widen it to ±1 unit or ±2% relative, whichever is larger.
-- **Scale rule:** if the evidence states the scale, use it. If not, evaluate under every plausible scale (units, thousands, millions). If the verdict is the same under all of them, it stands. If it differs, the link is `blocked` with `SCALE_AMBIGUOUS`.
+- **Scale rule:** if the evidence states the scale, use it. A `$` amount in the quote is units. A bare number with no dollar sign and no scale phrase is not stated: evaluate under every plausible scale (units, thousands, millions). If the verdict is the same under all of them, it stands. If it differs, the link is `blocked` with `SCALE_AMBIGUOUS`.
 
 ## 6. Wording checks (`clients/checker.py`)
 - Input: **one quote (or one clause) and one statement.** Nothing else. Not the proposer's reasoning or answer, not other clauses, not the claim's numbers where the statement can avoid them.

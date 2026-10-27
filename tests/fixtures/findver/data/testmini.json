@@ -1,0 +1,47 @@
+[
+  {
+    "example_id": "ie-fixture-0",
+    "subset": "ie",
+    "split": "testmini",
+    "statement": "The company name is Acme.",
+    "entailment_label": true,
+    "relevant_context": [1],
+    "report": "acme.json",
+    "explanation": "LEAK_EXPLANATION ie row"
+  },
+  {
+    "example_id": "numeric-fixture-0",
+    "subset": "numeric",
+    "split": "testmini",
+    "statement": "Gross revenue was 180996.",
+    "entailment_label": false,
+    "relevant_context": [107],
+    "report": "acme.json",
+    "explanation": "LEAK_EXPLANATION the net row is not the gross row",
+    "explaination": "LEAK_EXPLAINATION sic spelling on numeric testmini",
+    "python_calculation": "LEAK_PYTHON 183479 - 180996",
+    "execution_result": "LEAK_EXEC 2483",
+    "knowledge": "LEAK_KNOWLEDGE outside the filing"
+  },
+  {
+    "example_id": "knowledge-fixture-0",
+    "subset": "knowledge",
+    "split": "testmini",
+    "statement": "The filing follows the revenue recognition rule.",
+    "entailment_label": true,
+    "relevant_context": [1],
+    "report": "acme.json",
+    "knowledge": "LEAK_KNOWLEDGE regulation text"
+  },
+  {
+    "example_id": "numeric-fixture-1",
+    "subset": "numeric",
+    "split": "testmini",
+    "statement": "Revenue was 10.",
+    "entailment_label": true,
+    "relevant_context": [2, 1],
+    "report": "acme.json",
+    "explanation": "LEAK_EXPLANATION revenue passage supports the claim",
+    "python_calculation": "LEAK_PYTHON 10 == 10"
+  }
+]

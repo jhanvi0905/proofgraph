@@ -1,0 +1,10 @@
+{
+  "url": "https://example.test/acme-10k",
+  "report_type": "10-K",
+  "context": [
+    {"id": 1, "context": "Revenue was 10.", "type": "paragraph"},
+    {"id": 2, "context": "Units | 10\u200b |", "type": "table"},
+    {"id": 107, "context": "Gross | 183,\u200b479 | Net | 180,996 |", "type": "table"}
+  ],
+  "html_tables": []
+}
