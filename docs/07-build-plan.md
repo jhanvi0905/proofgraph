@@ -1,7 +1,7 @@
 # 07 · Build plan
 
 All times are IST. **Deadline: Thu Nov 5, 07:30 IST (Nov 4, 9:00 PM ET). Target submission: Wed Nov 4, 22:00 IST.**
-The build window opens **Tue Oct 27, 09:30 IST** (00:00 ET). No repo commits before then.
+The recorded start is **Mon Oct 26, 21:30 IST** (decision D20).
 
 ## Tonight (Mon Oct 26), no code commits
 - [ ] Kickoff stream at 21:30

@@ -25,13 +25,15 @@ Every rule here exists because breaking it would either break the core claim or 
 16. Don't use Hugging Face mirrors of ContractNLI for scored runs. Use the official files.
 
 ## D. Models and money
-17. Every model call goes through `cache.py`. No uncached calls in loops.
+17. Every model call goes through `cache.py`. No uncached calls in loops. `bypass_cache` is for a named experiment, not the default.
 18. `run_eval.py` estimates cost first (using `POST /v1/responses/input_tokens` on a sample) and aborts above `SPEND_LIMIT_USD` unless the human raises it.
-19. Use the exact model IDs in `.env`. Don't swap in other providers' models. Every model in the product must be a Meta model.
-20. Retries: at most 4 with exponential backoff on 429/5xx; one repair retry on invalid JSON; then fail honestly (`EXTRACTION_FAILED`).
+19. Use the exact model IDs in `.env`. Every model in the product must be a Meta model. Meta proposes. Baseten runs the blind checker only (`meta-models/muse-spark-open-1026`). Modal and Fireworks stay unused.
+20. Retries: at most 4 with exponential backoff on 429/5xx; one repair retry on invalid JSON; then fail honestly (`EXTRACTION_FAILED`). Do not start that repair in the same step as the first paid call.
+
+Minimum budget, 28 Oct 2026. Meta $150 is for proposes. Baseten $100 is for checks. The next spends are one Meta detention propose, then one Baseten checker call on one quote and one statement. One call each, then stop. Ten dev-slice proposes wait until both of those calls settle. Keys stay in an untracked `.env` and are never printed.
 
 ## E. Hackathon rules
-21. **No commits before Tue Oct 27, 09:30 IST.** Log each day in `BUILT_DURING_HACKATHON.md`.
+21. **Operative build start is Mon Oct 26, 21:30 IST** (decision D20). Log each day in `BUILT_DURING_HACKATHON.md`.
 22. **The repo is public.** No keys, no `.env`, no `data/`, no `cache/` committed. Check `git diff --cached` for secrets before every commit.
 23. Use only data we have rights to: FinDVer (MIT), ContractNLI (CC BY 4.0, cite it), and our own freight documents with fictional names. No real company logos or real people's names in freight documents.
 24. The video and README show **only work built during the hackathon** and say so explicitly.
