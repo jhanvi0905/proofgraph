@@ -42,6 +42,17 @@ The recorded start is **Mon Oct 26, 21:30 IST** (decision D20).
 
 Stretch, only if ahead after Sat: the Muse Code "verify before acting" gate (`02-scope.md`).
 
+## Implementation notes (feasibility probe, 28 Oct)
+
+These fill gaps in Friday's visual-citation row. The same notes are on the Friday tasks in `docs/12-sprint-manager.md`. The probe ran outside the repo on one synthetic freight packet, load PG-SPIKE-01. It is not the hand-made bundle. Product code did not change.
+
+- **Files API.** Upload with `purpose="user_data"`. Send `input_text` plus `input_file` with `detail` `high`. Cache the `file_id` under the file's SHA-256. The string-input propose path stays for text cases.
+- **Text-in-box.** Map the 0–1000 box with pdfplumber's top-down `top`. Try a 2% margin, then 3%, then 4%, and keep the smallest whose words contain the fact value. On the probe PDF, 2% matched nothing, 3% matched only `Detention: $75.00/hour after 2 hours free time`, and 4% also matched the next linehaul line.
+- **Blind re-read.** Send the crop to Baseten as an `image_url` data URL. Match clocks as times: the probe ink was `07:40` and the checker returned `7:40`. Muse `input_image` is the fallback when Baseten rejects the image.
+- **SAM.** Send a still as an `input_image` data URL and stream `sam-3.1`. The count is the number of `<|box;` records. Discard mask payloads. A still does not wait on the Files API. The noun `carton` returned an empty segmentation on a 12-carton drawing. The noun `cardboard box` returned 12, with the first box on a drawn carton. The hand-made bundle uses `cardboard box`, and `carton` is retried only on a phone photo of real cartons. SAM responses reported `images_processed: 1` and zero tokens, so the spend cap counts those image calls.
+
+The rescue row "SAM counts are poor" still means re-stage the photos and report agreement honestly. A zero from the noun `carton` on a drawing is an empty segmentation to re-prompt before the photos are re-staged.
+
 ## Rescue decisions
 | If… | Then… |
 |---|---|
