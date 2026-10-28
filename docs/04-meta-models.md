@@ -7,7 +7,7 @@ Verified against Meta's docs on 26 Oct 2026 (dev.meta.ai). Anything marked **VER
 |---|---|---|---|
 | Proposer (calls 1 and 4), Contenders A/B | `muse-spark-1.3` | `https://api.meta.ai/v1`, `Authorization: Bearer $MODEL_API_KEY` | 1M-token context; structured output; reasoning effort `minimal`…`xhigh`; prompt caching; images and PDFs; perception grounding |
 | Independent count | `sam-3.1` | Same base URL, `POST /v1/responses`, files via `POST /v1/files` | Text prompt plus image/video → a box and a mask for every match |
-| Blind checker | `meta-models/muse-spark-open-1026` | Baseten, OpenAI-compatible (**VERIFY** base URL in Baseten's quickstart) | Use this exact model ID, not `muse-spark-open` |
+| Blind checker | `meta-models/muse-spark-open-1026` | Baseten Chat Completions, `https://inference.baseten.co/v1` | The hackathon key works only with this model id. Docs that say `meta-models/muse-spark-open` are the wrong id. The model always reasons. |
 | Checker fallback | `muse-spark-1.3` | Meta API, fresh call, same restricted input | Log `checker=fallback` |
 
 - The OpenAI SDK works with `base_url="https://api.meta.ai/v1"`. Pass `api_key` explicitly; it doesn't read `MODEL_API_KEY` by itself.
@@ -87,7 +87,7 @@ Objections:
 1. Muse Spark returns JSON matching a tiny schema, from India.
 2. Muse Spark points to one value on a page of a real PDF (box mode). Check how tight the box is.
 3. SAM 3.1 counts cartons in a phone photo (prompt "carton").
-4. Note the exact model IDs and the Baseten base URL once credits arrive.
+4. Baseten base URL, confirmed by the Baseten team on 28 Oct 2026: `https://inference.baseten.co/v1`, via `chat.completions.create`, model `meta-models/muse-spark-open-1026`.
 
 ## Fallbacks
 | Problem | Fallback |
