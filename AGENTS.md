@@ -44,7 +44,7 @@ That skill is the authoritative workflow for feature research, planning, user ap
 | Any Meta model call or prompt | `docs/04-meta-models.md` |
 | Adapters, datasets, metrics | `docs/05-datasets-and-eval.md` |
 | Where a file goes | `docs/06-repo-structure.md` |
-| What to build today | `docs/07-build-plan.md` |
+| What to build today | `docs/12-sprint-manager.md` (daily board), `docs/07-build-plan.md` (calendar) |
 | Is this in scope? | `docs/02-scope.md`, `docs/11-decision-log.md` |
 
 Ask before changing a rule above, adding a dependency, or spending more than $10 in a run. If something isn't covered, write it in `QUESTIONS.md` and move to the next task.
