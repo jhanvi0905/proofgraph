@@ -1,0 +1,73 @@
+{
+  "role": "demo",
+  "world": "contract late fee",
+  "note": "Demonstration, not a benchmark. The clause allows 1.5% of a $10,000 unpaid balance, which is $150.00. The invoice asks for $500.00. Fictional parties. No logos.",
+  "expected": {"verdict": "CONTRADICTED", "label": "COMPUTED"},
+  "case": {
+    "id": "late-fee-overcharge",
+    "dataset": "freight",
+    "mode": "passage",
+    "claim": "The late charge of $500.00 is correct.",
+    "sources": [
+      {
+        "id": "clause",
+        "kind": "text",
+        "text": "Harbor Lane Goods supply terms. A late charge of 1.5% of the unpaid balance applies after the due date."
+      },
+      {
+        "id": "statement",
+        "kind": "text",
+        "text": "Account statement. Unpaid balance: $10,000.00."
+      },
+      {
+        "id": "invoice",
+        "kind": "text",
+        "text": "Northwind Cartage invoice. Late charge: $500.00."
+      }
+    ],
+    "answer": "CONTRADICTED",
+    "gold_evidence": ["clause", "statement", "invoice"]
+  },
+  "program": {
+    "facts": [
+      {
+        "id": "f_rate",
+        "label": "late charge rate",
+        "source_id": "clause",
+        "quote": "A late charge of 1.5% of the unpaid balance applies after the due date.",
+        "value": 0.015,
+        "scale": "percent",
+        "kind": "number"
+      },
+      {
+        "id": "f_balance",
+        "label": "unpaid balance",
+        "source_id": "statement",
+        "quote": "Unpaid balance: $10,000.00.",
+        "value": 10000,
+        "kind": "number"
+      },
+      {
+        "id": "f_charge",
+        "label": "late charge",
+        "source_id": "invoice",
+        "quote": "Late charge: $500.00.",
+        "value": 500,
+        "kind": "number"
+      }
+    ],
+    "links": [
+      {
+        "id": "l_late",
+        "kind": "compute",
+        "inputs": ["f_rate", "f_balance", "f_charge"],
+        "statement": "The percent in the clause times the unpaid balance equals the invoiced late charge",
+        "expr": "f_rate * f_balance == f_charge",
+        "rule_source": null,
+        "claim_span": "$500.00"
+      }
+    ],
+    "required": ["l_late"],
+    "unverifiable_parts": []
+  }
+}

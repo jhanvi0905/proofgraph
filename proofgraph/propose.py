@@ -27,17 +27,24 @@ def propose(
     if not isinstance(case, Case):
         raise TypeError("case must be a Case")
     muse = client if client is not None else MuseClient()
-    return muse.structured(_prompt(case), ClaimProgram, bypass_cache=bypass_cache)
+    prompt, file_ids = _prompt_and_files(case, muse)
+    return muse.structured(
+        prompt,
+        ClaimProgram,
+        bypass_cache=bypass_cache,
+        file_ids=file_ids,
+    )
 
 
-def _prompt(case: Case) -> str:
+def _prompt_and_files(case: Case, client: MuseClient) -> tuple[str, list[str]]:
     instructions = _EXTRACT.read_text(encoding="utf-8").strip()
     if instructions == "":
         raise ValueError("prompts/extract.md is empty")
-    return f"{instructions}\n\n{_evidence(case)}"
+    evidence, file_ids = _evidence(case, client)
+    return f"{instructions}\n\n{evidence}", file_ids
 
 
-def _evidence(case: Case) -> str:
+def _evidence(case: Case, client: MuseClient) -> tuple[str, list[str]]:
     """Claim text and source evidence. Sealed case fields stay out.
 
     The claim and each source text are untrusted. They are fenced so a
@@ -53,13 +60,17 @@ def _evidence(case: Case) -> str:
         "",
         "Sources:",
     ]
+    file_ids: list[str] = []
     if not case.sources:
         lines.append("(none)")
-        return "\n".join(lines)
+        return "\n".join(lines), file_ids
     for source in case.sources:
-        lines.extend(_source_lines(source))
+        source_lines, file_id = _source_lines(source, client)
+        lines.extend(source_lines)
         lines.append("")
-    return "\n".join(lines).rstrip()
+        if file_id is not None:
+            file_ids.append(file_id)
+    return "\n".join(lines).rstrip(), file_ids
 
 
 def _fenced(text: str) -> str:
@@ -71,12 +82,21 @@ def _fenced(text: str) -> str:
     return f"<<<{marker}>>>\n{text}\n<<<END {marker}>>>"
 
 
-def _source_lines(source: Source) -> list[str]:
-    # Local paths stay off the request. PDFs and images are named by file_id.
+def _source_lines(source: Source, client: MuseClient) -> tuple[list[str], str | None]:
+    # Local paths stay off the request. A pdf or image is uploaded and sent
+    # as an input_file part. The prompt text does not contain a File id line.
     lines = [f"Source id: {source.id}", f"Kind: {source.kind}"]
-    if source.file_id is not None:
-        lines.append(f"File id: {source.file_id}")
     if source.text is not None:
         lines.append("Text:")
         lines.append(_fenced(source.text))
-    return lines
+    return lines, _attached_file_id(source, client)
+
+
+def _attached_file_id(source: Source, client: MuseClient) -> str | None:
+    existing = source.file_id.strip() if isinstance(source.file_id, str) else ""
+    if existing:
+        return existing
+    path = source.path.strip() if isinstance(source.path, str) else ""
+    if path and source.kind in {"pdf", "image"}:
+        return client.upload_user_data(path)
+    return None

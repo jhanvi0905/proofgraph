@@ -1,0 +1,28 @@
+{
+  "role": "use",
+  "world": "SEC filing",
+  "note": "Real Ryman 10-K table. Gold label is false. The $183,479 figure is debt interest paid. Cash paid for interest, net of capitalized interest, is $180,996.",
+  "expected": {
+    "verdict": "CONTRADICTED",
+    "label": null
+  },
+  "case": {
+    "id": "numeric-val-0",
+    "dataset": "findver",
+    "mode": "passage",
+    "claim": "The net interest expense in 2023, considering debt interest and capitalized interest, was $183,479,000.",
+    "sources": [
+      {
+        "id": "p107",
+        "kind": "table",
+        "text": "|  |  |  |  |  |  |  |  |  |  |\n|  | 2023 | 2022 | 2021 |\n| Debt interest paid |  | $ | 183,479 |  | $ | 135,467 |  | $ | 113,669 |\n| Capitalized interest |  | ( 2,483 ) |  | ( 183 ) |  | ( 2,922 ) |\n| Cash paid for interest, net of capitalized interest |  | $ | 180,996 |  | $ | 135,284 |  | $ | 110,747 |\n|  |  |  |  |  |  |  |\n|  | 2023 | 2022 |\n| Prepaid expenses |  | $ | 22,458 |  | $ | 19,377 |\n| Supplemental deferred compensation plan assets |  | 33,073 |  | 29,245 |\n| Tax rebate receivables |  |  | 34,324 |  |  | 22,181 |\n| Inventories |  | 14,007 |  | 12,041 |\n| Right-of-use assets for operating leases |  |  | 18,134 |  |  | 18,910 |\n| Deferred financing costs on revolving credit facilities |  |  | 8,420 |  |  | 5,757 |\n| Derivative assets |  |  | \u2014 |  |  | 11,350 |\n| Other |  | 24,394 |  | 15,309 |\n| Total prepaid expenses and other assets |  | $ | 154,810 |  | $ | 134,170 |",
+        "file_id": null,
+        "path": null
+      }
+    ],
+    "answer": "CONTRADICTED",
+    "gold_evidence": [
+      "p107"
+    ]
+  }
+}
