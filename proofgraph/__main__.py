@@ -1,4 +1,8 @@
-"""Offline demo: run a local case-and-program fixture through the engine."""
+"""Offline demo: run a fixture through the engine.
+
+A fixture is either ``{case, program}`` or a claim plus evidence packet
+(``{claim, evidence_packet, offline_program}``). The packet path prints JSON.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from proofgraph.engine.route import run_program
+from proofgraph.pipeline import LiveModelUnwired, run_payload
 from proofgraph.schema import Case, ClaimProgram
 
 
@@ -28,6 +33,8 @@ def main(argv: list[str] | None = None) -> int:
     if not isinstance(payload, dict):
         print("fixture must contain case and program", file=sys.stderr)
         return 2
+    if "claim" in payload and "evidence_packet" in payload:
+        return _print_claim_run(payload)
     try:
         case = Case.model_validate(payload["case"])
         program = ClaimProgram.model_validate(payload["program"])
@@ -43,6 +50,18 @@ def main(argv: list[str] | None = None) -> int:
         print(verdict.label)
     for reason in verdict.reasons:
         print(reason)
+    return 0
+
+
+def _print_claim_run(payload: dict) -> int:
+    """Print the claim run as JSON. This path does not call a model API."""
+
+    try:
+        result = run_payload(payload)
+    except (KeyError, ValidationError, ValueError, LiveModelUnwired) as exc:
+        print(f"could not run claim: {exc}", file=sys.stderr)
+        return 2
+    print(result.model_dump_json(indent=2))
     return 0
 
 
