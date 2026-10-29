@@ -36,12 +36,143 @@ One pipeline; every test set plugs in through an adapter in `proofgraph/adapters
 For 50 `numeric` testmini claims: keep the gold passages and add a copy of one gold passage in which **one number the claim depends on** is changed by +10%. Pick the number by intersecting the numbers in the gold passage with the numbers in FinDVer's worked explanation. That intersection is used **only by the builder script**, and the explanation is never sent to any model. Answer: UNRESOLVED (`CONFLICT`). Script: `scripts/build_traps.py`, seed 7.
 
 ## Freight bundles (built by us, Day 5)
+
+**Not this window.** The spec below stays as written. For the window that submits on 4 Nov 2026, follow the 28 Oct data plan in the next section: one demonstration packet at `examples/freight/demo-001/`. The sixteen `bundle_NN` directories are not built in this window.
+
 - **16 bundles** in `examples/freight/bundle_NN/`, each with `rate_confirmation.pdf`, `pod.jpg`, `dock.jpg`, `invoice.pdf` and `key.json`.
 - **Mix:** 6 correct; 6 wrong (3 detention errors, 3 carton-count errors); 4 smudged or ambiguous (2 smudged departure times, 2 cluttered carton photos). The correct answer for the smudged ones is UNRESOLVED for the affected line.
 - **Content:** fictional carrier and shipper names only. Rate confirmation line: "Detention: $75.00/hour after 2 hours free time" (vary the rates and free time across bundles). POD: printed form with handwritten "Arrived" and "Departed" times. Dock photo: 10–30 clearly separated cartons. Invoice: "Cartons delivered: N", "Detention: $X".
 - **How:** generate PDFs from a template (`scripts/make_freight_pdfs.py`), print the POD form, handwrite the times, and photograph everything with a phone.
 - **`key.json`:** `{"verdict": "...", "lines": {"detention": "...", "cartons": "..."}, "truth": {"arrived": "07:40", ...}}`.
 - Presented as a **demonstration with an honest label**, never as a benchmark.
+
+## 28 Oct data plan
+
+Written 28 Oct 2026. One person. Submit Wednesday 4 Nov 2026, 22:00 IST. Hard stop Thursday 5 Nov 2026, 07:30 IST. This section is the testing data for that window. It does not start an eval. The per-run cap stays $50. D27, D28, and D29 stay as written.
+
+The routes are the ones in `03-architecture.md` and `proofgraph/schema.py`. `Case.dataset` is `findver`, `contractnli`, `traps`, or `freight`. `Source.kind` is `text`, `table`, `pdf`, or `image`. There is no new dataset value.
+
+| Evidence | Method | Grounded when |
+|---|---|---|
+| Text passage, or a table passage loaded as text | `quote` | The quote is in the source, and the value is in the quote |
+| Digital PDF with a text layer | `text_in_box` | The words inside the box contain the value |
+| Image of handwriting, a scan, or a clock | `blind_reread` | Muse Spark Open, given only the crop, reads the same value |
+| Image of physical goods | `count_agreement` | The SAM 3.1 count for the noun equals the pointed count |
+
+A `compute` or `temporal` link goes to the calculator. Strength is COMPUTED. A `wording` link goes to the blind checker and returns `entails`, `contradicts`, or `not_mentioned`. Strength is CHECKED. A `rule` with `expr` null and `rule_source` `assumed` is ASSUMED.
+
+### On disk tonight
+
+- **FinDVer (MIT)** is at `data/FinDVer`. The adapter loads a numeric passage only. The worked row a judge can be shown beside the score is `numeric-val-0` in `data/testmini.json`: report `RHP-2024-02-23_10-K.json`, passage 107, source id `p107`, kind `table`. The statement is "The net interest expense in 2023, considering debt interest and capitalized interest, was $183,479,000." The gold label is false. In that table, debt interest paid for 2023 is $183,479, and cash paid for interest, net of capitalized interest, is $180,996. Dataset `findver`, mode `passage`. The check is `quote`.
+- The 30 false rows and the 50 true dev rows already ran. The scored file is the 250 numeric rows of `testmini`. It waits on the D29 five-box gate, then Tuesday 3 Nov, with `n` omitted, and the fresh estimate at or under $50. Command, when the gate is yes: `python scripts/run_eval.py --dataset findver --mode passage --split testmini --systems pg --seed 7`. This plan does not run it. Do not replace FinDVer with synthetic filings.
+- **ContractNLI (CC BY 4.0)** is not on disk. It is 607 real NDAs, 17 hypotheses, labels Entailment, Contradiction, and NotMentioned. The human downloads `contract-nli.zip` in a browser from https://stanfordnlp.github.io/contract-nli/ and unzips it to `data/contract-nli/`. The proxy blocks that download. Hugging Face mirrors stay forbidden for scored runs. A scored sample may run Wednesday 4 Nov morning only under D29. Do not write fictional NDAs and call them ContractNLI. The row a judge can see, once the zip is real, is the Frodsham Town Council NDA: "Receiving Party may retain some Confidential Information…" → Contradiction (clause 6). The trap is clause 7's "right to copy."
+- `tests/fixtures/detention_program.json` stays a unit fixture. Three text strings. The claim says the invoice detention charge of $450.00 is correct. The times are 10:00 and 14:12. No files. It is not the demo packet.
+- `tests/fixtures/text_span_rate.pdf` is one generated Courier page. `tests/fixtures/sum_program.json`, `tests/fixtures/scale_program.json`, and `tests/fixtures/findver/financial_reports/acme.json` stay unit fixtures.
+- `examples/freight/` does not exist. PG-SPIKE-01 is notes only: arrived 07:40, departed 11:55, rate $75, 12 drawn cartons, invoice $450 and 10 cartons. Those times are not the packet. On that drawing, SAM counted 12 when the noun was `cardboard box`, and the noun `carton` returned empty. The packet does not keep `cardboard box` for that reason.
+
+### USE
+
+Outside labels. These rows are not hand-made.
+
+- **FinDVer.** Case id `numeric-val-0`. Show that row beside the score. The 250 is the scored file under D29.
+- **ContractNLI.** Only when the official zip is in `data/contract-nli/`. The judge's row is the Frodsham retention clause above. Dataset `contractnli`, mode `whole`. If the zip is not on disk before Sunday 1 Nov 2026, wording has no USE set. The wording demonstration below is the substitute.
+
+### DEMO
+
+One packet. Labeled a demonstration. Never a benchmark. Dataset `freight`, because that is the built-by-us value. Mode `whole`. Case id `freight-demo-001`. Directory `examples/freight/demo-001/`.
+
+The packet has the same roles as a real evidence packet: a digital rate page, a photographed form with a handwritten value, a photograph of countable physical goods, and a digital invoice. Carrier **Northwind Cartage**. Shipper **Harbor Lane Goods**. Fictional names. No logos. No real people's names (guardrail 23).
+
+One timeline. It is not 10:00–14:12, and it is not 07:40–11:55.
+
+| Field | Value |
+|---|---|
+| Arrived | 08:00, handwritten on the form |
+| Departed | 12:30, handwritten on the form |
+| Free time | 2 hours, on the rate page |
+| Rate | $75.00 per hour, on the rate page |
+| Elapsed | 4.5 hours |
+| Billable | 2.5 hours |
+| Fair detention | $187.50 |
+| Invoice detention | $450.00 |
+
+A person recomputes 12:30 minus 08:00, minus 2 hours free, times $75, and gets $187.50. The invoice says $450.00. The claim that $450.00 is correct is false. Verdict CONTRADICTED. Link `l_detention` is `compute`, required, strength COMPUTED:
+
+`(hours_between(f_arrived, f_departed) - f_free) * f_rate == f_invoice`
+
+A `temporal` link uses that same calculator. This claim is `compute`. The packet does not add a second pair of times.
+
+Link `l_same_day` is `rule`, `expr` null, `rule_source` `assumed`, statement "Arrival and departure are on the same calendar day." The form has no date. Strength ASSUMED. It is not in `required`, so the detention verdict stays COMPUTED. The link is on the case so that route is visible.
+
+The goods fact is kind `count`. After the human counts the photo, the invoice states a different count. Link `l_goods` is `compute`, required, strength COMPUTED: `f_goods_count == f_invoice_count`. That line is CONTRADICTED. The grounding method is `count_agreement`.
+
+| Path | Source id | Kind | Method |
+|---|---|---|---|
+| `examples/freight/demo-001/rate_confirmation.pdf` | `rate_conf` | `pdf` | `text_in_box` |
+| `examples/freight/demo-001/pod.jpg` | `pod` | `image` | `blind_reread` |
+| `examples/freight/demo-001/goods.jpg` | `goods` | `image` | `count_agreement` |
+| `examples/freight/demo-001/invoice.pdf` | `invoice` | `pdf` | `text_in_box` |
+| `examples/freight/demo-001/key.json` | | | filled before any model call |
+
+`reportlab` is not in `pyproject.toml`. It is not added. The rate page and the invoice are one-page Courier PDFs with a real text layer, written by `_pdf_pages` in `tests/test_text_span.py`. That writer is already in the repo. `proofgraph/pdf.py` reads an uncompressed or FlateDecode Courier page. The rate page paints `Detention: $75.00/hour after 2 hours free time`. The invoice paints `Detention: $450.00` and a delivered-count line that uses `goods_noun` and `invoice_count` from `key.json`.
+
+**`key.json` fields:** `case_id` (`freight-demo-001`), `dataset` (`freight`), `mode` (`whole`), `demonstration` (true), `benchmark` (false), `carrier`, `shipper`, `claim`, `verdict` (`CONTRADICTED`), `lines.detention` (`CONTRADICTED`), `lines.goods` (`CONTRADICTED`), `truth.arrived` (`08:00`), `truth.departed` (`12:30`), `truth.free_hours` (2), `truth.rate_usd_per_hour` (75), `truth.elapsed_hours` (4.5), `truth.billable_hours` (2.5), `truth.fair_detention_usd` (187.50), `truth.invoice_detention_usd` (450), `truth.goods_noun`, `truth.goods_count`, `truth.invoice_count`, `assumed_rule`, and `sources` for the four files above. `goods_noun`, `goods_count`, and `invoice_count` stay null until step 4. The claim is then filled with those two fields: `The invoice detention charge of $450.00 is correct, and the invoice count of <invoice_count> <goods_noun>s matches the photo.`
+
+**What the human does, in order.** A phone and a pen. No model call.
+
+1. Create `examples/freight/demo-001/key.json` with the timeline, the rate, the fair charge $187.50, the invoice charge $450.00, the two fictional names, and the assumed-rule sentence. Leave the three goods fields null.
+2. Write `rate_confirmation.pdf` with `_pdf_pages`. The detention sentence is in the file bytes.
+3. On paper, letter the labels Arrived and Departed. Write 08:00 and 12:30 in pen. Photograph the form so the handwriting fills the frame. Save `pod.jpg`. That file is the blind re-read. The crop is the only thing Muse Spark Open sees on this route.
+4. Set out real, separated physical goods and photograph them as `goods.jpg`. Count them by hand. The count is at least 4. If the photo shows cartons, `goods_noun` is `carton`. If it shows something else, the noun is the ordinary name of what is in the frame. Write that noun and the hand count into `key.json`. Set `invoice_count` to the hand count minus 2. Write the claim sentence with those words. Report the hand count as the truth. Do not name the photo `cardboard box` because a drawing answered to that noun.
+5. Write `invoice.pdf` with `_pdf_pages`, using $450.00 and `invoice_count` from `key.json`. The count line uses `goods_noun`.
+6. Stop. Making the packet does not call Muse, the checker, or SAM.
+
+**Checks a person can mark:**
+
+- [ ] The packet has a digital rate page, a phone photo of a handwritten form, a phone photo of countable physical goods, and a digital invoice. The names are fictional. There is no logo and no real person's name.
+- [ ] The numbers in `key.json` were written before any model call. They agree with each other. The detention claim is false: 12:30 minus 08:00 is 4.5 hours, minus 2 hours free, times $75 is $187.50, and the invoice says $450.00.
+- [ ] The packet has one timeline: 08:00 and 12:30. It does not also carry 10:00–14:12 or 07:40–11:55.
+- [ ] `goods_noun` is what the photo shows. A photo of cartons uses `carton`. `goods_count` is the hand count. `invoice_count` is a different number, and that number is the one on the invoice.
+- [ ] Both PDFs are Courier pages with a real text layer. `pod.jpg` is a photograph. The handwritten times are not a sentence stored as `Source.kind` `text`.
+- [ ] `tests/fixtures/detention_program.json` is still the unit fixture. It was not copied in as this packet.
+- [ ] The folder is labeled a demonstration. It is not presented as a benchmark.
+
+### Wording demonstration, only if the zip is still absent
+
+Build this only if `data/contract-nli/` has no official zip at the end of Sunday 1 Nov 2026. Wording then has no USE set. This case is a demonstration. It is not ContractNLI. Dataset `freight`. Mode `passage`. Case id `freight-demo-wording-001`. Directory `examples/freight/demo-wording-001/`.
+
+- `clause.txt`, source id `clause`, kind `text`, method `quote`.
+- `key.json`.
+- Clause: "Northwind Cartage may use Harbor Lane Goods' lane notes only to move the named load, and must return those notes when that load is delivered."
+- Claim: "This agreement is governed by the law of Delaware."
+- The clause does not mention Delaware, governing law, or venue. Expected checker output: `not_mentioned`. Answer: UNRESOLVED. Link kind `wording`, strength CHECKED.
+- `key.json` fields: `case_id`, `dataset` (`freight`), `mode` (`passage`), `demonstration` (true), `benchmark` (false), `not_contractnli` (true), `claim`, `clause`, `expected_checker` (`not_mentioned`), `answer` (`UNRESOLVED`), `strength` (`CHECKED`).
+
+If the official zip is present before Sunday, skip this directory. The Frodsham row is the wording row the judge sees.
+
+### Checkable packets
+
+`examples/packets/` is the small set a person can open and check. The three compute files include a program, and `tests/test_packets.py` runs them with no network. The two FinDVer files are real filings with the outside label and no program. The governing-law file is a wording demonstration and does not call the checker.
+
+| File | World | What a person can check |
+|---|---|---|
+| `numeric-val-0.json` | SEC 10-K | Gold CONTRADICTED. Debt interest paid is $183,479. Net cash interest is $180,996. |
+| `numeric-test-0.json` | SEC filing | Gold SUPPORTED. Net cost of a cyber incident after insurance recoveries. |
+| `detention-overcharge.json` | Detention bill | CONTRADICTED / COMPUTED. 12:30 minus 08:00, minus 2 hours, times $75 is $187.50. The invoice says $450.00. |
+| `detention-correct.json` | Detention bill | SUPPORTED / COMPUTED. Same clocks and rate. The invoice says $187.50. |
+| `late-fee-overcharge.json` | Contract late fee | CONTRADICTED / COMPUTED. 1.5% of $10,000 is $150. The invoice says $500.00. |
+| `governing-law-not-mentioned.json` | Contract clause | Expected UNRESOLVED. The clause is about returning lane notes. It does not mention Delaware. Not ContractNLI. |
+
+These detention and late-fee sources are the lines from those documents, stored as text so the calculator can be checked tonight. They are not the phone photos. The vision packet in `examples/freight/demo-001/` is still the human's photographs, and it uses this same 08:00–12:30 timeline.
+
+### Not built in this window
+
+- The 16 bundles at `examples/freight/bundle_NN/`.
+- Synthetic filings in place of FinDVer.
+- Conflict traps (`scripts/build_traps.py`, dataset `traps`).
+- A general PDF corpus.
+- Fictional NDAs labeled ContractNLI.
+- A second freight timeline, a drawing counted as `cardboard box`, or a `reportlab` dependency.
 
 ## Systems compared
 | System | What it is |
