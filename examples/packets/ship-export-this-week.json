@@ -1,0 +1,86 @@
+{
+  "role": "demo",
+  "world": "product decision",
+  "note": "Demonstration, not a benchmark. A product manager decides whether to ship the export button. The usage note supports weekly use of 40%. The support note says export support costs $4,200 a month, which contradicts the claimed $1,000. The release note does not mention the export button or this week. Dataset is freight because this packet is built by us, the same rule as the governing-law packet. The should is an assumed rule and is not required. The release-note gap is an unverifiable part, not a second verdict.",
+  "expected": {"verdict": "CONTRADICTED", "label": "COMPUTED"},
+  "case": {
+    "id": "ship-export-this-week",
+    "dataset": "freight",
+    "mode": "passage",
+    "claim": "We should ship the export button this week. Weekly use is 40%, and the support cost is $1,000 a month.",
+    "sources": [
+      {
+        "id": "usage_note",
+        "kind": "text",
+        "text": "Export is used by 40% of weekly active accounts."
+      },
+      {
+        "id": "support_note",
+        "kind": "text",
+        "text": "Export support costs $4,200 a month."
+      },
+      {
+        "id": "release_note",
+        "kind": "text",
+        "text": "The release this cycle covers search filters and the billing page."
+      }
+    ],
+    "answer": "CONTRADICTED",
+    "gold_evidence": ["usage_note", "support_note", "release_note"]
+  },
+  "program": {
+    "facts": [
+      {
+        "id": "f_use",
+        "label": "weekly export use",
+        "source_id": "usage_note",
+        "quote": "Export is used by 40% of weekly active accounts.",
+        "value": 0.4,
+        "scale": "percent",
+        "kind": "number"
+      },
+      {
+        "id": "f_cost",
+        "label": "monthly export support cost",
+        "source_id": "support_note",
+        "quote": "Export support costs $4,200 a month.",
+        "value": 4200,
+        "scale": "units",
+        "kind": "number"
+      }
+    ],
+    "links": [
+      {
+        "id": "l_use",
+        "kind": "compute",
+        "inputs": ["f_use"],
+        "statement": "Weekly export use is 40%",
+        "expr": "f_use == 0.4",
+        "rule_source": null,
+        "claim_span": "40%"
+      },
+      {
+        "id": "l_cost",
+        "kind": "compute",
+        "inputs": ["f_cost"],
+        "statement": "Monthly export support cost is $1,000",
+        "expr": "f_cost == 1000",
+        "rule_source": null,
+        "claim_span": "$1,000"
+      },
+      {
+        "id": "l_should",
+        "kind": "rule",
+        "inputs": [],
+        "statement": "Shipping the export button this week follows from the usage and cost figures.",
+        "expr": null,
+        "rule_source": "assumed",
+        "claim_span": "We should ship the export button this week."
+      }
+    ],
+    "required": ["l_use", "l_cost"],
+    "unverifiable_parts": [
+      "The release note does not mention the export button or this week."
+    ]
+  }
+}

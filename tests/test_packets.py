@@ -18,6 +18,7 @@ def test_packet_directory_has_the_real_filing_and_the_bills():
         "late-fee-overcharge.json",
         "numeric-test-0.json",
         "numeric-val-0.json",
+        "ship-export-this-week.json",
     ]
 
 
@@ -36,4 +37,4 @@ def test_compute_packets_match_the_recomputed_verdict():
         assert verdict.verdict == expected["verdict"], path.name
         assert verdict.label == expected["label"], path.name
         ran += 1
-    assert ran == 3
+    assert ran == 4
