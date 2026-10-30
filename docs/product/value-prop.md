@@ -13,6 +13,8 @@ Sources: `docs/01-product-brief.md`, section 2 of `docs/sprint/2026-10-29-mvp.md
 
 ## Lead demo: a PM deciding whether to ship the export button this week
 
+The PM is the hackathon ICP (see `icp.md`). Billing/freight reviewers and auditors/contract reviewers are the adjacent ones.
+
 - The 40% usage line supports the claim.
 - The $4,200/month support line contradicts the claimed $1,000.
 - The release note never mentions "this week", so that link stays UNRESOLVED.
