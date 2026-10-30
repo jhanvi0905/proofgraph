@@ -152,6 +152,6 @@ def test_blind_reread_sends_image_url_matches_clocks_and_falls_back(tmp_path, mo
     with pytest.raises(CheckerError, match="request failed") as caught:
         blind_reread(CROP)
 
-    assert caught.value.status_code == 500
+    assert caught.value.status_code == 400
     assert baseten.calls == 1
     assert muse.calls == 0
