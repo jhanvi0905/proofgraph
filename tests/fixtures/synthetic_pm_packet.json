@@ -1,0 +1,122 @@
+{
+  "synthetic": true,
+  "label": "SYNTHETIC fixture. Not a real company, study, interview, ticket export, or citation.",
+  "note": "offline_program is a recorded proposer reply for the offline seam. expected_pattern, answer, and gold_evidence are answer keys and are not inputs.",
+  "expected_pattern": "SUPPORTED",
+  "answer": "SUPPORTED",
+  "gold_evidence": ["ANSWERKEY-DO-NOT-READ"],
+  "claim": {
+    "id": "synthetic-pm-wizard",
+    "statement": "Do not build the onboarding wizard: the pilot cost $40,000 and the recorded saving is $16,000.",
+    "claimant_role": "product manager",
+    "domain": "product discovery"
+  },
+  "evidence_packet": {
+    "id": "synthetic-packet-wizard",
+    "title": "Synthetic wizard packet",
+    "items": [
+      {
+        "id": "pilot-cost",
+        "title": "Synthetic pilot cost note",
+        "source": "synthetic pilot log",
+        "url": "synthetic://pilot-cost",
+        "locator": "line 1",
+        "text": "SYNTHETIC pilot log: the pilot cost $40,000."
+      },
+      {
+        "id": "saving-slip",
+        "title": "Synthetic saving slip",
+        "source": "synthetic finance slip",
+        "url": "synthetic://saving-slip",
+        "locator": "line 1",
+        "text": "SYNTHETIC finance slip: recorded saving $8,000."
+      },
+      {
+        "id": "kitchen-rumor",
+        "title": "Synthetic kitchen rumor",
+        "source": "synthetic hallway note",
+        "url": "synthetic://kitchen-rumor",
+        "locator": "line 1",
+        "text": "SYNTHETIC hallway note: someone guessed a different saving during a kitchen chat."
+      },
+      {
+        "id": "sticky-note",
+        "title": "Synthetic sticky note",
+        "source": "synthetic sticky",
+        "url": "synthetic://sticky-note",
+        "locator": "line 1",
+        "text": "SYNTHETIC sticky: the wizard felt long."
+      },
+      {
+        "id": "blank-scan",
+        "title": "Synthetic blank scan",
+        "source": "synthetic empty page",
+        "url": "synthetic://blank-scan",
+        "locator": "page 1",
+        "text": ""
+      }
+    ]
+  },
+  "offline_program": {
+    "facts": [
+      {
+        "id": "f_cost",
+        "label": "pilot cost",
+        "source_id": "pilot-cost",
+        "quote": "the pilot cost $40,000.",
+        "value": 40000,
+        "scale": "units",
+        "kind": "number"
+      },
+      {
+        "id": "f_saving",
+        "label": "recorded saving",
+        "source_id": "saving-slip",
+        "quote": "recorded saving $8,000.",
+        "value": 8000,
+        "scale": "units",
+        "kind": "number"
+      },
+      {
+        "id": "f_rumor",
+        "label": "rumored saving",
+        "source_id": "kitchen-rumor",
+        "quote": "recorded saving $16,000.",
+        "value": 16000,
+        "scale": "units",
+        "kind": "number"
+      }
+    ],
+    "links": [
+      {
+        "id": "l_cost",
+        "kind": "compute",
+        "inputs": ["f_cost"],
+        "statement": "The pilot cost is $40,000.",
+        "expr": "f_cost == 40000",
+        "rule_source": null,
+        "claim_span": "$40,000"
+      },
+      {
+        "id": "l_saving",
+        "kind": "compute",
+        "inputs": ["f_saving"],
+        "statement": "The recorded saving is $16,000.",
+        "expr": "f_saving == 16000",
+        "rule_source": null,
+        "claim_span": "$16,000"
+      },
+      {
+        "id": "l_rumor",
+        "kind": "compute",
+        "inputs": ["f_rumor"],
+        "statement": "A hallway note states the saving is $16,000.",
+        "expr": "f_rumor == 16000",
+        "rule_source": null,
+        "claim_span": "$16,000"
+      }
+    ],
+    "required": ["l_cost", "l_saving", "l_rumor"],
+    "unverifiable_parts": []
+  }
+}

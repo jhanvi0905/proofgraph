@@ -22,6 +22,7 @@ from proofgraph.propose import propose
 from proofgraph.schema import Case, ClaimProgram, Source, Verdict
 
 ROOT = Path(__file__).resolve().parents[1]
+PACKET_DIR = ROOT / "examples" / "packets"
 FIXTURE_DIR = ROOT / "tests" / "fixtures"
 FIXTURES = {
     "Detention": FIXTURE_DIR / "detention_program.json",
@@ -51,6 +52,11 @@ _DOC_TITLES = {
     "rate_conf": "Rate confirmation",
     "pod": "Proof of delivery",
     "invoice": "Invoice",
+    "usage_note": "Usage note",
+    "support_note": "Support note",
+    "release_note": "Release note",
+    "clause": "Clause",
+    "statement": "Account statement",
 }
 _PAGE_FONT = 14
 _PAGE_WIDTH = 612
@@ -473,6 +479,429 @@ def span_marks(
     return tuple(marks)
 
 
+@dataclass(frozen=True)
+class PacketChoice:
+    key: str
+    label: str
+    payload: dict
+
+
+@dataclass(frozen=True)
+class Review:
+    packet: ReplayPacket
+    rounds: int
+    case: Case
+    program: ClaimProgram
+    role: str
+    world: str
+    note: str
+    sample: bool
+    verdict: Verdict
+
+
+def packet_catalog() -> tuple[PacketChoice, ...]:
+    """Shared lead file first, then every other packet file on this screen."""
+
+    if not PACKET_DIR.is_dir():
+        return ()
+    paths = sorted(PACKET_DIR.glob("*.json"))
+    ordered = [path for path in paths if path.name == "ship-export-this-week.json"]
+    ordered.extend(path for path in paths if path.name != "ship-export-this-week.json")
+    choices: list[PacketChoice] = []
+    for path in ordered:
+        try:
+            payload = _read_wrapper(path)
+        except ReplayError:
+            continue
+        choices.append(PacketChoice(path.name, _choice_label(payload), payload))
+    return tuple(choices)
+
+
+def _choice_label(payload: dict) -> str:
+    case = payload.get("case") or {}
+    ident = str(case.get("id") or "packet")
+    world = str(payload.get("world") or "").strip()
+    if world:
+        return f"{ident} · {world}"
+    return ident
+
+
+def _read_wrapper(path: Path) -> dict:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ReplayError(f"could not read fixture: {exc}") from exc
+    if not isinstance(payload, dict) or "case" not in payload:
+        raise ReplayError("fixture must contain case and program")
+    return _without_sealed(payload)
+
+
+def _without_sealed(payload: dict) -> dict:
+    """Drop wrapper fields the screen and the engine must not use."""
+
+    sample = bool(payload.get("sample"))
+    cleaned = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"expected", "sample"}
+    }
+    case = dict(cleaned.get("case") or {})
+    case.pop("answer", None)
+    case.pop("gold_evidence", None)
+    cleaned["case"] = case
+    cleaned["sample"] = sample
+    return cleaned
+
+
+def review_packet(payload: dict) -> Review:
+    """Run one wrapper through ``run_program``.
+
+    ``role`` and ``world`` stay on the wrapper for display. ``answer`` and
+    ``gold_evidence`` are removed before the engine sees the case. The stamp
+    is ``Verdict.verdict``.
+    """
+
+    if not isinstance(payload, dict) or "case" not in payload:
+        raise ReplayError("fixture must contain case and program")
+    if not payload.get("program"):
+        raise ReplayError("This packet has no program the engine can run.")
+    sealed = _without_sealed(payload)
+    try:
+        case = for_engine(Case.model_validate(sealed["case"]))
+        program = ClaimProgram.model_validate(sealed["program"])
+    except ValidationError as exc:
+        raise ReplayError(f"fixture does not match the schema: {exc}") from exc
+    verdict = run_program(case, program)
+    return Review(
+        packet=_packet(case, program, verdict),
+        rounds=verdict.rounds,
+        case=case,
+        program=program,
+        role=str(sealed.get("role") or ""),
+        world=str(sealed.get("world") or ""),
+        note=str(sealed.get("note") or ""),
+        sample=bool(sealed.get("sample")),
+        verdict=verdict,
+    )
+
+
+def render_review(review: Review) -> str:
+    """One stamp, then pass / fail / open groups tied to source id and text."""
+
+    parts = ["<div>"]
+    if review.sample:
+        parts.append(
+            "<p style='font-size:0.95rem;line-height:1.45;margin:0 0 0.75rem;"
+            f"color:{_SECONDARY}'>Sample packet. "
+            "examples/packets/ship-export-this-week.json is not in this branch. "
+            "Quote matching and the verdict rules ran here. The proposer did not.</p>"
+        )
+    meta = [part for part in (review.role.strip(), review.world.strip(), review.case.id) if part]
+    parts.append(
+        "<p style='font-size:1rem;line-height:1.45;margin:0 0 0.5rem;"
+        f"color:{_INK}'>{html.escape(' · '.join(meta))}</p>"
+    )
+    parts.append(_stamp_html(review.packet, show_claim=True))
+    parts.append(
+        "<style>@media (max-width:800px){.pg-split{grid-template-columns:1fr !important}}</style>"
+        "<div class='pg-split' style='display:grid;grid-template-columns:repeat(3,minmax(0,1fr));"
+        "gap:1.5rem;margin-top:1.5rem'>"
+    )
+    passed, failed, open_bits, aside = _review_groups(review)
+    parts.append(_review_column("pass", "A required link that holds.", passed, "#166534"))
+    parts.append(_review_column("fail", "A required link that does not hold.", failed, "#9f1239"))
+    parts.append(
+        _review_column(
+            "Unresolved",
+            "A gap in this run. Not a second verdict.",
+            open_bits,
+            "#9a3412",
+        )
+    )
+    parts.append("</div>")
+    if aside:
+        parts.append(
+            "<section id='links-aside' style='margin-top:1.25rem;padding-top:0.9rem;"
+            f"border-top:1px solid {_HAIRLINE}'>"
+            "<h2 style='margin:0 0 0.35rem;font-size:1.05rem;font-weight:700;"
+            f"line-height:1.3;color:{_INK}'>Not required</h2>"
+            "<p style='margin:0 0 0.35rem;font-size:0.875rem;line-height:1.4;"
+            f"color:{_SECONDARY}'>Shown because the packet states it. It does not decide the stamp.</p>"
+            + "".join(aside)
+            + "</section>"
+        )
+    parts.append(
+        "<p style='font-size:0.95rem;line-height:1.45;margin:1.25rem 0 0;"
+        f"color:{_SECONDARY}'>Rounds {review.rounds}. "
+        f"One verdict: {html.escape(review.verdict.verdict)}.</p>"
+        "</div>"
+    )
+    return "".join(parts)
+
+
+def _review_groups(review: Review) -> tuple[list[str], list[str], list[str], list[str]]:
+    facts = {fact.id: fact for fact in review.program.facts}
+    sources = {source.id: source for source in review.case.sources}
+    checks = {item.fact_id: item for item in review.verdict.fact_checks}
+    results = {item.link_id: item for item in review.verdict.link_results}
+    required = set(review.program.required)
+    passed: list[str] = []
+    failed: list[str] = []
+    opened: list[str] = []
+    aside: list[str] = []
+    cited: set[str] = set()
+    for link in review.program.links:
+        result = results.get(link.id)
+        if result is None:
+            continue
+        if link.id not in required or result.strength == "ASSUMED":
+            aside.append(_aside_line(link, result))
+            continue
+        block = _link_block(link, result, facts, sources, checks, cited)
+        quoted = any((facts[fact_id].quote or "").strip() for fact_id in link.inputs if fact_id in facts)
+        if result.status == "pass" and result.strength != "ASSUMED" and quoted:
+            passed.append(block)
+        elif result.status == "fail" and quoted:
+            failed.append(block)
+        else:
+            opened.append(block)
+    for fact in review.program.facts:
+        check = checks.get(fact.id)
+        if check is None or check.status == "grounded":
+            continue
+        source = sources.get(fact.source_id)
+        if source is not None:
+            cited.add(source.id)
+        opened.append(_open_fact(fact, check, source))
+    for part in review.program.unverifiable_parts:
+        opened.append(_open_line("unverifiable", part))
+    if review.verdict.reason_codes:
+        opened.append(_open_line("reason codes", ", ".join(review.verdict.reason_codes)))
+    for line in review.verdict.fetch:
+        opened.append(_open_line("fetch", line))
+    for source in review.case.sources:
+        if source.id not in cited:
+            opened.append(_source_line(source))
+    return passed, failed, opened, aside
+
+
+def _aside_line(link, result) -> str:
+    """A link that is not required, or only assumed, stays off the stamp."""
+
+    return (
+        "<p style='margin:0.8rem 0 0;font-size:0.95rem;font-weight:700;"
+        f"color:{_SECONDARY}'>{html.escape(link.id)} · {html.escape(result.strength)}"
+        " · not required</p>"
+        "<p style='margin:0.3rem 0 0;font-size:0.95rem;line-height:1.45;"
+        f"color:{_SECONDARY}'>This link did not decide the verdict.</p>"
+        "<p style='margin:0.45rem 0 0;font-size:1rem;line-height:1.45;"
+        f"color:{_INK}'>{html.escape(link.statement)}</p>"
+    )
+
+
+def _link_block(link, result, facts, sources, checks, cited: set[str]) -> str:
+    chunks = [
+        "<div style='border-top:1px solid "
+        f"{_HAIRLINE};padding:0.75rem 0'>"
+        f"<p style='margin:0;font-size:0.95rem;font-weight:700;color:{_INK}'>"
+        f"{html.escape(result.status)} · {html.escape(result.strength)}</p>"
+        "<p style='margin:0.45rem 0 0;font-size:1rem;line-height:1.45;"
+        f"color:{_INK}'>{html.escape(link.statement)}</p>"
+    ]
+    for fact_id in link.inputs:
+        fact = facts.get(fact_id)
+        if fact is None:
+            continue
+        quote = fact.quote or ""
+        chunks.append(
+            "<p style='margin:0.45rem 0 0;font-size:1rem;line-height:1.45;"
+            f"color:{_INK}'>{html.escape(quote)}</p>"
+        )
+        source = sources.get(fact.source_id)
+        if source is not None:
+            cited.add(source.id)
+            chunks.append(_source_line(source))
+        check = checks.get(fact_id)
+        if check is not None:
+            chunks.append(
+                "<p style='margin:0.25rem 0 0;font-size:0.875rem;line-height:1.4;"
+                f"color:{_SECONDARY}'>{html.escape(check.status)} · "
+                f"{html.escape(check.method)}</p>"
+            )
+    chunks.append(
+        "<p style='margin:0.45rem 0 0;font-size:0.875rem;line-height:1.4;"
+        f"color:{_SECONDARY}'>{html.escape(link.id)} · {html.escape(result.strength)} · "
+        f"{html.escape(result.detail)}</p>"
+        "</div>"
+    )
+    return "".join(chunks)
+
+
+def _source_line(source: Source) -> str:
+    title = _DOC_TITLES.get(source.id) or source.id.replace("_", " ").strip().title()
+    text = source.text or ""
+    return (
+        "<p style='margin:0.35rem 0 0;font-size:0.875rem;line-height:1.4;"
+        f"color:{_SECONDARY}'>{html.escape(title)} · {html.escape(source.id)}</p>"
+        "<p style='margin:0.2rem 0 0;font-size:1rem;line-height:1.45;"
+        f"color:{_INK}'>{html.escape(text)}</p>"
+    )
+
+
+def _open_fact(fact, check, source: Source | None) -> str:
+    parts = [
+        "<div style='border-top:1px solid "
+        f"{_HAIRLINE};padding:0.75rem 0'>"
+        f"<p style='margin:0;font-size:0.95rem;font-weight:700;color:{_INK}'>"
+        f"{html.escape(check.status)}</p>"
+        "<p style='margin:0.45rem 0 0;font-size:1rem;line-height:1.45;"
+        f"color:{_INK}'>{html.escape(fact.quote or '')}</p>"
+    ]
+    if source is not None:
+        parts.append(_source_line(source))
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def _open_line(kind: str, text: str) -> str:
+    return (
+        "<div style='border-top:1px solid "
+        f"{_HAIRLINE};padding:0.75rem 0'>"
+        f"<p style='margin:0;font-size:0.95rem;font-weight:700;color:{_INK}'>"
+        f"{html.escape(kind)}</p>"
+        "<p style='margin:0.45rem 0 0;font-size:1rem;line-height:1.45;"
+        f"color:{_INK}'>{html.escape(text)}</p>"
+        "</div>"
+    )
+
+
+def _review_column(title: str, gloss: str, blocks: list[str], color: str) -> str:
+    body = "".join(blocks) if blocks else (
+        "<p style='margin:0.5rem 0 0;font-size:1rem;line-height:1.45;"
+        f"color:{_SECONDARY}'>None in this run.</p>"
+    )
+    slug = {"pass": "pass", "fail": "fail", "Unresolved": "unresolved"}.get(title, "open")
+    return (
+        f"<section id='links-{slug}'>"
+        f"<h2 style='margin:0;font-size:1.05rem;font-weight:700;line-height:1.3;color:{color}'>"
+        f"{html.escape(title)}</h2>"
+        "<p style='margin:0.35rem 0 0;font-size:0.875rem;line-height:1.4;"
+        f"color:{_SECONDARY}'>{html.escape(gloss)}</p>"
+        f"{body}</section>"
+    )
+
+
+def _edited_payload(payload: dict, claim: str, texts: dict[str, str]) -> dict:
+    sealed = _without_sealed(payload)
+    case = dict(sealed["case"])
+    sources = []
+    for source in case.get("sources") or []:
+        updated = dict(source)
+        updated["text"] = texts.get(updated["id"], updated.get("text") or "")
+        sources.append(updated)
+    case["claim"] = claim.strip()
+    case["sources"] = sources
+    sealed["case"] = case
+    return sealed
+
+
+def _assign_lead(item: PacketChoice) -> None:
+    payload = _without_sealed(item.payload)
+    st_state = _session()
+    st_state["_lead_key"] = item.key
+    st_state["lead_payload"] = payload
+    st_state["lead_claim"] = payload["case"].get("claim") or ""
+    st_state["lead_review_html"] = ""
+    st_state["lead_error"] = ""
+    for source in payload["case"].get("sources") or []:
+        st_state[f"lead_src_{source['id']}"] = source.get("text") or ""
+
+
+def _session():
+    import streamlit as st
+
+    return st.session_state
+
+
+def _lead_panel(st) -> None:
+    """Text packet on the same screen as the upload check."""
+
+    catalog = packet_catalog()
+    if not catalog:
+        return
+    pending = st.session_state.pop("_lead_prime", None)
+    if pending is not None:
+        picked = next((item for item in catalog if item.key == pending), catalog[0])
+        _assign_lead(picked)
+    elif "_lead_key" not in st.session_state:
+        _assign_lead(catalog[0])
+    labels = [item.label for item in catalog]
+    keys = [item.key for item in catalog]
+    current = st.session_state.get("_lead_key", keys[0])
+    index = keys.index(current) if current in keys else 0
+    st.caption(
+        "Text packet. One stamp from the check. pass and fail are link statuses."
+    )
+    slot = st.container()
+    choice = st.selectbox("Text packet", labels, index=index)
+    picked = catalog[labels.index(choice)]
+    if picked.key != st.session_state.get("_lead_key"):
+        st.session_state["_lead_prime"] = picked.key
+        st.rerun()
+    payload = st.session_state.get("lead_payload") or {}
+    if payload.get("sample"):
+        st.caption(
+            "Sample packet. examples/packets/ship-export-this-week.json is not in this branch. "
+            "The check still runs in the engine."
+        )
+    else:
+        st.caption(f"Loaded from examples/packets/{picked.key}.")
+    who = " · ".join(
+        part
+        for part in (str(payload.get("role") or "").strip(), str(payload.get("world") or "").strip())
+        if part
+    )
+    if who:
+        st.caption(who)
+    claim = st.text_area("Claim", key="lead_claim", height=88)
+    texts: dict[str, str] = {}
+    for source in (payload.get("case") or {}).get("sources") or []:
+        sid = source["id"]
+        title = _DOC_TITLES.get(sid) or sid.replace("_", " ").strip().title()
+        st.caption(f"{title} · {sid}")
+        texts[sid] = st.text_area(sid, key=f"lead_src_{sid}", height=68)
+    if st.button("Run the check", type="primary", key="lead_run"):
+        missing = []
+        if not str(claim).strip():
+            missing.append("Write the claim before running the check.")
+        for source in (payload.get("case") or {}).get("sources") or []:
+            if not str(texts.get(source["id"]) or "").strip():
+                missing.append(f"Source {source['id']} needs text.")
+        if missing:
+            st.session_state["lead_error"] = " ".join(missing)
+            st.session_state["lead_review_html"] = ""
+        else:
+            try:
+                review = review_packet(_edited_payload(payload, claim, texts))
+                st.session_state["lead_review_html"] = render_review(review)
+                st.session_state["lead_error"] = ""
+            except ReplayError as exc:
+                st.session_state["lead_review_html"] = ""
+                st.session_state["lead_error"] = str(exc)
+            except Exception as exc:
+                st.session_state["lead_review_html"] = ""
+                st.session_state["lead_error"] = failure_message(exc)
+    with slot:
+        error = st.session_state.get("lead_error") or ""
+        if error:
+            st.error(error)
+        html_view = st.session_state.get("lead_review_html") or ""
+        if html_view:
+            st.html(html_view)
+        elif not error:
+            st.caption("The check has not run.")
+
+
 def main() -> None:
     """Draw the packet review. Streamlit stays inside this call."""
 
@@ -480,6 +909,7 @@ def main() -> None:
 
     st.set_page_config(page_title="ProofGraph", layout="wide")
     _story(st)
+    _lead_panel(st)
     claim = st.text_area(
         "Claim",
         value="",

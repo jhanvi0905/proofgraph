@@ -28,6 +28,8 @@ Muse Spark reads the documents and breaks the conclusion into links: facts with 
 make setup && make data && make test
 make eval DATASET=findver MODE=passage N=30 SYSTEMS=a,pg
 make report && make app      # the app runs in replay mode without an API key
+uv run python -m proofgraph tests/fixtures/synthetic_pm_packet.json
+# claim + evidence packet, offline recorded program, prints run JSON, no model API
 ```
 
 ## Licences and attribution

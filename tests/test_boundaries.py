@@ -295,7 +295,11 @@ def test_engine_does_not_import_proposer_or_muse():
 
 
 def test_engine_propose_and_cli_do_not_read_sealed_case_fields():
-    paths = [ROOT / "proofgraph" / "propose.py", ROOT / "proofgraph" / "__main__.py"]
+    paths = [
+        ROOT / "proofgraph" / "propose.py",
+        ROOT / "proofgraph" / "pipeline.py",
+        ROOT / "proofgraph" / "__main__.py",
+    ]
     paths.extend(ENGINE.rglob("*.py"))
     for path in paths:
         tree = ast.parse(path.read_text(encoding="utf-8"))
