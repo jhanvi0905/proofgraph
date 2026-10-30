@@ -123,7 +123,7 @@ def test_canned_detention_response_is_contradicted_and_computed(tmp_path):
     assert verdict.rounds == 0
     assert verdict.flags == []
     assert transport.calls == 1
-    assert client.spend_limit_usd == Decimal("10")
+    assert client.spend_limit_usd == Decimal("50")
 
     body = transport.bodies[0]
     prompt = body["input"]
@@ -146,7 +146,7 @@ def test_canned_detention_response_is_contradicted_and_computed(tmp_path):
     assert "test-key" not in json.dumps(body)
 
 
-def test_prompt_names_file_id_and_omits_local_path(tmp_path):
+def test_existing_file_id_is_an_input_file_and_path_stays_off_the_request(tmp_path):
     case = Case(
         id="pdf-1",
         dataset="freight",
@@ -169,21 +169,45 @@ def test_prompt_names_file_id_and_omits_local_path(tmp_path):
         gold_evidence=["secret-gold-span"],
     )
     transport = FakeTransport([_envelope(_empty_program())])
-    client = _client(tmp_path, transport)
+
+    class ExplodingFiles:
+        def create(self, *, filename: str, content: bytes, purpose: str) -> dict[str, Any]:
+            raise AssertionError("an existing file id must not be uploaded")
+
+    client = MuseClient(
+        _settings(tmp_path),
+        transport=transport,
+        files_transport=ExplodingFiles(),
+    )
 
     program = propose(case, client=client)
 
     assert program == ClaimProgram(
         facts=[], links=[], required=[], unverifiable_parts=[]
     )
-    prompt = transport.bodies[0]["input"]
-    assert "The rate is $75." in prompt
-    assert "file_abc" in prompt
-    assert "Source id: scan" in prompt
-    assert "/secret/local.pdf" not in prompt
-    assert "secret-gold-span" not in prompt
-    assert "CONTRADICTED" not in prompt
-    assert "pdf-1" not in prompt
+    body = transport.bodies[0]
+    message = body["input"]
+    assert message[0]["type"] == "message"
+    assert message[0]["role"] == "user"
+    text = message[0]["content"][0]
+    assert text["type"] == "input_text"
+    assert "The rate is $75." in text["text"]
+    assert "Source id: scan" in text["text"]
+    assert "File id:" not in text["text"]
+    assert "file_abc" not in text["text"]
+    assert message[0]["content"][1] == {
+        "type": "input_file",
+        "file_id": "file_abc",
+        "detail": "high",
+    }
+    dumped = json.dumps(body)
+    assert "/secret/local.pdf" not in dumped
+    assert "File id:" not in dumped
+    assert "input_image" not in dumped
+    assert "secret-gold-span" not in dumped
+    assert "CONTRADICTED" not in text["text"]
+    assert "pdf-1" not in text["text"]
+    assert set(body) == {"model", "input", "reasoning", "text"}
     assert transport.calls == 1
 
 
@@ -421,3 +445,79 @@ def test_contradictory_sources_are_both_included(tmp_path):
     assert "secret-gold-span" not in prompt
     assert "conflict-1" not in prompt
     assert transport.calls == 1
+
+
+class RecordingFiles:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def create(self, *, filename: str, content: bytes, purpose: str) -> dict[str, Any]:
+        self.calls.append({"filename": filename, "content": content, "purpose": purpose})
+        return {"id": f"file_{len(self.calls)}"}
+
+
+def test_local_pdf_and_image_are_uploaded_once_as_input_file_parts(tmp_path):
+    hidden = tmp_path / "local-only"
+    hidden.mkdir()
+    pdf = hidden / "rate.pdf"
+    image = hidden / "pod.png"
+    pdf.write_bytes(b"%PDF-rate")
+    image.write_bytes(b"\x89PNG-pod")
+    case = Case(
+        id="bundle-1",
+        dataset="freight",
+        mode="whole",
+        claim="The rate is $75.",
+        sources=[
+            Source(id="note", kind="text", text="Detention: $75.00/hour"),
+            Source(id="rate", kind="pdf", path=str(pdf)),
+            Source(id="photo", kind="image", path=str(image)),
+        ],
+        answer="UNRESOLVED",
+        gold_evidence=["secret-gold-span"],
+    )
+    transport = FakeTransport([_envelope(_empty_program())])
+    files = RecordingFiles()
+    client = MuseClient(_settings(tmp_path), transport=transport, files_transport=files)
+
+    propose(case, client=client)
+    propose(case, client=client)
+
+    assert transport.calls == 1
+    assert [call["purpose"] for call in files.calls] == ["user_data", "user_data"]
+    assert [call["filename"] for call in files.calls] == ["rate.pdf", "pod.png"]
+    assert [call["content"] for call in files.calls] == [b"%PDF-rate", b"\x89PNG-pod"]
+    body = transport.bodies[0]
+    content = body["input"][0]["content"]
+    assert content[0]["type"] == "input_text"
+    assert "File id:" not in content[0]["text"]
+    assert "local-only" not in content[0]["text"]
+    assert content[1:] == [
+        {"type": "input_file", "file_id": "file_1", "detail": "high"},
+        {"type": "input_file", "file_id": "file_2", "detail": "high"},
+    ]
+    dumped = json.dumps(body)
+    assert "local-only" not in dumped
+    assert "input_image" not in dumped
+    assert "secret-gold-span" not in dumped
+    assert "bundle-1" not in content[0]["text"]
+
+
+def test_missing_pdf_is_not_sent_to_the_model(tmp_path):
+    case = Case(
+        id="missing-pdf",
+        dataset="freight",
+        mode="whole",
+        claim="The rate is $75.",
+        sources=[Source(id="rate", kind="pdf", path=str(tmp_path / "missing.pdf"))],
+        answer="UNRESOLVED",
+    )
+    transport = FakeTransport([_envelope(_empty_program())])
+    files = RecordingFiles()
+    client = MuseClient(_settings(tmp_path), transport=transport, files_transport=files)
+
+    with pytest.raises(FileNotFoundError):
+        propose(case, client=client)
+
+    assert transport.calls == 0
+    assert files.calls == []

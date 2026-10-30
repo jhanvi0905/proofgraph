@@ -16,11 +16,20 @@ Failed and invalid responses are not stored. ``bypass_cache`` skips the read
 and the write for an experiment. One repair call is made when the output is
 not valid JSON for the schema; the next failure raises ExtractionFailed.
 Timeouts and malformed responses are not repaired.
+
+A local PDF or image is uploaded with files.create and purpose "user_data".
+The file id is cached under the SHA-256 of those bytes, so the same bytes
+are not uploaded again. A call that attaches files sends input as a user
+message: input_text, then one input_file part per file with detail high.
+Text-only calls still send input as a string.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
+from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any, Mapping, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -31,6 +40,9 @@ from proofgraph.config import Settings, load_settings
 T = TypeVar("T", bound=BaseModel)
 
 RESPONSES_ENDPOINT = "POST /v1/responses"
+FILES_ENDPOINT = "POST /v1/files"
+FILE_PURPOSE = "user_data"
+FILE_DETAIL = "high"
 # docs/04 starts propose at medium. The Responses schema also allows max.
 DEFAULT_REASONING_EFFORT = "medium"
 # docs/04 allows minimal…xhigh. The Responses schema also lists max; this client does not send it.
@@ -73,6 +85,13 @@ class ResponsesTransport(Protocol):
         """Return the response JSON object. Do not retry."""
 
 
+class FilesTransport(Protocol):
+    """One POST /v1/files. Tests pass a fake. Production uses the OpenAI SDK."""
+
+    def create(self, *, filename: str, content: bytes, purpose: str) -> Mapping[str, Any]:
+        """Return the file object JSON. Do not retry."""
+
+
 class JsonSchemaFormat(BaseModel):
     """text.format when type is json_schema. ``strict`` is omitted (server default false)."""
 
@@ -95,7 +114,7 @@ class ResponsesRequest(BaseModel):
     """The four fields this client sends. No other request parameters."""
 
     model: str
-    input: str
+    input: str | list[dict[str, Any]]
     reasoning: ReasoningParam
     text: TextParam
 
@@ -145,6 +164,40 @@ class OpenAIResponsesTransport:
         return dumped
 
 
+class OpenAIFilesTransport:
+    """Official OpenAI SDK files.create against https://api.meta.ai/v1. No retries."""
+
+    def __init__(self, *, api_key: str, base_url: str) -> None:
+        from openai import OpenAI
+
+        self._client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
+
+    def create(self, *, filename: str, content: bytes, purpose: str) -> Mapping[str, Any]:
+        from openai import APIError, APITimeoutError
+
+        if purpose != FILE_PURPOSE:
+            raise MuseError('files are uploaded with purpose "user_data"')
+        try:
+            uploaded = self._client.files.create(
+                file=(filename, content),
+                purpose="user_data",
+            )
+        except APITimeoutError as exc:
+            raise MuseTimeoutError("Muse file upload timed out") from exc
+        except APIError as exc:
+            status = getattr(exc, "status_code", None)
+            code = getattr(exc, "code", None)
+            if status == 504 or code == "gateway_timeout":
+                raise MuseTimeoutError("Muse gateway timeout") from exc
+            raise MuseResponseError(f"Muse request failed: {exc}") from exc
+        except TimeoutError as exc:
+            raise MuseTimeoutError("Muse file upload timed out") from exc
+        dumped = uploaded.model_dump(mode="json")
+        if not isinstance(dumped, dict):
+            raise MuseResponseError("Files API response was not a JSON object")
+        return dumped
+
+
 class MuseClient:
     """Cached, validated structured calls to Muse Spark."""
 
@@ -153,13 +206,50 @@ class MuseClient:
         settings: Settings | None = None,
         *,
         transport: ResponsesTransport | None = None,
+        files_transport: FilesTransport | None = None,
         cache: DiskCache | None = None,
     ) -> None:
         self.settings = settings if settings is not None else load_settings()
         self.spend_limit_usd = self.settings.spend_limit_usd
         self._api_key = _blank_to_none(self.settings.model_api_key)
         self._transport = transport
+        self._files_transport = files_transport
         self.cache = cache if cache is not None else DiskCache(self.settings.cache_dir)
+        self._file_cache = DiskCache(self.cache.directory / "files")
+
+    def upload_user_data(self, path: str | Path) -> str:
+        """Upload a local file once. Return the cached file id for these bytes.
+
+        The Files API can return a new id for the same bytes. This method
+        keeps the first id and does not call the API again.
+        """
+
+        self._require_key()
+        file_path = Path(path)
+        if not file_path.is_file():
+            raise FileNotFoundError(f"cannot upload {file_path.name or 'file'}")
+        content = file_path.read_bytes()
+        digest = hashlib.sha256(content).hexdigest()
+        cached = self._cached_file_id(digest)
+        if cached is not None:
+            return cached
+        response = self._read_json(
+            lambda: self._files().create(
+                filename=file_path.name,
+                content=content,
+                purpose=FILE_PURPOSE,
+            )
+        )
+        file_id = _require_upload_id(response)
+        self._file_cache.put(
+            CachedCall(
+                key=digest,
+                endpoint=FILES_ENDPOINT,
+                request={"purpose": FILE_PURPOSE, "sha256": digest},
+                response={"id": file_id},
+            )
+        )
+        return file_id
 
     def structured(
         self,
@@ -169,11 +259,14 @@ class MuseClient:
         reasoning_effort: str = DEFAULT_REASONING_EFFORT,
         sample_idx: int = 0,
         bypass_cache: bool = False,
+        file_ids: Sequence[str] | None = None,
     ) -> T:
-        """Return one validated object. The caller's prompt is sent unchanged.
+        """Return one validated object. The caller's prompt text is sent unchanged.
 
         ``bypass_cache`` is for a prompt experiment. It does not read or write
-        the disk cache. Eval loops keep the default and stay cached.
+        the response cache. Eval loops keep the default and stay cached.
+        ``file_ids`` become ``input_file`` parts. Omit them for a text case:
+        ``input`` stays a string. This method does not upload.
         """
 
         return self._structured(
@@ -183,6 +276,7 @@ class MuseClient:
             sample_idx=sample_idx,
             repairing=False,
             bypass_cache=bypass_cache,
+            file_ids=_require_file_ids(file_ids),
         )
 
     def _structured(
@@ -194,6 +288,7 @@ class MuseClient:
         sample_idx: int,
         repairing: bool,
         bypass_cache: bool,
+        file_ids: tuple[str, ...],
     ) -> T:
         self._require_key()
         _require_prompt(prompt)
@@ -205,13 +300,22 @@ class MuseClient:
             prompt=prompt,
             response_model=response_model,
             effort=effort,
+            file_ids=file_ids,
         )
+        # Text calls hash the string input. File calls hash that same text
+        # plus the input_file parts, so a different file does not reuse it.
+        inputs: dict[str, Any] = {"reasoning": body["reasoning"]}
+        if file_ids:
+            inputs["files"] = [
+                {"type": "input_file", "file_id": file_id, "detail": FILE_DETAIL}
+                for file_id in file_ids
+            ]
         key = cache_key(
             model=body["model"],
             endpoint=RESPONSES_ENDPOINT,
-            prompt=body["input"],
+            prompt=prompt if file_ids else body["input"],
             schema=body["text"]["format"],
-            inputs={"reasoning": body["reasoning"]},
+            inputs=inputs,
             sample_idx=sample_idx,
         )
         if not bypass_cache:
@@ -237,6 +341,7 @@ class MuseClient:
                 sample_idx=sample_idx,
                 repairing=True,
                 bypass_cache=bypass_cache,
+                file_ids=file_ids,
             )
         if not bypass_cache:
             self.cache.put(
@@ -281,8 +386,34 @@ class MuseClient:
                 api_key=self._api_key,
                 base_url=self.settings.muse_base_url,
             )
+        return self._read_json(lambda: transport.create(body))
+
+    def _cached_file_id(self, digest: str) -> str | None:
+        cached = self._file_cache.get(digest)
+        if cached is None:
+            return None
+        file_id = _cached_upload_id(cached, digest)
+        if file_id is None:
+            self._file_cache.delete(digest)
+            return None
+        return file_id
+
+    def _files(self) -> FilesTransport:
+        transport = self._files_transport
+        if transport is not None:
+            return transport
+        if self._api_key is None:
+            raise MissingApiKeyError(
+                "MODEL_API_KEY is not set. The Meta Model API was not called."
+            )
+        return OpenAIFilesTransport(
+            api_key=self._api_key,
+            base_url=self.settings.muse_base_url,
+        )
+
+    def _read_json(self, send: Callable[[], Mapping[str, Any]]) -> dict[str, Any]:
         try:
-            raw = transport.create(body)
+            raw = send()
         except MuseTimeoutError:
             raise
         except TimeoutError as exc:
@@ -302,11 +433,12 @@ def _request_body(
     prompt: str,
     response_model: type[BaseModel],
     effort: str,
+    file_ids: Sequence[str] = (),
 ) -> dict[str, Any]:
     try:
         request = ResponsesRequest(
             model=model,
-            input=prompt,
+            input=_responses_input(prompt, file_ids),
             reasoning=ReasoningParam(effort=effort),
             text=TextParam(
                 format=JsonSchemaFormat(
@@ -390,6 +522,46 @@ def _repair_prompt(prompt: str, raw: str, detail: str) -> str:
         f"Previous response:\n{raw}\n"
         f"Error:\n{detail}\n"
     )
+
+
+def _responses_input(prompt: str, file_ids: Sequence[str]) -> str | list[dict[str, Any]]:
+    if not file_ids:
+        return prompt
+    content: list[dict[str, Any]] = [{"type": "input_text", "text": prompt}]
+    for file_id in file_ids:
+        content.append({"type": "input_file", "file_id": file_id, "detail": FILE_DETAIL})
+    return [{"type": "message", "role": "user", "content": content}]
+
+
+def _require_file_ids(file_ids: Sequence[str] | None) -> tuple[str, ...]:
+    if file_ids is None:
+        return ()
+    if isinstance(file_ids, (str, bytes)):
+        raise TypeError("file_ids must be a sequence of file ids")
+    cleaned: list[str] = []
+    for file_id in file_ids:
+        if not isinstance(file_id, str) or file_id.strip() == "":
+            raise ValueError("file_ids must be non-empty strings")
+        cleaned.append(file_id.strip())
+    return tuple(cleaned)
+
+
+def _require_upload_id(response: Mapping[str, Any]) -> str:
+    file_id = response.get("id")
+    if not isinstance(file_id, str) or file_id.strip() == "":
+        raise MuseResponseError("Files API response did not include a file id")
+    return file_id.strip()
+
+
+def _cached_upload_id(record: CachedCall, digest: str) -> str | None:
+    if record.endpoint != FILES_ENDPOINT:
+        return None
+    if record.request.get("purpose") != FILE_PURPOSE or record.request.get("sha256") != digest:
+        return None
+    file_id = record.response.get("id")
+    if not isinstance(file_id, str) or file_id.strip() == "":
+        return None
+    return file_id.strip()
 
 
 def _blank_to_none(value: str | None) -> str | None:

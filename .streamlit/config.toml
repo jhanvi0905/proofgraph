@@ -3,3 +3,22 @@ toolbarMode = "minimal"
 
 [browser]
 gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#1c1917"
+backgroundColor = "#fafaf9"
+secondaryBackgroundColor = "#f5f5f4"
+textColor = "#1c1917"
+borderColor = "#e7e5e4"
+showWidgetBorder = true
+font = "sans-serif"
+baseRadius = "0.75rem"
+buttonRadius = "0.75rem"
+paddingTop = "1.5rem"
+redColor = "#9f1239"
+greenColor = "#166534"
+orangeColor = "#9a3412"
+blueColor = "#1e3a8a"
+violetColor = "#5b21b6"
+grayColor = "#44403c"

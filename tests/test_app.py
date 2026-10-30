@@ -1,8 +1,10 @@
 """Replay screen data. Importing the app does not start a server or a model."""
 
 import ast
+import json
 import sys
 from pathlib import Path
+from typing import Any, Mapping
 
 import pytest
 
@@ -10,10 +12,14 @@ from app.streamlit_app import (
     FIXTURES,
     ReplayError,
     build_packet,
+    check_claim,
     failure_message,
+    live_case,
     span_rows,
     value_text,
 )
+from proofgraph.clients.muse import MuseClient
+from proofgraph.config import load_settings
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "streamlit_app.py"
@@ -35,7 +41,7 @@ def test_app_imports_without_starting_a_server():
     assert callable(replay.main)
 
 
-def test_app_does_not_import_a_model_client():
+def test_app_imports_propose_and_not_a_model_client():
     tree = ast.parse(APP.read_text(encoding="utf-8"))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -43,6 +49,7 @@ def test_app_does_not_import_a_model_client():
             modules.extend(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
             modules.append(node.module or "")
+    assert "proofgraph.propose" in modules
     for name in modules:
         parts = name.split(".")
         assert "muse" not in parts
@@ -50,7 +57,6 @@ def test_app_does_not_import_a_model_client():
         assert "dotenv" not in parts
         assert "checker" not in parts
         assert not name.startswith("proofgraph.clients")
-        assert name != "proofgraph.propose"
 
 
 def test_selector_uses_the_offline_fixtures():
@@ -131,3 +137,293 @@ def test_engine_failure_stays_a_message(monkeypatch):
     assert failure_message(RuntimeError("calc broke")) == "calc broke"
     noisy = RuntimeError("Traceback (most recent call last):\n  File \"x\"")
     assert failure_message(noisy) == "RuntimeError"
+
+
+def _settings(tmp_path):
+    return load_settings({"MODEL_API_KEY": "test-key", "CACHE_DIR": str(tmp_path)})
+
+
+def _envelope(text: str) -> dict[str, Any]:
+    return {
+        "id": "resp_test",
+        "object": "response",
+        "status": "completed",
+        "model": "muse-spark-1.3",
+        "output": [
+            {
+                "id": "msg_test",
+                "type": "message",
+                "role": "assistant",
+                "status": "completed",
+                "content": [{"type": "output_text", "text": text, "annotations": []}],
+            }
+        ],
+    }
+
+
+class _Transport:
+    def __init__(self, responses: list[dict[str, Any]]) -> None:
+        self._responses = list(responses)
+        self.bodies: list[dict[str, Any]] = []
+
+    def create(self, body: Mapping[str, Any]) -> dict[str, Any]:
+        self.bodies.append(json.loads(json.dumps(body)))
+        if not self._responses:
+            raise AssertionError("transport called too many times")
+        return self._responses.pop(0)
+
+    @property
+    def calls(self) -> int:
+        return len(self.bodies)
+
+
+def _function(tree: ast.AST, name: str) -> ast.FunctionDef:
+    for node in tree.body:  # type: ignore[attr-defined]
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return node
+    raise AssertionError(f"missing {name}")
+
+
+def _calls_named(node: ast.AST, name: str) -> list[ast.Call]:
+    found: list[ast.Call] = []
+    for child in ast.walk(node):
+        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
+            if child.func.id == name:
+                found.append(child)
+    return found
+
+
+def test_live_case_is_the_detention_claim():
+    case = live_case()
+    assert case.id == "detention-001"
+    assert case.claim == "The invoice detention charge of $450.00 is correct."
+    assert [source.text for source in case.sources] == [
+        "Detention: $75.00/hour after 2 hours free time",
+        "Arrived: 10:00 Departed: 14:12",
+        "Detention: $450.00",
+    ]
+
+
+def test_live_detention_check_proposes_then_runs_the_engine(tmp_path):
+    program = json.loads(FIXTURES["Detention"].read_text(encoding="utf-8"))["program"]
+    transport = _Transport([_envelope(json.dumps(program))])
+    client = MuseClient(_settings(tmp_path), transport=transport)
+
+    packet = check_claim(live_case(), client=client)
+
+    assert transport.calls == 1
+    assert packet.verdict == "CONTRADICTED"
+    assert packet.label == "COMPUTED"
+    assert packet.reasons == (DETENTION_REASON,)
+    assert packet.reason_codes == ()
+    prompt = transport.bodies[0]["input"]
+    assert "The invoice detention charge of $450.00 is correct." in prompt
+    assert "l_detention" not in prompt
+    assert "f_arrived" not in prompt
+
+
+def test_live_check_uses_the_proposed_program(tmp_path):
+    empty = json.dumps(
+        {"facts": [], "links": [], "required": [], "unverifiable_parts": []}
+    )
+    transport = _Transport([_envelope(empty)])
+    client = MuseClient(_settings(tmp_path), transport=transport)
+
+    packet = check_claim(live_case(), client=client)
+
+    assert transport.calls == 1
+    assert packet.verdict == "UNRESOLVED"
+    assert packet.label is None
+    assert packet.fact_checks == ()
+    assert "UNCOVERED_NUMBER" in packet.reason_codes
+    assert packet.reasons != (DETENTION_REASON,)
+
+
+def test_live_check_keeps_sealed_fields_out_of_the_prompt(tmp_path):
+    case = live_case().model_copy(
+        update={"answer": "SUPPORTED", "gold_evidence": ["secret-gold-span"]}
+    )
+    empty = json.dumps(
+        {"facts": [], "links": [], "required": [], "unverifiable_parts": []}
+    )
+    transport = _Transport([_envelope(empty)])
+    client = MuseClient(_settings(tmp_path), transport=transport)
+
+    check_claim(case, client=client)
+
+    prompt = transport.bodies[0]["input"]
+    assert "secret-gold-span" not in prompt
+    assert "gold_evidence" not in prompt
+
+
+def test_check_claim_rejects_a_non_case():
+    with pytest.raises(TypeError, match="Case"):
+        check_claim({"claim": "x"})  # type: ignore[arg-type]
+
+
+def test_propose_is_called_only_by_check_claim():
+    tree = ast.parse(APP.read_text(encoding="utf-8"))
+    callers = [
+        node.name
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and _calls_named(node, "propose")
+    ]
+    assert callers == ["check_claim"]
+    check = _function(tree, "check_claim")
+    assert _calls_named(check, "run_program")
+
+
+def test_story_describes_the_detention_packet():
+    from app.streamlit_app import PACKET_STORY, SAMPLE_NOTE, STORY_LEAD
+
+    text = " ".join([STORY_LEAD, PACKET_STORY, SAMPLE_NOTE])
+    assert "accept a detention charge" in STORY_LEAD
+    assert "figure can still be wrong" in STORY_LEAD
+    assert "mark on the page is the evidence" in STORY_LEAD
+    assert "rate confirmation" in PACKET_STORY
+    assert "proof of delivery" in PACKET_STORY
+    assert "invoice" in PACKET_STORY
+    assert "designed demonstration" in PACKET_STORY
+    assert "No saved case is played." in SAMPLE_NOTE
+    for banned in ("SAM", "scoreboard", "ContractNLI"):
+        assert banned not in text
+    tree = ast.parse(APP.read_text(encoding="utf-8"))
+    main = _function(tree, "main")
+    calls: list[str] = []
+    for node in ast.walk(main):
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name):
+                calls.append(func.id)
+            elif isinstance(func, ast.Attribute):
+                calls.append(func.attr)
+    assert calls.index("_story") < calls.index("text_area")
+    assert calls.index("_story") < calls.index("file_uploader")
+    assert "radio" not in calls
+
+
+def test_verdict_and_label_glosses_match_the_three_outcomes():
+    from app.streamlit_app import LABEL_GLOSS, VERDICT_GLOSS
+
+    assert set(VERDICT_GLOSS) == {"SUPPORTED", "CONTRADICTED", "UNRESOLVED"}
+    assert set(LABEL_GLOSS) == {"COMPUTED", "CHECKED", "ASSUMED"}
+    assert "executed calculation" in LABEL_GLOSS["COMPUTED"]
+    assert "independent wording" in LABEL_GLOSS["CHECKED"]
+    assert "do not state" in LABEL_GLOSS["ASSUMED"]
+
+
+def test_live_screen_starts_the_check_from_a_button():
+    tree = ast.parse(APP.read_text(encoding="utf-8"))
+    show = _function(tree, "_show_upload")
+    started: list[ast.Call] = []
+    for node in ast.walk(show):
+        if not isinstance(node, ast.If) or not isinstance(node.test, ast.Call):
+            continue
+        func = node.test.func
+        if isinstance(func, ast.Attribute) and func.attr == "button":
+            assert isinstance(node.test.args[0], ast.Constant)
+            assert node.test.args[0].value == "Check this claim"
+            started.extend(_calls_named(node, "check_claim"))
+    assert len(started) == 1
+    main = _function(tree, "main")
+    assert _calls_named(main, "check_claim") == []
+    assert _calls_named(main, "propose") == []
+
+
+def test_sample_packet_is_the_detention_verdict():
+    from app.streamlit_app import sample_packet
+
+    packet = sample_packet()
+    assert packet.verdict == "CONTRADICTED"
+    assert packet.label == "COMPUTED"
+    assert packet.reasons == (DETENTION_REASON,)
+    assert packet.claim == "The invoice detention charge of $450.00 is correct."
+
+
+def test_overlay_marks_come_from_quotes_or_boxes():
+    from io import BytesIO
+
+    from PIL import Image
+
+    from app.streamlit_app import (
+        OverlayMark,
+        box_pixels,
+        courier_pdf,
+        locate_overlay,
+        mark_rects,
+        marks_for_text,
+        page_marks,
+        render_marked_pdf,
+        sample_packet,
+    )
+    from proofgraph.pdf import map_text_span
+
+    pdf = (ROOT / "tests" / "fixtures" / "text_span_rate.pdf").read_bytes()
+    quote = "Detention: $75.00/hour after 2 hours free time"
+    assert locate_overlay(quote, pdf=pdf) == map_text_span(pdf, quote).box
+    assert locate_overlay("a phone photo of the seal", pdf=pdf) is None
+    assert locate_overlay("ignored", box=(4, 5, 6, 7)) == (4, 5, 6, 7)
+    assert locate_overlay("ignored", box=(0, 0, 1001, 10)) is None
+    assert locate_overlay("orphan quote") is None
+    assert box_pixels((0, 0, 1000, 1000), 200, 100) == (0.0, 0.0, 200.0, 100.0)
+
+    missing = (
+        OverlayMark("gate photo", "gate photo", "in the source", None, 1),
+        OverlayMark("$75.00", "$75.00", "in the source", (10, 20, 30, 40), 1),
+    )
+    assert mark_rects(missing, 1000, 500) == (
+        ("in the source", (10.0, 10.0, 30.0, 20.0)),
+    )
+
+    text_marks = marks_for_text(
+        "Detention: $450.00",
+        [("Detention: $450.00", True), ("gate photo timestamp", False)],
+        claimed="$450.00",
+    )
+    assert text_marks[0].role == "claimed"
+    assert text_marks[0].box is not None
+    assert text_marks[1].box is None
+    assert text_marks[1].fact_quote == "gate photo timestamp"
+
+    pages = page_marks(sample_packet())
+    assert [page.title for page in pages] == [
+        "Rate confirmation",
+        "Proof of delivery",
+        "Invoice",
+    ]
+    located = [mark for page in pages for mark in page.marks]
+    assert {mark.quote for mark in located} >= {
+        "$75.00",
+        "2 hours free time",
+        "10:00",
+        "14:12",
+        "$450.00",
+    }
+    for page in pages:
+        assert page.pdf is not None
+        for mark in page.marks:
+            assert mark.box is not None
+            assert mark.box == locate_overlay(mark.quote, pdf=page.pdf)
+    claimed = [mark for mark in located if mark.role == "claimed"]
+    assert [mark.quote for mark in claimed] == ["$450.00"]
+
+    invoice = next(page for page in pages if page.title == "Invoice")
+    png = render_marked_pdf(invoice.pdf, invoice.marks)
+    assert png.startswith(b"\x89PNG")
+    image = Image.open(BytesIO(png))
+    mark = claimed[0]
+    assert mark.box is not None
+    x0, y0, x1, y1 = box_pixels(mark.box, image.width, image.height)
+    crop = image.crop((int(x0), int(y0), int(x1) + 1, int(y1) + 1))
+    colors = crop.getcolors(maxcolors=crop.width * crop.height)
+    assert colors is not None
+    assert any(color == (0x9F, 0x12, 0x39) for _count, color in colors)
+
+    blank = render_marked_pdf(
+        courier_pdf("Detention: $75.00/hour after 2 hours free time"),
+        missing[:1],
+    )
+    blank_image = Image.open(BytesIO(blank))
+    blank_colors = blank_image.getcolors(maxcolors=blank_image.width * blank_image.height)
+    assert blank_colors is not None
+    assert all(color != (0x9F, 0x12, 0x39) for _count, color in blank_colors)

@@ -3,8 +3,6 @@
 All times are IST. **Deadline: Thu Nov 5, 07:30 IST (Nov 4, 9:00 PM ET). Target submission: Wed Nov 4, 22:00 IST.**
 The recorded start is **Mon Oct 26, 21:30 IST** (decision D20).
 
-Daily board: `docs/12-sprint-manager.md`. This file is the calendar. The sprint manager names overdue and due tasks and keeps later tasks scheduled until their dependency is done. A running product is due by the end of Tue 3 Nov. Wed 4 is submit buffer.
-
 ## Tonight (Mon Oct 26), no code commits
 - [ ] Kickoff stream at 21:30
 - [ ] Claim the $150 Meta Model API credits (card required; set a spend limit)
@@ -13,96 +11,61 @@ Daily board: `docs/12-sprint-manager.md`. This file is the calendar. The sprint 
 - [ ] Clone FinDVer; download ContractNLI manually into `data/contract-nli/`; open one record of each
 
 ## Day 1 (Tue Oct 27): the vertical slice
-Original timetable, kept as history. The last column is the reading on Wed 28 morning.
+| Time | Task | Done when |
+|---|---|---|
+| 0–0:20 | **T1** scaffold: pyproject, Makefile, .env.example, .gitignore, LICENSE, README with the pre-registered criteria, BUILT_DURING_HACKATHON.md | `make test` runs |
+| 0:20–0:40 | **T2** `schema.py`, then freeze | Sample JSON validates |
+| 0:40–1:30 | **T3** FinDVer adapter (passage mode) + leak test | 250 numeric cases load; leak test passes |
+| 0:40–1:30 *(agent, parallel)* | **T5** `numbers.py` + `calc.py` with tests | 15+ calculator tests, number-parsing tests pass |
+| 1:30–2:30 | **T4** `clients/muse.py` + `cache.py` | Valid object returned; repeat call comes from cache; repair retry works |
+| 1:30–2:30 *(agent, parallel)* | **T6** `ground.py` (quote match, conflicts) with tests | 12+ grounding tests pass |
+| 2:30–3:30 | **T7** `propose.py` + `prompts/extract.md` | ≥ 4 of 5 dev claims return valid programs |
+| **~3:30** | **Checkpoint A** | One real claim goes end to end: program → calculator result printed |
+| 3:30–5:00 | **T8** `route.py` + `combine.py` + `graph.py` | Hand-written programs give the expected verdict and label |
+| 5:00–5:30 | **T8b** `clients/checker.py` (fallback mode until Baseten works) + `test_boundaries.py` | Restricted signatures; boundary test passes |
+| 5:30–6:00 | **T9** `baseline.py` (A) | 5 claims answered with reasons |
+| 6:00–7:30 | **T10** `run_eval.py` + `report.py` | 30-claim scoreboard generated from `runs/` |
+| **~7:30** | **Checkpoint B** | Credible proof on 30 claims |
+| 7:30–8:30 | CLI + DOT export, README update, push, log in BUILT_DURING_HACKATHON.md | **Checkpoint C:** a fresh clone reproduces the report from cache |
 
-| Time | Task | Done when | Status |
-|---|---|---|---|
-| 0–0:20 | **T1** scaffold: pyproject, Makefile, .env.example, .gitignore, LICENSE, README with the pre-registered criteria, BUILT_DURING_HACKATHON.md | `make test` runs | Done |
-| 0:20–0:40 | **T2** `schema.py`, then freeze | Sample JSON validates | Done |
-| 0:40–1:30 | **T3** FinDVer adapter (passage mode) + leak test | 250 numeric cases load; leak test passes | Partial |
-| 0:40–1:30 *(agent, parallel)* | **T5** `numbers.py` + `calc.py` with tests | 15+ calculator tests, number-parsing tests pass | Done |
-| 1:30–2:30 | **T4** `clients/muse.py` + `cache.py` | Valid object returned; repeat call comes from cache; repair retry works | Partial |
-| 1:30–2:30 *(agent, parallel)* | **T6** `ground.py` (quote match, conflicts) with tests | 12+ grounding tests pass | Done |
-| 2:30–3:30 | **T7** `propose.py` + `prompts/extract.md` | ≥ 4 of 5 dev claims return valid programs | Partial |
-| **~3:30** | **Checkpoint A** | One real claim goes end to end: program → calculator result printed | Live slipped |
-| 3:30–5:00 | **T8** `route.py` + `combine.py` + `graph.py` | Hand-written programs give the expected verdict and label | Done |
-| 5:00–5:30 | **T8b** `clients/checker.py` (fallback mode until Baseten works) + `test_boundaries.py` | Restricted signatures; boundary test passes | Partial |
-| 5:30–6:00 | **T9** `baseline.py` (A) | 5 claims answered with reasons | Slipped |
-| 6:00–7:30 | **T10** `run_eval.py` + `report.py` | 30-claim scoreboard generated from `runs/` | Slipped |
-| **~7:30** | **Checkpoint B** | Credible proof on 30 claims | Missed |
-| 7:30–8:30 | CLI + DOT export, README update, push, log in BUILT_DURING_HACKATHON.md | **Checkpoint C:** a fresh clone reproduces the report from cache | Partial |
+## Days 2–9
 
-## Where the code is (Wed 28 morning)
-Present and tested offline: schema, cache, config; engine numbers, calc (`hours_between` already exists), ground, route, combine, graph, spans; `clients/muse.py` (cache, one JSON repair, `max_retries=0`, timeouts fail closed); `clients/checker.py` `blind_wording` only (route does not call it; a wording link returns `CHECKER_UNAVAILABLE`); `propose.py` and `prompts/extract.md` (a PDF is the text line `File id:`, which does not attach the file); `adapters/findver.py` passage mode, numeric only, dev cap 50, whole-filing raises; CLI on a fixture file, no `verify --case`; `app/streamlit_app.py` two fixtures and pasted text.
-
-Absent: `baseline.py`, `propose.revise`, `prompts/objection.md`, `clients/sam.py`, `pdf.py`, `scripts/run_eval.py`, `scripts/report.py`. `scripts/` is empty.
-
-The next checkpoint is **Checkpoint A live**: one Muse program through `run_program`, printed verdict. The detention fixture already prints CONTRADICTED / COMPUTED without Muse. Checkpoint B (30-claim scoreboard vs Direct Muse) comes after that. Day 1 missed Checkpoint B, so the rescue rule applies: skip the FinDVer fact-lookup / IE half and protect the numeric run.
-
-`BUILT_DURING_HACKATHON.md` for 2026-10-27 is behind this tree. No live model call has been scored.
-
-## Remaining days
-Resequenced Wed 28 (decision D21). Wednesday morning is the early slice only. The submission list does not shrink: Contender A and B, the 30-claim scoreboard, the full numeric passage run, the −quote ablation and the −coverage cache rerun, the objection loop, ContractNLI, whole-filing, conflict traps, self-check, boxes, SAM, 16 freight bundles, what-to-fetch, the app, deploy, the video, and the Wed 4 22:00 submit all stay. IE stays skipped. The Muse Code gate stays a Saturday stretch after freight rows exist.
+28 Oct panel (D27) closed Wednesday on the two probes. That sitting held `SPEND_LIMIT_USD` at $10. The live cap is $50 per run (D29). The table below is the remaining window. Owners, the gate, and the stopped rows are in `docs/12-sprint-manager.md`. The deadline is unchanged: **Thu Nov 5, 07:30 IST**. Submit target: **Wed Nov 4, 22:00 IST**. `docs/02-scope.md` is unchanged. `docs/08-guardrails.md` names the $50 default.
 
 | Day | Goal | Done when |
 |---|---|---|
-| **Wed 28** | Early slice, morning only. One text claim: live propose → `run_program` → verdict, label, reasons. Then one Baseten `blind_wording` call on one quote and one statement. Stop. | Both probes returned. If either returns 429, the retry cap is in before any further call. **21:30: Agents 102 (must attend).** |
-| **Thu 29** | HTTP retries first. Then Contender A, `run_eval`, `report`, and the 30-claim numeric scoreboard (Checkpoint B). Then one counterevidence/illegible line in `prompts/extract.md`, dev slice only. Then the full numeric passage run. Skip IE. Contender B, the −quote ablation, and the −coverage cache rerun only after the report script exists. Fixture-test the objection loop at the end of the day only if that scoreboard is already in `runs/`. | Checkpoint B is in `runs/`. The prompt line is frozen for the numeric run. IE is not run. |
-| **Fri 30** | Objection loop on cached cases if Thursday did not finish it. Then Files API and the SAM token parser, text-in-box, and blind re-read. | One hand-made bundle verifies with boxes. `hours_between` is already in `calc.py`. *21:30 Fireworks session (optional).* |
-| **Sat 31** | ContractNLI (~300), FinDVer whole-filing (50), conflict traps, self-check. Then 16 freight bundles, what-to-fetch, `pick_demo_cases.py`. | Those rows are in the report. Freight rows exist before any Muse Code gate. |
-| **Sun Nov 1** | Streamlit app (decision D25). A judge action runs propose and the engine on a prepared document or a pasted claim. The screen shows the verdict, the reasons, plan / act / observe, a red refusal, what-to-fetch, and the box when the bundle has one. The key is in the host secret store. A spend cap bounds the call. | One live check returns on that screen. It does not play a stored verdict. The current fixture screen is not this app. |
-| **Mon Nov 2** | Deploy on Streamlit Community Cloud. The URL is for judges. README and rough edges. **Feature freeze tonight.** | The judge URL runs a live check under the spend cap. Features are frozen. |
-| **Tue Nov 3** | The human makes the 3-minute animation from a real run (`10-demo-and-submission.md`). Office hours 20:30–21:30 | The animation is uploaded, unlisted, and matches a real run. Tuesday is not the day the app first works. |
-| **Wed Nov 4** | Buffer. Re-cut the animation if needed. **Submit by 22:00.** Post on X. The live app URL stays with the judges. | Submission confirmed |
+| **Wed 28** | Closed. Both probes returned. In flight, and not this day's exit: Senior Software Engineer on the live Streamlit check; Staff Applied AI Engineer on the Files API upload; Verification & Reasoning Engineer on the text-in-box draft. **21:30: Agents 102 (must attend, Product & Hackathon Strategy Lead).** The human builder lands the working tree on the public branch. This panel does not commit it. | Probes returned. Judges still see a fixture replay until that landing. |
+| **Thu 29** | The live check on the detention/legal-hours claim. The upload path, with no `File id:` line. After the upload, the same owner does the blind re-read, then SAM with noun `cardboard box`. Bind text-in-box once `file_id` exists. The full numeric run stays stopped. | A live verdict is on screen. The upload is `input_file`. |
+| **Fri 30** | Principal Engineer & Technical Lead runs one hand-made bundle, only after upload, text-in-box, blind re-read, and SAM exist. *21:30 Fireworks session (optional)* | The bundle verifies with boxes, including the clock re-read and a `cardboard box` count. |
+| **Sat 31** | Product & Hackathon Strategy Lead picks one false claim from the five Direct Muse approved, or the detention probe. | That claim is chosen. ContractNLI, whole-filing, traps, self-check, 16 freight bundles, and the Muse Code gate stay stopped. |
+| **Sun Nov 1** | D29. No FinDVer and no ContractNLI. If Friday's bundle is still open, that bundle is overdue. If it has closed, finish any open gate box that is already due. The stratified sampler does not start. | The day did not start a benchmark run. No app polish. |
+| **Mon Nov 2** | Senior Software Engineer deploys that live check and holds the URL for the submission form. Judges do not receive it before Wed 4. The cap is $50 per run and counts SAM image calls. Product & Hackathon Strategy Lead writes the README from the D26 sentence and says 2 of 27 in the same breath. **Feature freeze tonight.** | The deployed URL runs a live check and is ready to paste into the form. README has that sentence and no "results have not been run" line. Gate boxes 4 and 5 can become yes tonight. Boxes 1–3 have to be yes already or this day does not open a benchmark. |
+| **Tue Nov 3** | Video from a real run (`10-demo-and-submission.md`). The same sentence, and 2 of 27 in the same breath. The human makes the animation. The video does not wait on the 250. If the five gate boxes are yes, Staff Applied AI Engineer runs the full FinDVer numeric command with `n` omitted. The script aborts when the printed estimate is above $50. Do not shrink `n`. Office hours 20:30–21:30 | 3:00 video uploaded (unlisted). The FinDVer command either finished or aborted on its print. It did not start if any gate box was no. |
+| **Wed Nov 4** | Buffer, re-record if needed, **submit by 22:00**, post on X. Principal Engineer & Technical Lead. The URL goes into the submission form here. Judges do not have it before this. ContractNLI may use the morning only under D29, and only before submit prep starts. | Submission confirmed, with the URL in the form. Hard deadline Thu Nov 5, 07:30 IST. |
 
-Wednesday do-not-start list: do not edit `prompts/extract.md`. Do not start Files API, SAM, retries, demo framing, or the Muse Code gate. If a Wednesday probe returns 429, then and only then add the retry cap before any further calls. The counterevidence line is required on Thursday, and Files API and SAM are required on Friday. That list only holds them until the live program returns.
+Nice, only after the five musts, and only if Wednesday is not still submit prep. No day of their own. Staff Applied AI Engineer: one live objection round if a trigger code fires; six freight bundles only if the one bundle is already done. The mixed FinDVer slice left this list on 28 Oct. D29 supersedes that Sunday slice. The full numeric file is the named result, and it waits for the gate.
 
-28 Oct update: both probes returned and neither was 429, so retries stay on Thursday. `clients/checker.py` is still the Muse client; pointing it at Baseten is unblocked. Route calling the checker stays blocked on that client. D24: an UNRESOLVED fall-through keeps a null label, and `combine.py` does not change.
+The Muse Code gate, FinDVer whole-filing, conflict traps, self-check spend, 16 freight bundles, and app polish do not return in this window. Contender B, the −quote ablation, and the −coverage rerun stay stopped. The full numeric testmini and ContractNLI return only under D29. The 30-claim scoreboard stays the scoreboard until that full-file report exists. Do not present 0 versus 5 as a win. `docs/02-scope.md` still does not cut either benchmark. D29 is when they may start.
 
-Thursday retries, when they start: at most 4 backoff retries on 429/5xx, ~180s timeout, one JSON repair, then `EXTRACTION_FAILED`. Timeouts stay unrepaired. The dev-slice prompt line changes no schema and spends nothing on the full set.
+## Implementation notes (feasibility probe, 28 Oct)
 
-Friday attachments: upload once, cache `file_id` by SHA-256, send `input_text` + `input_file`; `input_image` for a crop. SAM count is the number of `<|box|>` tokens. The noun prompt is a noun such as carton, never signature.
+These fill gaps in Friday's visual-citation row. The same notes are on the Friday tasks in `docs/12-sprint-manager.md`. The probe ran outside the repo on one synthetic freight packet, load PG-SPIKE-01. It is not the hand-made bundle. Product code did not change.
 
-The Muse Code verify-before-acting gate (`02-scope.md`, D15) is a Saturday stretch, and only after freight rows exist.
+- **Files API.** Upload with `purpose="user_data"`. Send `input_text` plus `input_file` with `detail` `high`. Cache the `file_id` under the file's SHA-256. The string-input propose path stays for text cases.
+- **Text-in-box.** Map the 0–1000 box with pdfplumber's top-down `top`. Try a 2% margin, then 3%, then 4%, and keep the smallest whose words contain the fact value. On the probe PDF, 2% matched nothing, 3% matched only `Detention: $75.00/hour after 2 hours free time`, and 4% also matched the next linehaul line.
+- **Blind re-read.** Send the crop to Baseten as an `image_url` data URL. Match clocks as times: the probe ink was `07:40` and the checker returned `7:40`. Muse `input_image` is the fallback when Baseten rejects the image.
+- **SAM.** Send a still as an `input_image` data URL and stream `sam-3.1`. The count is the number of `<|box;` records. Discard mask payloads. A still does not need a `file_id`. On the schedule, Staff Applied AI Engineer still does it after the upload and the blind re-read. The noun `carton` returned an empty segmentation on a 12-carton drawing. The noun `cardboard box` returned 12, with the first box on a drawn carton. The hand-made bundle uses `cardboard box`, and `carton` is retried only on a phone photo of real cartons. SAM responses reported `images_processed: 1` and zero tokens, so the spend cap counts those image calls.
 
-## How to proceed
-1. Do the Wednesday slice. Stop after the two probes.
-2. Do not start a task whose dependency is unmet.
-3. Independent tasks may run only when they do not block the critical path: live probe → retries → scoreboard → numeric run → objection loop → boxes and SAM → freight → app → video.
-4. If Thursday slips, skip IE, cap the objection loop at one round, and still protect the numeric scoreboard and Friday's one boxed bundle.
-5. Log the day in `BUILT_DURING_HACKATHON.md`. Do not write result numbers that are not in `results/report.md`.
-
-## Dependencies
-Critical path: live probe → retries → scoreboard → numeric run → objection loop → boxes and SAM → freight → app → video.
-
-1. **Live text propose → `run_program` (Wed morning).** Depends on nothing new. Gates every later loop that spends.
-2. **One `blind_wording` probe.** Depends on the live propose having returned, so the key is known. It can run after that, the same morning. It does not depend on the scoreboard.
-3. **HTTP retries.** Depends on the Wednesday probe existing as a client. Do not start before that single probe unless the probe returns 429. Gates every later multi-call run.
-4. **Contender A, `run_eval`, `report`, 30-claim numeric scoreboard.** Depends on the live propose path and on retries. Gates the full numeric run, Contender B, ablations, and any prompt edit.
-5. **Counterevidence / illegible line in `prompts/extract.md`.** Depends on the two probes having settled, and on a report script so the dev slice can be scored. It must not land before the first live program.
-6. **Full numeric passage run.** Depends on Checkpoint B and on that prompt line being frozen for the run.
-7. **Objection loop (`revise`).** Depends on a scored numeric row in `runs/` before the loop is trusted. The fixture test can be written once combine reason codes exist (they do). If Thursday is slipping, do not start the loop before the scoreboard. It must not block the numeric scoreboard or Friday's boxed bundle.
-8. **Files API attachments.** Depends on the string-input propose path already working on text. Independent of SAM. Gates text-in-box and the hand-made bundle. Must not block the scoreboard.
-9. **SAM parser.** Independent of Files API once a photo fixture exists. The bundle demo depends on both. It does not depend on ContractNLI. Must not block the upload path.
-10. **text-in-box and blind re-read.** text-in-box depends on Files API plus pdf words. Blind re-read depends on `input_image` crops. Neither depends on SAM. Must not block each other. The bundle waits for both, and for SAM.
-11. **ContractNLI, whole-filing, traps, self-check.** Depend on the objection loop and on the numeric scoreboard pattern (same eval and report). Independent of SAM and of freight photos. Must not block Friday's one boxed bundle.
-12. **Freight bundles and what-to-fetch.** Depend on boxes (Files API, text-in-box, blind re-read, SAM count) and on the engine. The Muse Code gate depends on freight rows. Must not start while the scoreboard is still missing.
-13. **Live Streamlit app (plan / act / observe).** Depends on the propose path. The handoff is meaningful once fetch lines exist. Prepared documents may sit on the server. The check runs when the judge acts. Independent of the animation. Must not block the boxed bundle.
-14. **Deploy, animation, submit.** Deploy depends on that live app, with the key in Streamlit secrets and the spend cap on. The URL is for judges. The animation depends on a real run (the scoreboard plus at least one boxed freight case) and the human makes it. Submit depends on a public repo, the animation, and `BUILT_DURING_HACKATHON.md`. Deploy must not wait on the animation.
-
-### Side by side
-- After Checkpoint B, the prompt-line dev slice can be prepared while report formatting is cleaned. The prompt must not change during the scored numeric run.
-- Friday, the SAM parser and text-in-box can be written in parallel after the upload path exists. The bundle waits for both.
-- Saturday, ContractNLI eval and freight document staging can overlap only after the objection loop is capped and tested. Do not overlap them if the scoreboard is still missing.
-- Sunday app and Monday deploy are sequential. The animation can be outlined Sunday from `docs/10-demo-and-submission.md`. The animation waits for a real run. The app does not wait for the animation.
+The rescue row "SAM counts are poor" still means re-stage the photos and report agreement honestly. A zero from the noun `carton` on a drawing is an empty segmentation to re-prompt before the photos are re-staged.
 
 ## Rescue decisions
 | If… | Then… |
 |---|---|
 | The Meta API doesn't work from India | Run everything on Muse Spark Open via Baseten; ask in #office-hours |
-| Day 1 slips past Checkpoint B | **Fired.** Skip the FinDVer fact-lookup / IE half. Protect the numeric run |
-| The objection loop is flaky, or Thursday is slipping | Cap it at 1 round, log it, and do not start it before the scoreboard. Still protect the numeric scoreboard and Friday's one boxed bundle |
-| About to add `hours_between` | Stop. It already exists in `calc.py` |
-| SAM counts are poor | Re-stage the photos; keep the count check, report agreement honestly |
-| The app eats more than one day | Ship the Streamlit table and Graphviz with a live check. The painted overlay can move into the animation |
-| Behind on Nov 2 | Cut in the order given in `02-scope.md` |
+| Day 1 slips past Checkpoint B | Skip the IE half on Day 2; protect the numeric run |
+| The fresh full-numeric print is above $50 | The script aborts. Do not shrink `n`. Do not raise the cap again in that sitting. The 30-claim scoreboard stays. Contender B, the −quote ablation, and the −coverage rerun stay stopped. |
+| The objection loop is flaky | Cap it at 1 round, log it, move on |
+| SAM counts are poor | Re-stage the photos; keep the count check, report agreement honestly. The bundle noun is `cardboard box`. |
+| The app eats more than one day | The live check is the app. App polish stays stopped. |
+| Friday's bundle is still open Saturday | The bundle is overdue and comes first. Six freight bundles do not start. Monday's deploy of the text check still ships. |
+| Behind on Nov 2 | The stopped rows stay stopped. Do not drop the live check, the one bundle, the D26 sentence, or the deploy. |

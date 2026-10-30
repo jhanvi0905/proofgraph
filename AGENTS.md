@@ -47,4 +47,4 @@ That skill is the authoritative workflow for feature research, planning, user ap
 | What to build today | `docs/12-sprint-manager.md` (daily board), `docs/07-build-plan.md` (calendar) |
 | Is this in scope? | `docs/02-scope.md`, `docs/11-decision-log.md` |
 
-Ask before changing a rule above, adding a dependency, or spending more than $10 in a run. If something isn't covered, write it in `QUESTIONS.md` and move to the next task.
+Ask before changing a rule above, adding a dependency, or spending more than $50 in a run. If something isn't covered, write it in `QUESTIONS.md` and move to the next task.

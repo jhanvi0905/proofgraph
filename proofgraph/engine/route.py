@@ -1,9 +1,10 @@
-"""Route facts and links to the Day 1 checks. No proposer and no model client."""
+"""Route facts and links to the Day 1 checks. No proposer and no Muse client."""
 
+from proofgraph.clients.checker import CheckerError, blind_wording
 from proofgraph.engine.calc import check_compute
 from proofgraph.engine.combine import combine
 from proofgraph.engine.ground import apply_conflicts, ground
-from proofgraph.schema import Case, ClaimProgram, FactCheck, Link, LinkResult, Verdict
+from proofgraph.schema import Case, ClaimProgram, Fact, FactCheck, Link, LinkResult, Verdict
 
 
 def run_program(case: Case, program: ClaimProgram) -> Verdict:
@@ -20,7 +21,7 @@ def check(
     program: ClaimProgram,
     case: Case,
 ) -> LinkResult:
-    """Dispatch one link. Wording and missing evidence block without a model call."""
+    """Dispatch one link. A wording link goes to the blind checker."""
     strength = _strength(link)
     try:
         input_checks = [facts[fact_id] for fact_id in link.inputs]
@@ -45,6 +46,14 @@ def check(
             strength=strength,
             detail="UNGROUNDED_QUOTE",
         )
+    if link.kind == "rule" and _blank(link.expr) and link.rule_source == "assumed":
+        shown = link.statement.strip()
+        return LinkResult(
+            link_id=link.id,
+            status="pass",
+            strength="ASSUMED",
+            detail=shown or "shown",
+        )
     if link.kind in {"compute", "temporal"} or (link.kind == "rule" and link.expr):
         by_fact = {fact.id: fact for fact in program.facts}
         try:
@@ -64,18 +73,74 @@ def check(
             detail=outcome.detail,
         )
     if link.kind == "wording":
-        return LinkResult(
-            link_id=link.id,
-            status="blocked",
-            strength="CHECKED",
-            detail="CHECKER_UNAVAILABLE",
-        )
+        return _check_wording(link, program)
     return LinkResult(
         link_id=link.id,
         status="blocked",
         strength=strength,
         detail="EVAL_ERROR",
     )
+
+
+def _check_wording(link: Link, program: ClaimProgram) -> LinkResult:
+    """Send one passage and the link statement to the blind checker."""
+
+    quote = _passage(link, program)
+    if quote == "":
+        return LinkResult(
+            link_id=link.id,
+            status="blocked",
+            strength="CHECKED",
+            detail="CHECKER_UNAVAILABLE",
+        )
+    try:
+        label = blind_wording(quote, link.statement)
+    except CheckerError as exc:
+        if exc.status_code == 429:
+            raise
+        return LinkResult(
+            link_id=link.id,
+            status="blocked",
+            strength="CHECKED",
+            detail=exc.reason_code,
+        )
+    if label == "entails":
+        return LinkResult(
+            link_id=link.id,
+            status="pass",
+            strength="CHECKED",
+            detail=link.statement,
+        )
+    if label == "contradicts":
+        return LinkResult(
+            link_id=link.id,
+            status="fail",
+            strength="CHECKED",
+            detail=link.statement,
+        )
+    return LinkResult(
+        link_id=link.id,
+        status="not_mentioned",
+        strength="CHECKED",
+        detail="NOT_MENTIONED",
+    )
+
+
+def _passage(link: Link, program: ClaimProgram) -> str:
+    """The input quotes, once each. Nothing else from the case is included."""
+
+    by_id = {fact.id: fact for fact in program.facts}
+    quotes: list[str] = []
+    for fact_id in link.inputs:
+        fact: Fact | None = by_id.get(fact_id)
+        text = fact.quote.strip() if fact is not None and fact.quote else ""
+        if text and text not in quotes:
+            quotes.append(text)
+    return "\n".join(quotes)
+
+
+def _blank(value: str | None) -> bool:
+    return value is None or value.strip() == ""
 
 
 def _strength(link: Link) -> str:

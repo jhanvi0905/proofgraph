@@ -26,7 +26,7 @@ Every rule here exists because breaking it would either break the core claim or 
 
 ## D. Models and money
 17. Every model call goes through `cache.py`. No uncached calls in loops. `bypass_cache` is for a named experiment, not the default.
-18. `run_eval.py` estimates cost first (using `POST /v1/responses/input_tokens` on a sample) and aborts above `SPEND_LIMIT_USD` unless the human raises it.
+18. `run_eval.py` estimates cost first (using `POST /v1/responses/input_tokens` on a sample) and aborts when that estimate is greater than `SPEND_LIMIT_USD`. The default is $50 per run (D29). An estimate equal to the cap does not abort. A cap above $50 still waits for the human.
 19. Use the exact model IDs in `.env`. Every model in the product must be a Meta model. Meta proposes. Baseten runs the blind checker only (`meta-models/muse-spark-open-1026`). Modal and Fireworks stay unused.
 20. Retries: at most 4 with exponential backoff on 429/5xx; one repair retry on invalid JSON; then fail honestly (`EXTRACTION_FAILED`). Do not start that repair in the same step as the first paid call.
 
