@@ -144,7 +144,7 @@ def test_blind_reread_sends_image_url_matches_clocks_and_falls_back(tmp_path, mo
     }
 
     baseten = FakeTransport(
-        [CheckerError("blind checker request failed", status_code=500)]
+        [CheckerError("blind checker request failed", status_code=400)]
     )
     muse = FakeTransport([{"output_text": reading}])
     _use(monkeypatch, _client(tmp_path / "other", baseten, muse))
