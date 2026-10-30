@@ -458,9 +458,9 @@ def test_cache_key_ignores_dict_order():
     )
 
 
-def test_spend_limit_defaults_to_10_and_is_not_raised():
+def test_spend_limit_defaults_to_50_and_a_lower_setting_is_kept():
     defaults = load_settings({})
-    assert defaults.spend_limit_usd == Decimal("10")
+    assert defaults.spend_limit_usd == Decimal("50")
     assert defaults.model_api_key is None
     assert defaults.muse_model == "muse-spark-1.3"
     assert defaults.cache_dir.as_posix() == "cache"
@@ -513,3 +513,193 @@ def test_openai_transport_sends_the_documented_request(tmp_path, monkeypatch):
     assert captured["kwargs"]["reasoning"] == {"effort": "medium"}
     assert captured["kwargs"]["text"]["format"]["type"] == "json_schema"
     assert set(captured["kwargs"]) == {"model", "input", "reasoning", "text"}
+
+
+class RecordingFiles:
+    def __init__(self, responses: list[dict[str, Any]] | None = None) -> None:
+        self._responses = list(responses or [])
+        self.calls: list[dict[str, Any]] = []
+
+    def create(self, *, filename: str, content: bytes, purpose: str) -> dict[str, Any]:
+        self.calls.append({"filename": filename, "content": content, "purpose": purpose})
+        if self._responses:
+            return self._responses.pop(0)
+        return {"id": f"file_{len(self.calls)}"}
+
+
+def test_upload_caches_file_id_under_sha256_of_bytes(tmp_path):
+    import hashlib
+
+    content = b"%PDF-rate"
+    first_path = tmp_path / "rate.pdf"
+    renamed = tmp_path / "copy.pdf"
+    other = tmp_path / "other.pdf"
+    first_path.write_bytes(content)
+    renamed.write_bytes(content)
+    other.write_bytes(b"%PDF-other")
+    files = RecordingFiles()
+    client = MuseClient(_settings(tmp_path), transport=FakeTransport([]), files_transport=files)
+
+    assert client.upload_user_data(first_path) == "file_1"
+    assert client.upload_user_data(renamed) == "file_1"
+    assert client.upload_user_data(other) == "file_2"
+    assert [call["purpose"] for call in files.calls] == ["user_data", "user_data"]
+    assert [call["filename"] for call in files.calls] == ["rate.pdf", "other.pdf"]
+    assert files.calls[0]["content"] == content
+
+    digest = hashlib.sha256(content).hexdigest()
+    stored = json.loads((tmp_path / "files" / f"{digest}.json").read_text(encoding="utf-8"))
+    assert stored["endpoint"] == "POST /v1/files"
+    assert stored["request"] == {"purpose": "user_data", "sha256": digest}
+    assert stored["response"] == {"id": "file_1"}
+    assert content.decode() not in json.dumps(stored)
+
+    fresh = RecordingFiles([{"id": "file_should_not_be_used"}])
+    again = MuseClient(
+        _settings(tmp_path),
+        transport=FakeTransport([]),
+        files_transport=fresh,
+        cache=client.cache,
+    )
+    assert again.upload_user_data(first_path) == "file_1"
+    assert fresh.calls == []
+
+
+def test_poisoned_file_cache_is_uploaded_again(tmp_path):
+    import hashlib
+
+    from proofgraph.cache import CachedCall, DiskCache
+
+    content = b"pdf-bytes"
+    path = tmp_path / "rate.pdf"
+    path.write_bytes(content)
+    digest = hashlib.sha256(content).hexdigest()
+    DiskCache(tmp_path / "files").put(
+        CachedCall(
+            key=digest,
+            endpoint="POST /v1/responses",
+            request={"purpose": "user_data", "sha256": digest},
+            response={"id": "stale"},
+        )
+    )
+    files = RecordingFiles([{"id": "file_fresh"}])
+    client = MuseClient(_settings(tmp_path), transport=FakeTransport([]), files_transport=files)
+
+    assert client.upload_user_data(path) == "file_fresh"
+    assert len(files.calls) == 1
+    stored = json.loads((tmp_path / "files" / f"{digest}.json").read_text(encoding="utf-8"))
+    assert stored["response"] == {"id": "file_fresh"}
+    assert stored["endpoint"] == "POST /v1/files"
+
+
+def test_upload_without_an_id_is_not_cached(tmp_path):
+    path = tmp_path / "rate.pdf"
+    path.write_bytes(b"pdf")
+    files = RecordingFiles([{"object": "file"}])
+    client = MuseClient(_settings(tmp_path), transport=FakeTransport([]), files_transport=files)
+
+    with pytest.raises(MuseResponseError, match="file id"):
+        client.upload_user_data(path)
+
+    assert files.calls[0]["purpose"] == "user_data"
+    assert list((tmp_path / "files").glob("*.json")) == []
+
+
+def test_missing_key_does_not_upload(tmp_path):
+    path = tmp_path / "rate.pdf"
+    path.write_bytes(b"pdf")
+    files = RecordingFiles()
+    client = MuseClient(load_settings({"CACHE_DIR": str(tmp_path)}), files_transport=files)
+
+    with pytest.raises(MissingApiKeyError, match="MODEL_API_KEY"):
+        client.upload_user_data(path)
+
+    assert files.calls == []
+    assert list(tmp_path.glob("*.json")) == []
+
+
+def test_file_parts_stay_on_the_repair_and_change_the_cache_key(tmp_path):
+    transport = FakeTransport(
+        [
+            _envelope("not json"),
+            _envelope('{"name": "crate", "count": 4}'),
+            _envelope('{"name": "a", "count": 1}'),
+            _envelope('{"name": "b", "count": 2}'),
+        ]
+    )
+    client = _client(tmp_path, transport)
+
+    result = client.structured("Count the crates.", Widget, file_ids=["file_abc"])
+
+    assert result == Widget(name="crate", count=4)
+    first = transport.bodies[0]["input"]
+    second = transport.bodies[1]["input"]
+    assert first[0]["content"][0]["type"] == "input_text"
+    assert first[0]["content"][0]["text"] == "Count the crates."
+    assert "File id:" not in first[0]["content"][0]["text"]
+    assert first[0]["content"][1] == {
+        "type": "input_file",
+        "file_id": "file_abc",
+        "detail": "high",
+    }
+    assert second[0]["content"][1] == first[0]["content"][1]
+    assert "not json" in second[0]["content"][0]["text"]
+    assert set(transport.bodies[0]) == {"model", "input", "reasoning", "text"}
+
+    cached = client.structured("Count.", Widget, file_ids=["file_a"])
+    assert cached.count == 1
+    assert client.structured("Count.", Widget, file_ids=["file_a"]).count == 1
+    assert transport.calls == 3
+    other = client.structured("Count.", Widget, file_ids=["file_b"])
+    assert other.count == 2
+    assert transport.calls == 4
+    assert transport.bodies[3]["input"][0]["content"][1]["file_id"] == "file_b"
+
+
+def test_openai_files_transport_uploads_user_data(tmp_path, monkeypatch):
+    content = b"%PDF-1.4\n"
+    path = tmp_path / "nested" / "rate.pdf"
+    path.parent.mkdir()
+    path.write_bytes(content)
+    captured: dict[str, Any] = {}
+
+    class _File:
+        def model_dump(self, mode: str = "python") -> dict[str, Any]:
+            assert mode == "json"
+            return {
+                "id": "file_uploaded",
+                "object": "file",
+                "bytes": len(content),
+                "filename": "rate.pdf",
+                "purpose": "user_data",
+            }
+
+    class _Files:
+        def create(self, **kwargs: Any) -> _File:
+            captured["kwargs"] = kwargs
+            return _File()
+
+    class _OpenAI:
+        def __init__(self, **kwargs: Any) -> None:
+            captured["init"] = kwargs
+            self.files = _Files()
+
+    import openai
+
+    monkeypatch.setattr(openai, "OpenAI", _OpenAI)
+    client = MuseClient(_settings(tmp_path))
+
+    assert client.upload_user_data(path) == "file_uploaded"
+    assert captured["init"] == {
+        "api_key": "test-key",
+        "base_url": MUSE_BASE_URL,
+        "max_retries": 0,
+    }
+    assert captured["kwargs"]["file"] == ("rate.pdf", content)
+    assert captured["kwargs"]["purpose"] == "user_data"
+    assert set(captured["kwargs"]) == {"file", "purpose"}
+    assert "nested" not in json.dumps(captured["kwargs"]["file"][0])
+    stored = json.loads(next((tmp_path / "files").glob("*.json")).read_text(encoding="utf-8"))
+    assert stored["response"] == {"id": "file_uploaded"}
+    assert "nested" not in json.dumps(stored)
+    assert "filename" not in stored["response"]

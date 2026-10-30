@@ -1,0 +1,36 @@
+{
+  "role": "use",
+  "world": "SEC filing",
+  "note": "Real filing passages. Gold label is true. The claim is the net cost of a cyber incident after insurance recoveries.",
+  "expected": {
+    "verdict": "SUPPORTED",
+    "label": null
+  },
+  "case": {
+    "id": "numeric-test-0",
+    "dataset": "findver",
+    "mode": "passage",
+    "claim": "The net cost of the November 2022 Cyber Incident after insurance recoveries is $2.2 million.",
+    "sources": [
+      {
+        "id": "p383",
+        "kind": "text",
+        "text": "72 the fiscal year ended November 30, 2023, we incurred $ 4.7 million of costs related to this incident. Costs are provided net of insurance recoveries of $ 2.5 million. We do not expect to incur additional costs related to this incident as the investigation is closed.",
+        "file_id": null,
+        "path": null
+      },
+      {
+        "id": "p390",
+        "kind": "text",
+        "text": "73\nInsurance Coverage During the period when the November 2022 Cyber Incident and the MOVEit Vulnerability occurred, we maintained $ 15.0 million of cybersecurity insurance coverage, which is expected to reduce our exposure to expenses and liabilities arising from these events. As of November 30, 2023, we have recorded approximately $ 6.2 million in insurance recoveries, of which $ 2.5 million was related to the November 2022 Cyber Incident and $ 3.7 million was related to the May 2023 MOVEit Vulnerability, providing us with $ 8.8 million of additional cybersecurity insurance coverage (which is subject to a $ 0.5 million retention per claim). We will pursue recoveries to the maximum extent available under our insurance policies.",
+        "file_id": null,
+        "path": null
+      }
+    ],
+    "answer": "SUPPORTED",
+    "gold_evidence": [
+      "p383",
+      "p390"
+    ]
+  }
+}

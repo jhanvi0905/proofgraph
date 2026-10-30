@@ -7,7 +7,7 @@
 | 0:20–0:50 | Right lines, wrong answer | A FinDVer case in the app: click a fact to see its quote highlighted; the check fails; CONTRADICTED | "ProofGraph never lets the model decide. Every link is checked by something that didn't write it." |
 | 0:50–1:20 | Muse corrects itself | A ContractNLI NDA: the blind checker rejects a clause, Muse looks again, the verdict lands labelled CHECKED | "No model marks its own homework." |
 | 1:20–2:05 | Drawn on the documents | A freight bundle with the proof graph on the pages: the rate in the PDF, handwritten times re-read blind, cartons counted by SAM 3.1; then the smudged copy gives UNRESOLVED plus "what to fetch" | "Citations you can check, down to the pixel." |
-| 2:05–2:40 | Scoreboard | `results/report.md`: wrongly approved, can't-tell cases caught, accuracy by label, blind check vs self-check | Read only numbers from the report. |
+| 2:05–2:40 | Scoreboard | `results/report.md`: wrongly approved, can't-tell cases caught, accuracy by label, blind check vs self-check | Read only numbers from the report. Say the D26 sentence below. Do not present 0 versus 5 as a win. |
 | 2:40–3:00 | Built + next | Commit log, `BUILT_DURING_HACKATHON.md` | "Built during the hackathon: the verification engine, visual citations, the objection loop, the evaluation and the app. Next: technical specifications and policies, fully on-premises with Muse Glimmer, and using the engine as a reward to train open models." |
 
 **Demo cases must come from real runs.** Use `scripts/pick_demo_cases.py` to list cases where A was wrong and ProofGraph was right. Don't stage model outputs. The freight bundles are labelled as our own demonstration set.
@@ -31,3 +31,13 @@ The submission video is an animation the human makes from one of those runs (dec
 
 ## X post (draft)
 "AI can cite the right line and still be wrong. I built ProofGraph for the Meta AI hackathon: Muse Spark points to every fact on the page, a second Meta model checks it blind, SAM 3.1 counts what's in the photo, and code decides. Every verdict says how it was proven. [video] [repo]"
+
+## Judge comparison (D26)
+
+One recorded false claim, same evidence: Direct Muse approves it, ProofGraph does not, with one plain reason. Pick it from the five Direct Muse got wrong on the 28 Oct run. Label it as that file-order run, not a sample.
+
+Say this once, at the scoreboard:
+
+On the first 30 false FinDVer claims, ProofGraph approved 0 and Direct Muse approved 5. On 50 true claims, ProofGraph approved 2, rejected 25, and declined 23. Grounding is 18/24. The repair loop did not run. Criterion 1 is not claimed.
+
+Keep off the judge screen: a comparison browser, a live Muse bake-off, a 0-versus-5 win line, 24/24 as the headline, and any claim that ProofGraph beat Direct Muse on FinDVer. The pair waits until after Friday's boxed bundle. If Sunday is full, it lives only in the video.

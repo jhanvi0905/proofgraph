@@ -1,1 +1,1 @@
-"""Deterministic checks. This package does not call a model."""
+"""Deterministic checks. Wording links call the blind checker. This package does not import the proposer."""

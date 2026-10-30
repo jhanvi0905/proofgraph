@@ -1,0 +1,21 @@
+{
+  "role": "demo",
+  "world": "contract clause",
+  "note": "Demonstration, not ContractNLI. The clause is about returning lane notes. The claim is about Delaware law. Nothing in the clause mentions governing law. The expected checker result is not_mentioned. This file has no program, so the unit test does not call the checker.",
+  "expected": {"verdict": "UNRESOLVED", "label": "CHECKED", "checker": "not_mentioned"},
+  "case": {
+    "id": "governing-law-not-mentioned",
+    "dataset": "freight",
+    "mode": "passage",
+    "claim": "This agreement is governed by the law of Delaware.",
+    "sources": [
+      {
+        "id": "clause",
+        "kind": "text",
+        "text": "Northwind Cartage may use Harbor Lane Goods' lane notes only to move the named load, and must return those notes when that load is delivered."
+      }
+    ],
+    "answer": "UNRESOLVED",
+    "gold_evidence": ["clause"]
+  }
+}

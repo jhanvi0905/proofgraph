@@ -99,7 +99,7 @@ BASETEN_BASE_URL=https://inference.baseten.co/v1
 CHECKER_MODEL=meta-models/muse-spark-open-1026
 CHECKER_FALLBACK=muse     # use fresh Muse Spark if Baseten is unavailable
 CACHE_DIR=cache
-SPEND_LIMIT_USD=10        # per run; run_eval aborts above this estimate
+SPEND_LIMIT_USD=50        # per run; run_eval aborts when the estimate is above this
 ```
 
 ## Makefile targets

@@ -150,7 +150,8 @@ def test_ambiguous_scale_program():
     assert verdict.flags == []
 
 
-def test_wording_link_blocks_without_a_model():
+def test_wording_link_blocks_without_a_model(monkeypatch):
+    monkeypatch.delenv("BASETEN_API_KEY", raising=False)
     case = Case(
         id="wording-1",
         dataset="contractnli",
@@ -211,7 +212,8 @@ def _cached_numeric_301() -> tuple[Case, ClaimProgram]:
     raise AssertionError("cached numeric-test-301 program is missing")
 
 
-def test_cached_numeric_301_month_year_wording_does_not_block():
+def test_cached_numeric_301_month_year_wording_does_not_block(monkeypatch):
+    monkeypatch.delenv("BASETEN_API_KEY", raising=False)
     dataset = Path("data/FinDVer/data/test.json")
     if not dataset.is_file() or not any(Path("cache").glob("*.json")):
         pytest.skip("numeric-test-301 replay needs the local FinDVer download and cache")
@@ -240,7 +242,8 @@ def test_cached_numeric_301_month_year_wording_does_not_block():
     assert detention.reasons == [DETENTION_REASON]
 
 
-def test_wording_span_absent_from_quotes_stays_checker_unavailable():
+def test_wording_span_absent_from_quotes_stays_checker_unavailable(monkeypatch):
+    monkeypatch.delenv("BASETEN_API_KEY", raising=False)
     case = Case(
         id="wording-absent",
         dataset="findver",
@@ -297,6 +300,150 @@ def test_wording_span_absent_from_quotes_stays_checker_unavailable():
     wording = next(item for item in verdict.link_results if item.link_id == "l_when")
     assert wording.status == "blocked"
     assert wording.detail == "CHECKER_UNAVAILABLE"
+
+
+def test_assumed_rule_without_expr_is_shown():
+    case = Case(
+        id="assumed-rule",
+        dataset="freight",
+        mode="passage",
+        claim="The carrier may inspect the goods.",
+        sources=[Source(id="c6", kind="text", text="The carrier may inspect the goods.")],
+    )
+    statement = "Inspection is allowed even when the documents do not state a procedure."
+    program = ClaimProgram(
+        facts=[
+            Fact(
+                id="f1",
+                label="inspection",
+                source_id="c6",
+                quote="The carrier may inspect the goods.",
+                value="inspect",
+                kind="text",
+            )
+        ],
+        links=[
+            Link(
+                id="l1",
+                kind="rule",
+                inputs=["f1"],
+                statement=statement,
+                rule_source="assumed",
+                claim_span="inspect the goods",
+            )
+        ],
+        required=["l1"],
+        unverifiable_parts=[],
+    )
+    verdict = run_program(case, program)
+    result = verdict.link_results[0]
+    assert result.status == "pass"
+    assert result.strength == "ASSUMED"
+    assert result.detail == statement
+    assert result.detail != "EVAL_ERROR"
+    assert "EVAL_ERROR" not in verdict.reason_codes
+    assert verdict.verdict == "SUPPORTED"
+    assert verdict.label == "ASSUMED"
+    assert statement in verdict.reasons
+
+
+def test_evidence_rule_without_expr_stays_eval_error():
+    case = Case(
+        id="evidence-rule",
+        dataset="freight",
+        mode="passage",
+        claim="The carrier may inspect the goods.",
+        sources=[Source(id="c6", kind="text", text="The carrier may inspect the goods.")],
+    )
+    program = ClaimProgram(
+        facts=[
+            Fact(
+                id="f1",
+                label="inspection",
+                source_id="c6",
+                quote="The carrier may inspect the goods.",
+                value="inspect",
+                kind="text",
+            )
+        ],
+        links=[
+            Link(
+                id="l1",
+                kind="rule",
+                inputs=["f1"],
+                statement="The documents state the inspection rule.",
+                rule_source="evidence",
+                claim_span="inspect the goods",
+            )
+        ],
+        required=["l1"],
+        unverifiable_parts=[],
+    )
+    verdict = run_program(case, program)
+    result = verdict.link_results[0]
+    assert result.status == "blocked"
+    assert result.detail == "EVAL_ERROR"
+    assert verdict.reason_codes == ["EVAL_ERROR"]
+    assert verdict.label is None
+
+
+def test_wording_link_is_sent_to_blind_wording(monkeypatch):
+    seen: dict[str, str] = {}
+
+    def fake(quote: str, statement: str) -> str:
+        seen["quote"] = quote
+        seen["statement"] = statement
+        return "entails"
+
+    monkeypatch.setattr("proofgraph.engine.route.blind_wording", fake)
+    case = Case(
+        id="wording-checked",
+        dataset="contractnli",
+        mode="passage",
+        claim="The carrier may inspect the goods on Tuesdays.",
+        sources=[
+            Source(id="c6", kind="text", text="The carrier may inspect the goods."),
+            Source(id="other", kind="text", text="Unrelated clause about insurance."),
+        ],
+    )
+    statement = "The carrier may inspect the goods."
+    program = ClaimProgram(
+        facts=[
+            Fact(
+                id="f1",
+                label="inspection",
+                source_id="c6",
+                quote="The carrier may inspect the goods.",
+                value="inspect",
+                kind="text",
+            )
+        ],
+        links=[
+            Link(
+                id="l1",
+                kind="wording",
+                inputs=["f1"],
+                statement=statement,
+                claim_span="inspect the goods",
+            )
+        ],
+        required=["l1"],
+        unverifiable_parts=[],
+    )
+    verdict = run_program(case, program)
+    assert seen == {
+        "quote": "The carrier may inspect the goods.",
+        "statement": statement,
+    }
+    assert "Unrelated clause about insurance." not in seen["quote"]
+    assert case.claim not in seen["quote"]
+    result = verdict.link_results[0]
+    assert result.status == "pass"
+    assert result.strength == "CHECKED"
+    assert result.detail != "CHECKER_UNAVAILABLE"
+    assert "CHECKER_UNAVAILABLE" not in verdict.reason_codes
+    assert verdict.verdict == "SUPPORTED"
+    assert verdict.label == "CHECKED"
 
 
 def test_engine_does_not_import_proposer_or_muse():
