@@ -5,7 +5,9 @@ Both call Chat Completions at ``https://inference.baseten.co/v1`` for
 ``meta-models/muse-spark-open-1026``. This module does not call
 ``MuseClient``. A re-read whose image Baseten rejects is sent again as a Muse
 ``input_image`` data URL. Any other failure raises ``CheckerError``. Wording
-attempts one JSON repair. HTTP failures are not retried.
+attempts one JSON repair. HTTP 429 and 5xx are retried at most four times with
+backoff, and Retry-After is honored. A timeout is not retried. Each paid call
+checks the total spend cap first and adds its real cost after.
 """
 
 from __future__ import annotations
@@ -14,6 +16,8 @@ import base64
 import hashlib
 import json
 import re
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal, Mapping, Protocol
 
@@ -21,6 +25,15 @@ from pydantic import BaseModel, ValidationError
 
 from proofgraph.cache import CachedCall, DiskCache, cache_key
 from proofgraph.config import Settings, load_settings
+from proofgraph.spend import (
+    REQUEST_TIMEOUT_S,
+    SpendGuard,
+    SpendLedger,
+    call_with_retries,
+    chat_cost_usd,
+    responses_cost_usd,
+    retry_after_seconds,
+)
 
 WordingLabel = Literal["entails", "contradicts", "not_mentioned"]
 _PASSAGE = "<<one quote or one clause>>"
@@ -58,10 +71,12 @@ class CheckerError(Exception):
         *,
         reason_code: str = "CHECKER_UNAVAILABLE",
         status_code: int | None = None,
+        retry_after: float | None = None,
     ) -> None:
         super().__init__(message)
         self.reason_code = reason_code
         self.status_code = status_code
+        self.retry_after = retry_after
 
 
 class ImageRejected(CheckerError):
@@ -96,9 +111,14 @@ class OpenAIChatTransport:
     def __init__(self, *, api_key: str, base_url: str) -> None:
         from openai import OpenAI
 
-        # The SDK retries 429/5xx twice unless this is 0. HTTP retries stay
-        # off until a call actually returns 429.
-        self._client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
+        # The SDK retries 429/5xx twice unless this is 0. CheckerClient retries
+        # 429/5xx itself, so every attempt is visible and counted.
+        self._client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            max_retries=0,
+            timeout=REQUEST_TIMEOUT_S,
+        )
 
     def create(self, body: Mapping[str, Any]) -> Mapping[str, Any]:
         from openai import APIError, APITimeoutError
@@ -122,6 +142,7 @@ class OpenAIChatTransport:
             raise CheckerError(
                 "blind checker request failed",
                 status_code=code,
+                retry_after=retry_after_seconds(exc),
             ) from exc
         except TimeoutError as exc:
             raise CheckerError("blind checker timed out") from exc
@@ -144,7 +165,12 @@ class OpenAIImageTransport:
     def __init__(self, *, api_key: str, base_url: str) -> None:
         from openai import OpenAI
 
-        self._client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
+        self._client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            max_retries=0,
+            timeout=REQUEST_TIMEOUT_S,
+        )
 
     def create(self, body: Mapping[str, Any]) -> Mapping[str, Any]:
         from openai import APIError, APITimeoutError
@@ -164,6 +190,7 @@ class OpenAIImageTransport:
             raise CheckerError(
                 "blind re-read fallback failed",
                 status_code=code,
+                retry_after=retry_after_seconds(exc),
             ) from exc
         except TimeoutError as exc:
             raise CheckerError("blind re-read fallback timed out") from exc
@@ -183,12 +210,20 @@ class CheckerClient:
         transport: ChatTransport | None = None,
         image_transport: ImageTransport | None = None,
         cache: DiskCache | None = None,
+        ledger: SpendLedger | None = None,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self.settings = settings if settings is not None else load_settings()
         self._api_key = _blank_to_none(self.settings.baseten_api_key)
         self._transport = transport
         self._image_transport = image_transport
         self.cache = cache if cache is not None else DiskCache(self.settings.cache_dir)
+        self._sleep = sleep
+        self._spend = SpendGuard(
+            ledger if ledger is not None else SpendLedger(self.cache.directory),
+            self.settings.spend_limit_usd,
+            offline=transport is not None,
+        )
 
     def answer(self, prompt: str) -> WordingLabel:
         """Return one wording label. The caller's prompt is sent unchanged."""
@@ -305,6 +340,7 @@ class CheckerClient:
             return None
 
     def _create_image(self, body: Mapping[str, Any]) -> dict[str, Any]:
+        self._spend.check()
         transport = self._image_transport
         if transport is None:
             api_key = _blank_to_none(self.settings.model_api_key)
@@ -317,18 +353,22 @@ class CheckerClient:
                 api_key=api_key,
                 base_url=self.settings.muse_base_url,
             )
-        try:
-            raw = transport.create(body)
-        except CheckerError:
-            raise
-        except TimeoutError as exc:
-            raise CheckerError("blind re-read fallback timed out") from exc
+        def send() -> Mapping[str, Any]:
+            try:
+                return transport.create(body)
+            except CheckerError:
+                raise
+            except TimeoutError as exc:
+                raise CheckerError("blind re-read fallback timed out") from exc
+
+        raw = call_with_retries(send, sleep=self._sleep)
         try:
             response = json.loads(json.dumps(raw))
         except (TypeError, ValueError) as exc:
             raise CheckerError("blind re-read fallback response was not JSON") from exc
         if not isinstance(response, dict):
             raise CheckerError("blind re-read fallback response was not a JSON object")
+        self._spend.charge(responses_cost_usd(response))
         return response
 
     def _read_cached(self, key: str) -> WordingLabel | None:
@@ -348,6 +388,7 @@ class CheckerClient:
             )
 
     def _create(self, body: Mapping[str, Any]) -> dict[str, Any]:
+        self._spend.check()
         transport = self._transport
         if transport is None:
             if self._api_key is None:
@@ -358,18 +399,22 @@ class CheckerClient:
                 api_key=self._api_key,
                 base_url=self.settings.baseten_base_url,
             )
-        try:
-            raw = transport.create(body)
-        except CheckerError:
-            raise
-        except TimeoutError as exc:
-            raise CheckerError("blind checker timed out") from exc
+        def send() -> Mapping[str, Any]:
+            try:
+                return transport.create(body)
+            except CheckerError:
+                raise
+            except TimeoutError as exc:
+                raise CheckerError("blind checker timed out") from exc
+
+        raw = call_with_retries(send, sleep=self._sleep)
         try:
             response = json.loads(json.dumps(raw))
         except (TypeError, ValueError) as exc:
             raise CheckerError("blind checker response was not JSON") from exc
         if not isinstance(response, dict):
             raise CheckerError("blind checker response was not a JSON object")
+        self._spend.charge(chat_cost_usd(response))
         return response
 
 

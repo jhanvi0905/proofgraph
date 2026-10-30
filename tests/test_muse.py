@@ -13,8 +13,10 @@ from proofgraph.clients.muse import (
     ExtractionFailed,
     MissingApiKeyError,
     MuseClient,
+    MuseHTTPError,
     MuseResponseError,
     MuseTimeoutError,
+    OpenAIResponsesTransport,
 )
 from proofgraph.config import MUSE_BASE_URL, ConfigError, load_settings
 
@@ -507,6 +509,7 @@ def test_openai_transport_sends_the_documented_request(tmp_path, monkeypatch):
         "api_key": "test-key",
         "base_url": MUSE_BASE_URL,
         "max_retries": 0,
+        "timeout": 180.0,
     }
     assert captured["kwargs"]["model"] == "muse-spark-1.3"
     assert captured["kwargs"]["input"] == "Count the drums."
@@ -703,3 +706,144 @@ def test_openai_files_transport_uploads_user_data(tmp_path, monkeypatch):
     assert stored["response"] == {"id": "file_uploaded"}
     assert "nested" not in json.dumps(stored)
     assert "filename" not in stored["response"]
+
+
+# ---- HTTP retries ----
+
+
+class ScriptedTransport:
+    """Each item is a response to return or an exception to raise."""
+
+    def __init__(self, items: list[Any]) -> None:
+        self._items = list(items)
+        self.calls = 0
+
+    def create(self, body: Mapping[str, Any]) -> dict[str, Any]:
+        self.calls += 1
+        item = self._items.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+_OK = _envelope('{"name": "crate", "count": 2}')
+
+
+def _retrying(tmp_path, items: list[Any]):
+    transport = ScriptedTransport(items)
+    sleeps: list[float] = []
+    client = MuseClient(_settings(tmp_path), transport=transport, sleep=sleeps.append)
+    return client, transport, sleeps
+
+
+def test_429_429_200_succeeds_after_two_retries(tmp_path):
+    client, transport, sleeps = _retrying(
+        tmp_path, [MuseHTTPError(429, "slow down"), MuseHTTPError(429, "slow down"), _OK]
+    )
+
+    assert client.structured("Count.", Widget) == Widget(name="crate", count=2)
+    assert transport.calls == 3
+    assert len(sleeps) == 2
+    assert 1.0 <= sleeps[0] < 2.0
+    assert 2.0 <= sleeps[1] < 3.0
+
+
+def test_five_429s_raise_after_exactly_four_retries(tmp_path):
+    client, transport, sleeps = _retrying(
+        tmp_path, [MuseHTTPError(429, "slow down") for _ in range(5)]
+    )
+
+    with pytest.raises(MuseHTTPError) as caught:
+        client.structured("Count.", Widget)
+    assert caught.value.status_code == 429
+    assert transport.calls == 5
+    assert len(sleeps) == 4
+    assert list(tmp_path.glob("*.json")) == []
+
+
+def test_a_500_is_retried(tmp_path):
+    client, transport, _ = _retrying(tmp_path, [MuseHTTPError(500, "oops"), _OK])
+
+    assert client.structured("Count.", Widget).count == 2
+    assert transport.calls == 2
+
+
+def test_a_400_is_not_retried(tmp_path):
+    client, transport, sleeps = _retrying(tmp_path, [MuseHTTPError(400, "bad request")])
+
+    with pytest.raises(MuseResponseError):
+        client.structured("Count.", Widget)
+    assert transport.calls == 1
+    assert sleeps == []
+
+
+def test_retry_after_is_honored(tmp_path):
+    client, transport, sleeps = _retrying(
+        tmp_path, [MuseHTTPError(429, "slow down", retry_after=7.0), _OK]
+    )
+
+    client.structured("Count.", Widget)
+    assert sleeps == [7.0]
+
+
+def test_a_timeout_is_neither_retried_nor_repaired(tmp_path):
+    client, transport, sleeps = _retrying(tmp_path, [TimeoutError("slow")])
+
+    with pytest.raises(MuseTimeoutError):
+        client.structured("Count.", Widget)
+    assert transport.calls == 1
+    assert sleeps == []
+
+
+def test_a_retry_does_not_burn_the_one_repair(tmp_path):
+    client, transport, _ = _retrying(
+        tmp_path,
+        [
+            MuseHTTPError(503, "down"),
+            _envelope("not json"),
+            MuseHTTPError(429, "slow"),
+            _OK,
+        ],
+    )
+
+    assert client.structured("Count.", Widget).count == 2
+    assert transport.calls == 4
+
+
+def test_bad_json_after_the_repair_is_extraction_failed_with_a_code(tmp_path):
+    client, transport, _ = _retrying(tmp_path, [_envelope("nope"), _envelope("still nope")])
+
+    with pytest.raises(ExtractionFailed) as caught:
+        client.structured("Count.", Widget)
+    assert caught.value.reason_code == "EXTRACTION_FAILED"
+    assert transport.calls == 2
+    assert list(tmp_path.glob("*.json")) == []
+
+
+def test_openai_transport_sets_the_timeout_and_reads_retry_after(tmp_path, monkeypatch):
+    import httpx2 as httpx
+    import openai
+
+    captured: dict[str, Any] = {}
+
+    class _Responses:
+        def create(self, **kwargs: Any) -> Any:
+            captured["kwargs"] = kwargs
+            request = httpx.Request("POST", "https://api.meta.ai/v1/responses")
+            response = httpx.Response(429, headers={"retry-after": "3"}, request=request)
+            raise openai.RateLimitError("slow down", response=response, body=None)
+
+    class _OpenAI:
+        def __init__(self, **kwargs: Any) -> None:
+            captured["init"] = kwargs
+            self.responses = _Responses()
+
+    monkeypatch.setattr(openai, "OpenAI", _OpenAI)
+    transport = OpenAIResponsesTransport(api_key="k", base_url=MUSE_BASE_URL)
+
+    with pytest.raises(MuseHTTPError) as caught:
+        transport.create({"model": "m", "input": "x", "reasoning": {}, "text": {}})
+    assert caught.value.status_code == 429
+    assert caught.value.retry_after == 3.0
+    assert captured["init"]["timeout"] == 180.0
+    assert captured["init"]["max_retries"] == 0

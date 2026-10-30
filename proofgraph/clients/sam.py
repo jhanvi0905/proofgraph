@@ -4,6 +4,10 @@ A still goes up as an ``input_image`` data URL on a streamed ``sam-3.1``
 response. The count is the number of ``<|box;`` records in the completed
 ``output_text``. Mask payloads are discarded. The request text is the noun.
 A signature prompt is not sent. A still does not need a ``file_id``.
+
+HTTP 429 and 5xx are retried at most four times with backoff, and Retry-After
+is honored. A timeout is not retried. Each call checks the total spend cap
+first and adds its cost after. A cache hit costs nothing.
 """
 
 from __future__ import annotations
@@ -11,11 +15,21 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-from collections.abc import Iterator, Mapping
+import time
+from collections.abc import Callable, Iterator, Mapping
 from typing import Any, Protocol
 
 from proofgraph.cache import CachedCall, DiskCache, cache_key
 from proofgraph.config import Settings, load_settings
+from proofgraph.spend import (
+    REQUEST_TIMEOUT_S,
+    SpendGuard,
+    SpendLedger,
+    call_with_retries,
+    image_fallback_cost_usd,
+    responses_cost_usd,
+    retry_after_seconds,
+)
 
 RESPONSES_ENDPOINT = "POST /v1/responses"
 _BOX = "<|box;"
@@ -25,6 +39,17 @@ _MASK_END = "|>"
 
 class SamError(Exception):
     """A SAM call failed before a count exists."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        retry_after: float | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.retry_after = retry_after
 
 
 class StreamTransport(Protocol):
@@ -40,8 +65,14 @@ class OpenAIStreamTransport:
     def __init__(self, *, api_key: str, base_url: str) -> None:
         from openai import OpenAI
 
-        # The SDK retries 429/5xx twice unless this is 0.
-        self._client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
+        # The SDK retries 429/5xx twice unless this is 0. SamClient retries
+        # 429/5xx itself, so every attempt is visible and counted.
+        self._client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            max_retries=0,
+            timeout=REQUEST_TIMEOUT_S,
+        )
 
     def stream(self, body: Mapping[str, Any]) -> Iterator[dict[str, Any]]:
         from openai import APIError, APITimeoutError
@@ -60,7 +91,11 @@ class OpenAIStreamTransport:
             code = getattr(exc, "code", None)
             if status == 504 or code == "gateway_timeout":
                 raise SamError("SAM gateway timeout") from exc
-            raise SamError("SAM request failed") from exc
+            raise SamError(
+                "SAM request failed",
+                status_code=status if isinstance(status, int) else None,
+                retry_after=retry_after_seconds(exc),
+            ) from exc
         except TimeoutError as exc:
             raise SamError("SAM response timed out") from exc
 
@@ -74,11 +109,19 @@ class SamClient:
         *,
         transport: StreamTransport | None = None,
         cache: DiskCache | None = None,
+        ledger: SpendLedger | None = None,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self.settings = settings if settings is not None else load_settings()
         self._api_key = _blank_to_none(self.settings.model_api_key)
         self._transport = transport
         self.cache = cache if cache is not None else DiskCache(self.settings.cache_dir)
+        self._sleep = sleep
+        self._spend = SpendGuard(
+            ledger if ledger is not None else SpendLedger(self.cache.directory),
+            self.settings.spend_limit_usd,
+            offline=transport is not None,
+        )
 
     def count(self, still: bytes, noun: str) -> int:
         """Return how many times the noun is segmented in the still."""
@@ -126,6 +169,7 @@ class SamClient:
             raise SamError("MODEL_API_KEY is not set. SAM was not called.")
 
     def _completed(self, body: Mapping[str, Any]) -> dict[str, Any]:
+        self._spend.check()
         transport = self._transport
         if transport is None:
             if self._api_key is None:
@@ -134,23 +178,27 @@ class SamClient:
                 api_key=self._api_key,
                 base_url=self.settings.muse_base_url,
             )
-        completed: dict[str, Any] | None = None
-        try:
-            for event in transport.stream(body):
-                parsed = _event(event)
-                kind = parsed.get("type")
-                if kind in {"error", "response.failed", "response.incomplete"}:
-                    raise SamError(_event_message(parsed))
-                if kind != "response.completed":
-                    continue
-                response = parsed.get("response")
-                if not isinstance(response, dict):
-                    raise SamError("SAM stream did not include a completed response")
-                completed = response
-        except SamError:
-            raise
-        except TimeoutError as exc:
-            raise SamError("SAM response timed out") from exc
+        def attempt() -> dict[str, Any] | None:
+            completed: dict[str, Any] | None = None
+            try:
+                for event in transport.stream(body):
+                    parsed = _event(event)
+                    kind = parsed.get("type")
+                    if kind in {"error", "response.failed", "response.incomplete"}:
+                        raise SamError(_event_message(parsed))
+                    if kind != "response.completed":
+                        continue
+                    response = parsed.get("response")
+                    if not isinstance(response, dict):
+                        raise SamError("SAM stream did not include a completed response")
+                    completed = response
+            except SamError:
+                raise
+            except TimeoutError as exc:
+                raise SamError("SAM response timed out") from exc
+            return completed
+
+        completed = call_with_retries(attempt, sleep=self._sleep)
         if completed is None:
             raise SamError("SAM stream did not complete")
         try:
@@ -159,6 +207,10 @@ class SamClient:
             raise SamError("SAM response was not JSON") from exc
         if not isinstance(dumped, dict):
             raise SamError("SAM response was not a JSON object")
+        if isinstance(dumped.get("usage"), Mapping):
+            self._spend.charge(responses_cost_usd(dumped))
+        else:
+            self._spend.charge(image_fallback_cost_usd())
         return dumped
 
 

@@ -32,7 +32,7 @@ class Settings(BaseModel):
     model_api_key: str | None
     muse_model: str
     cache_dir: Path
-    spend_limit_usd: Decimal = Field(description="Per-run cap in US dollars. Default 50.")
+    spend_limit_usd: Decimal = Field(description="Total cap in US dollars across all sessions (see spend.py). Default 50.")
     muse_base_url: str = MUSE_BASE_URL
     baseten_api_key: str | None = None
     baseten_base_url: str = BASETEN_BASE_URL
