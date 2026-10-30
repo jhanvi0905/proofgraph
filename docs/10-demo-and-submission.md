@@ -12,6 +12,8 @@
 
 **Demo cases must come from real runs.** Use `scripts/pick_demo_cases.py` to list cases where A was wrong and ProofGraph was right. Don't stage model outputs. The freight bundles are labelled as our own demonstration set.
 
+The submission video is an animation the human makes from one of those runs (decision D25). The scene list above is the content. The Streamlit app the judges open runs the check again. It does not play a stored verdict.
+
 ## Recording tips
 - 1080p screen capture; the app zoomed to 125%; dark or light theme throughout, not mixed
 - Record each scene separately; voice-over after
@@ -20,8 +22,8 @@
 ## Submission checklist (by Wed Nov 4, 22:00 IST)
 - [ ] Repo public, README complete, CI green, `v1.0-submission` tag
 - [ ] `results/report.md` generated from committed `runs/`
-- [ ] App URL works in replay mode (incognito test)
-- [ ] Video ≤ 3:00, link accessible (unlisted YouTube or similar), shows only hackathon work
+- [ ] Judge URL runs a live check under the spend cap. The URL is not posted as an open endpoint
+- [ ] Animation ≤ 3:00, link accessible (unlisted YouTube or similar), made from a real run, shows only hackathon work
 - [ ] Submission form: repo URL, video URL, app URL, description, track (Indie), problem statement (Build for Your World)
 - [ ] Open-weight bonus: say clearly that the blind checker runs on Muse Spark Open via Baseten
 - [ ] Post the demo on X and submit the post link (Most Viral prize, counted until Nov 8)

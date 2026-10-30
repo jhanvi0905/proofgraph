@@ -27,7 +27,7 @@ Muse Spark reads the documents and breaks the conclusion into links: facts with 
 ```bash
 make setup && make data && make test
 make eval DATASET=findver MODE=passage N=30 SYSTEMS=a,pg
-make report && make app      # the app runs in replay mode without an API key
+make report && make app      # the judge app runs a live check; the key stays in Streamlit secrets
 uv run python -m proofgraph tests/fixtures/synthetic_pm_packet.json
 # claim + evidence packet, offline recorded program, prints run JSON, no model API
 ```

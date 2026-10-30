@@ -20,6 +20,24 @@ from proofgraph.schema import Case, ClaimProgram, Source
 
 FIXTURES = Path(__file__).parent / "fixtures"
 EXTRACT = Path(__file__).resolve().parent.parent / "prompts" / "extract.md"
+
+
+def test_extract_prompt_uses_hours_between_for_clock_facts():
+    text = EXTRACT.read_text(encoding="utf-8")
+    assert "hours_between" in text
+    assert "183479000" in text
+    assert "clock" in text
+    assert "a comparison that is true or false" in text
+    assert "(hours_between(f_arr, f_dep) - f_free) * f_rate == 450" in text
+    assert "numeric literal such as 450" in text
+    assert "not $450.00" in text
+    assert "Do not write a bare hours_between(...)." in text
+    assert "Do not write // comments." in text
+    assert "Do not subtract clock strings." in text
+    assert "counterevidence" not in text.lower()
+    assert "illegible" not in text.lower()
+
+
 DETENTION_REASON = (
     "Detention should be $165.00, not $450.00 (4.2 h on site, 2 h free, $75/h)"
 )
