@@ -52,3 +52,13 @@ Open. Queued on 28 Oct 2026. Not a build task. Do not change the engine, the pro
 The page check, once built, opens the page the model named and looks inside the box. It does not scan the rest of the page for a line the model left out. A second rate on that page stays invisible unless the model also copied it, the claim’s own numbers are uncovered, or the counterevidence line caused the model to bring the opposing passage back. Two copied figures for the same label, entity, and period can then conflict. A figure the model never writes down is not found by the box check.
 
 The human asked to hold this and think later. No option is chosen.
+
+## Q5 · The dark-image rule is tuned on synthetic images only
+
+Open. Raised by R-03b (`fix/r-03b-dark-image`).
+
+`_image_page` in `proofgraph/review/ingest.py` now inverts an image only when its mean gray is under 100 and at least half of its pixels are near-black (gray 30 or below). On generated images the inverted scans score 0.65 to 0.85 near-black, a dark photo of a light page scores 0.28 to 0.35, and every real light scan in the repo scores 0.06 or less. These are synthetic numbers, so the 0.5 cut is unproven on real files.
+
+A dark-mode screenshot has the same histogram as a white-on-black negative, so it is inverted too. That is harmless, since the text comes out dark on light.
+
+Needed from the human: drop one real dark phone photo of a document and one real inverted scan into the data folder (do not commit them). The two skipped real-file tests in `tests/test_scan.py` (branch `feat/r-13-scan`, PR 43) will then run and check the rule on real input.
