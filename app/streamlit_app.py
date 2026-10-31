@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import hmac
 import html
 import json
 import re
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
 
@@ -73,6 +74,28 @@ _INK_RGB = (28, 25, 23)
 _HAIR_RGB = (231, 229, 228)
 _ROSE_RGB = (159, 18, 57)
 _DASH_RGB = (168, 162, 158)
+
+STAGES = ("propose", "ground", "check", "combine")
+_STAGE_NOTE = {
+    "propose": "Meta reads the notes and writes a checkable program.",
+    "ground": "Each quote is matched to the note it came from.",
+    "check": "Calculations and wording checks run on the grounded facts.",
+    "combine": "The checked links become one verdict.",
+}
+JOB_LINE = (
+    "Check a ship-or-not claim against the notes on both sides: "
+    "what supports it, what contradicts it, what is still open."
+)
+COST_LIMIT_MESSAGE = (
+    "The run stopped at the cost limit before it finished. "
+    "That is a spend stop, not a finding on the claim, so there is no verdict. "
+    "Your inputs are still here."
+)
+NO_PASSCODE_MESSAGE = (
+    "Live checks are off: this app has no passcode set. "
+    "Reviewing a packet offline still works."
+)
+WRONG_PASSCODE_MESSAGE = "Enter the passcode to run a live check. Offline review needs none."
 
 VERDICT_GLOSS = {
     "SUPPORTED": "The checked links hold.",
@@ -196,6 +219,9 @@ class ReplayPacket:
     fact_checks: tuple[FactRow, ...]
     link_results: tuple[LinkRow, ...]
     sources: tuple[SourceView, ...]
+    case: Case | None = field(default=None, compare=False, repr=False)
+    program: ClaimProgram | None = field(default=None, compare=False, repr=False)
+    full: Verdict | None = field(default=None, compare=False, repr=False)
 
 
 def build_packet(path: Path) -> ReplayPacket:
@@ -213,15 +239,75 @@ def live_case() -> Case:
     return case
 
 
-def check_claim(case: Case, *, client=None) -> ReplayPacket:
-    """Propose a program, then let the engine decide. No saved program."""
+def check_claim(
+    case: Case,
+    *,
+    client=None,
+    on_stage: Callable[[str], None] | None = None,
+) -> ReplayPacket:
+    """Propose a program, then let the engine decide. No saved program.
+
+    ``on_stage`` hears "propose" before the model call and "ground" before the
+    engine pass. ``run_program`` grounds, checks and combines in one local call.
+    """
 
     if not isinstance(case, Case):
         raise TypeError("case must be a Case")
     visible = for_engine(case)
+    _announce(on_stage, "propose")
     program = propose(visible, client=client)
+    _announce(on_stage, "ground")
     verdict = run_program(visible, program)
     return _packet(visible, program, verdict)
+
+
+def _announce(on_stage: Callable[[str], None] | None, stage: str) -> None:
+    if on_stage is not None:
+        on_stage(stage)
+
+
+def passcode_ok(entered: object, configured: object) -> bool:
+    """Constant-time match. No configured passcode means no match."""
+
+    if not configured:
+        return False
+    return hmac.compare_digest(str(entered or "").encode(), str(configured).encode())
+
+
+def _configured_passcode(st) -> str | None:
+    try:
+        value = st.secrets.get("APP_PASSCODE")
+    except Exception:
+        return None
+    return str(value) if value else None
+
+
+def live_refusal(st) -> str | None:
+    """Why a live call may not run now, or None when the passcode matches."""
+
+    configured = _configured_passcode(st)
+    if configured is None:
+        return NO_PASSCODE_MESSAGE
+    if not passcode_ok(st.session_state.get("passcode", ""), configured):
+        return WRONG_PASSCODE_MESSAGE
+    return None
+
+
+def stage_failure_message(stage: str | None, exc: BaseException) -> str:
+    """Plain words for the stage that stopped. A spend stop is not a finding."""
+
+    if getattr(exc, "reason_code", None) == "SPEND_CAP":
+        return COST_LIMIT_MESSAGE
+    reason = failure_message(exc)
+    if stage == "propose" or stage is None:
+        return (
+            f"The propose stage failed, so nothing was checked: {reason}. "
+            "No verdict was produced. Your inputs are still here."
+        )
+    return (
+        "The engine failed while it was grounding quotes, checking links and combining them: "
+        f"{reason}. No verdict was produced. Your inputs are still here."
+    )
 
 
 def _load_fixture(path: Path) -> tuple[Case, ClaimProgram]:
@@ -553,7 +639,7 @@ def _without_sealed(payload: dict) -> dict:
     return cleaned
 
 
-def review_packet(payload: dict) -> Review:
+def review_packet(payload: dict, *, on_stage: Callable[[str], None] | None = None) -> Review:
     """Run one wrapper through ``run_program``.
 
     ``role`` and ``world`` stay on the wrapper for display. ``answer`` and
@@ -571,6 +657,7 @@ def review_packet(payload: dict) -> Review:
         program = ClaimProgram.model_validate(sealed["program"])
     except ValidationError as exc:
         raise ReplayError(f"fixture does not match the schema: {exc}") from exc
+    _announce(on_stage, "ground")
     verdict = run_program(case, program)
     return Review(
         packet=_packet(case, program, verdict),
@@ -720,7 +807,7 @@ def _link_block(link, result, facts, sources, checks, cited: set[str]) -> str:
         source = sources.get(fact.source_id)
         if source is not None:
             cited.add(source.id)
-            chunks.append(_source_line(source))
+            chunks.append(_source_line(source, (quote,)))
         check = checks.get(fact_id)
         if check is not None:
             chunks.append(
@@ -730,22 +817,49 @@ def _link_block(link, result, facts, sources, checks, cited: set[str]) -> str:
             )
     chunks.append(
         "<p style='margin:0.45rem 0 0;font-size:0.875rem;line-height:1.4;"
-        f"color:{_SECONDARY}'>{html.escape(link.id)} · {html.escape(result.strength)} · "
-        f"{html.escape(result.detail)}</p>"
+        f"color:{_SECONDARY}'>{html.escape(link.id)} · {html.escape(link.kind)} · "
+        f"{html.escape(result.strength)} · {html.escape(result.detail)}</p>"
         "</div>"
     )
     return "".join(chunks)
 
 
-def _source_line(source: Source) -> str:
+def _source_line(source: Source, quotes: Sequence[str] = ()) -> str:
+    """The note behind a row. It opens to its text with the exact quote marked."""
+
     title = _DOC_TITLES.get(source.id) or source.id.replace("_", " ").strip().title()
-    text = source.text or ""
     return (
-        "<p style='margin:0.35rem 0 0;font-size:0.875rem;line-height:1.4;"
-        f"color:{_SECONDARY}'>{html.escape(title)} · {html.escape(source.id)}</p>"
+        "<details style='margin:0.35rem 0 0'>"
+        f"<summary style='cursor:pointer;font-size:0.875rem;line-height:1.4;color:{_SECONDARY}'>"
+        f"{html.escape(title)} · {html.escape(source.id)}</summary>"
         "<p style='margin:0.2rem 0 0;font-size:1rem;line-height:1.45;"
-        f"color:{_INK}'>{html.escape(text)}</p>"
+        f"color:{_INK}'>{_marked_text(source.text or '', quotes)}</p>"
+        "</details>"
     )
+
+
+def _marked_text(text: str, quotes: Sequence[str]) -> str:
+    spans: list[tuple[int, int]] = []
+    for quote in quotes:
+        needle = (quote or "").strip()
+        at = text.find(needle) if needle else -1
+        if at >= 0:
+            spans.append((at, at + len(needle)))
+    spans.sort()
+    merged: list[tuple[int, int]] = []
+    for start, end in spans:
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
+        else:
+            merged.append((start, end))
+    out: list[str] = []
+    cursor = 0
+    for start, end in merged:
+        out.append(html.escape(text[cursor:start]))
+        out.append(f"<mark>{html.escape(text[start:end])}</mark>")
+        cursor = end
+    out.append(html.escape(text[cursor:]))
+    return "".join(out)
 
 
 def _open_fact(fact, check, source: Source | None) -> str:
@@ -753,12 +867,17 @@ def _open_fact(fact, check, source: Source | None) -> str:
         "<div style='border-top:1px solid "
         f"{_HAIRLINE};padding:0.75rem 0'>"
         f"<p style='margin:0;font-size:0.95rem;font-weight:700;color:{_INK}'>"
-        f"{html.escape(check.status)}</p>"
+        f"{html.escape(check.status)} · {html.escape(check.method)}</p>"
         "<p style='margin:0.45rem 0 0;font-size:1rem;line-height:1.45;"
         f"color:{_INK}'>{html.escape(fact.quote or '')}</p>"
     ]
+    if check.detail:
+        parts.append(
+            "<p style='margin:0.25rem 0 0;font-size:0.875rem;line-height:1.4;"
+            f"color:{_SECONDARY}'>{html.escape(check.detail)}</p>"
+        )
     if source is not None:
-        parts.append(_source_line(source))
+        parts.append(_source_line(source, (fact.quote or "",)))
     parts.append("</div>")
     return "".join(parts)
 
@@ -823,6 +942,10 @@ def _session():
     return st.session_state
 
 
+_LEAD_FILE = "ship-export-this-week.json"
+_DETENTION_FILE = "detention-overcharge.json"
+
+
 def _lead_panel(st) -> None:
     """Text packet on the same screen as the upload check."""
 
@@ -833,36 +956,25 @@ def _lead_panel(st) -> None:
     if pending is not None:
         picked = next((item for item in catalog if item.key == pending), catalog[0])
         _assign_lead(picked)
-    elif "_lead_key" not in st.session_state:
-        _assign_lead(catalog[0])
+    if "_lead_key" not in st.session_state:
+        _lead_empty_state(st, catalog)
+        return
     labels = [item.label for item in catalog]
     keys = [item.key for item in catalog]
     current = st.session_state.get("_lead_key", keys[0])
     index = keys.index(current) if current in keys else 0
-    st.caption(
-        "Text packet. One stamp from the check. pass and fail are link statuses."
-    )
-    slot = st.container()
     choice = st.selectbox("Text packet", labels, index=index)
     picked = catalog[labels.index(choice)]
     if picked.key != st.session_state.get("_lead_key"):
         st.session_state["_lead_prime"] = picked.key
         st.rerun()
     payload = st.session_state.get("lead_payload") or {}
-    if payload.get("sample"):
-        st.caption(
-            "Sample packet. examples/packets/ship-export-this-week.json is not in this branch. "
-            "The check still runs in the engine."
-        )
-    else:
-        st.caption(f"Loaded from examples/packets/{picked.key}.")
     who = " · ".join(
         part
         for part in (str(payload.get("role") or "").strip(), str(payload.get("world") or "").strip())
         if part
     )
-    if who:
-        st.caption(who)
+    st.caption(f"Loaded from examples/packets/{picked.key}." + (f" {who}." if who else ""))
     claim = st.text_area("Claim", key="lead_claim", height=88)
     texts: dict[str, str] = {}
     for source in (payload.get("case") or {}).get("sources") or []:
@@ -870,36 +982,104 @@ def _lead_panel(st) -> None:
         title = _DOC_TITLES.get(sid) or sid.replace("_", " ").strip().title()
         st.caption(f"{title} · {sid}")
         texts[sid] = st.text_area(sid, key=f"lead_src_{sid}", height=68)
-    if st.button("Run the check", type="primary", key="lead_run"):
-        missing = []
-        if not str(claim).strip():
-            missing.append("Write the claim before running the check.")
-        for source in (payload.get("case") or {}).get("sources") or []:
-            if not str(texts.get(source["id"]) or "").strip():
-                missing.append(f"Source {source['id']} needs text.")
-        if missing:
-            st.session_state["lead_error"] = " ".join(missing)
-            st.session_state["lead_review_html"] = ""
-        else:
-            try:
-                review = review_packet(_edited_payload(payload, claim, texts))
-                st.session_state["lead_review_html"] = render_review(review)
-                st.session_state["lead_error"] = ""
-            except ReplayError as exc:
-                st.session_state["lead_review_html"] = ""
+    offline, live = st.columns(2)
+    run_offline = offline.button("Run the check", type="primary", key="lead_run")
+    run_live = live.button("Check live with Meta", key="lead_live")
+    if run_offline or run_live:
+        _run_lead(st, payload, claim, texts, live=run_live)
+    error = st.session_state.get("lead_error") or ""
+    if error:
+        st.error(error)
+    html_view = st.session_state.get("lead_review_html") or ""
+    if html_view:
+        st.html(html_view)
+
+
+def _lead_empty_state(st, catalog: tuple[PacketChoice, ...]) -> None:
+    """One line for the job, one click to a packet. No result area yet."""
+
+    st.write(JOB_LINE)
+    keys = {item.key for item in catalog}
+    first, second = st.columns(2)
+    if _LEAD_FILE in keys and first.button(
+        "Load the export-button packet", type="primary", key="lead_load_ship"
+    ):
+        st.session_state["_lead_prime"] = _LEAD_FILE
+        st.rerun()
+    if _DETENTION_FILE in keys and second.button("Load the detention packet", key="lead_load_detention"):
+        st.session_state["_lead_prime"] = _DETENTION_FILE
+        st.rerun()
+
+
+def _run_lead(st, payload: dict, claim: str, texts: dict[str, str], *, live: bool) -> None:
+    """Run the packet offline (saved program) or live (Meta proposes), behind stages."""
+
+    st.session_state["lead_review_html"] = ""
+    st.session_state["lead_error"] = ""
+    sources = (payload.get("case") or {}).get("sources") or []
+    missing = []
+    if not str(claim).strip():
+        missing.append("Write the claim before running the check.")
+    for source in sources:
+        if not str(texts.get(source["id"]) or "").strip():
+            missing.append(f"Source {source['id']} needs text.")
+    if missing:
+        st.session_state["lead_error"] = " ".join(missing)
+        return
+    if live:
+        refusal = live_refusal(st)
+        if refusal is not None:
+            st.session_state["lead_error"] = refusal
+            return
+    edited = _edited_payload(payload, claim, texts)
+    stage: dict[str, str | None] = {"now": None}
+    with st.status("Checking the claim", expanded=True) as status:
+
+        def on_stage(name: str) -> None:
+            stage["now"] = name
+            st.write(f"**{name}** · {_STAGE_NOTE[name]}")
+
+        try:
+            if live:
+                review = _review_live(edited, on_stage)
+            else:
+                st.write("**propose** · Using the saved program. No model call.")
+                review = review_packet(edited, on_stage=on_stage)
+        except Exception as exc:
+            reached = stage["now"]
+            status.update(label=f"Stopped at {reached or 'propose'}", state="error", expanded=True)
+            if isinstance(exc, ReplayError):
                 st.session_state["lead_error"] = str(exc)
-            except Exception as exc:
-                st.session_state["lead_review_html"] = ""
-                st.session_state["lead_error"] = failure_message(exc)
-    with slot:
-        error = st.session_state.get("lead_error") or ""
-        if error:
-            st.error(error)
-        html_view = st.session_state.get("lead_review_html") or ""
-        if html_view:
-            st.html(html_view)
-        elif not error:
-            st.caption("The check has not run.")
+            else:
+                st.session_state["lead_error"] = stage_failure_message(reached, exc)
+            return
+        for name in ("check", "combine"):
+            st.write(f"**{name}** · {_STAGE_NOTE[name]}")
+        status.update(label="Checked", state="complete", expanded=True)
+    st.session_state["lead_review_html"] = render_review(review)
+
+
+def _review_live(edited: dict, on_stage: Callable[[str], None]) -> Review:
+    try:
+        case = Case.model_validate(edited["case"])
+    except ValidationError as exc:
+        raise ReplayError(f"packet does not match the schema: {exc}") from exc
+    packet = check_claim(case, on_stage=on_stage)
+    program = packet.program
+    verdict = packet.full
+    if packet.case is None or program is None or verdict is None:
+        raise ReplayError("The live check returned no program to show.")
+    return Review(
+        packet=packet,
+        rounds=verdict.rounds,
+        case=packet.case,
+        program=program,
+        role=str(edited.get("role") or ""),
+        world=str(edited.get("world") or ""),
+        note=str(edited.get("note") or ""),
+        sample=False,
+        verdict=verdict,
+    )
 
 
 def main() -> None:
@@ -909,6 +1089,12 @@ def main() -> None:
 
     st.set_page_config(page_title="ProofGraph", layout="wide")
     _story(st)
+    st.text_input(
+        "Passcode",
+        type="password",
+        key="passcode",
+        help="Needed for a live check. Reviewing a packet offline needs none.",
+    )
     _lead_panel(st)
     claim = st.text_area(
         "Claim",
@@ -948,6 +1134,9 @@ def _packet(case: Case, program: ClaimProgram, verdict: Verdict) -> ReplayPacket
             for result in verdict.link_results
         ),
         sources=tuple(_source_view(source) for source in case.sources),
+        case=case,
+        program=program,
+        full=verdict,
     )
 
 
@@ -1049,8 +1238,12 @@ def _show_upload(st, claim: str, files) -> None:
     st.caption("A live propose runs only when you press the button. A PDF or an image is uploaded with the claim.")
     if st.button("Check this claim", type="primary"):
         usable = [text for text in texts if text.strip()]
-        saved = _write_uploads(files)
-        if not claim.strip() or not (saved or usable):
+        refusal = live_refusal(st)
+        saved = [] if refusal is not None else _write_uploads(files)
+        if refusal is not None:
+            st.session_state["live_packet"] = None
+            st.session_state["live_error"] = refusal
+        elif not claim.strip() or not (saved or usable):
             st.session_state["live_packet"] = None
             st.session_state["live_error"] = (
                 "The claim and a packet file, or packet text, are both needed before a check."
@@ -1059,11 +1252,12 @@ def _show_upload(st, claim: str, files) -> None:
             case = _upload_case_files(claim, saved) if saved else _upload_case(claim, usable)
             status = None
             holder = nullcontext()
+            reached: dict[str, str | None] = {"now": None}
             if hasattr(st, "status"):
                 holder = st.status("Checking this claim", expanded=True)
             try:
                 with holder as status:
-                    packet = check_claim(case)
+                    packet = check_claim(case, on_stage=lambda name: reached.update(now=name))
                     if status is not None and hasattr(status, "update"):
                         status.update(state="complete", expanded=True)
                     st.session_state["live_packet"] = packet
@@ -1072,7 +1266,7 @@ def _show_upload(st, claim: str, files) -> None:
                 if status is not None and hasattr(status, "update"):
                     status.update(state="error", expanded=True)
                 st.session_state["live_packet"] = None
-                st.session_state["live_error"] = failure_message(exc)
+                st.session_state["live_error"] = stage_failure_message(reached["now"], exc)
     error = st.session_state.get("live_error") or ""
     if error:
         st.error(error)
