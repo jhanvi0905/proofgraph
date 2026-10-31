@@ -15,6 +15,7 @@ from app.streamlit_app import (
     check_claim,
     failure_message,
     live_case,
+    live_refusal,
     span_rows,
     value_text,
 )
@@ -427,3 +428,20 @@ def test_overlay_marks_come_from_quotes_or_boxes():
     blank_colors = blank_image.getcolors(maxcolors=blank_image.width * blank_image.height)
     assert blank_colors is not None
     assert all(color != (0x9F, 0x12, 0x39) for _count, color in blank_colors)
+
+
+@pytest.mark.parametrize(
+    "secret,state,refused",
+    [
+        (None, {"passcode": "x"}, True),  # unset passcode never passes
+        ("right", {}, True),  # widget not yet committed: key absent
+        ("right", {"passcode": ""}, True),
+        ("right", {"passcode": "wrong"}, True),
+        ("right", {"passcode": "right"}, False),
+    ],
+)
+def test_live_refusal_gate_is_fail_closed(secret, state, refused):
+    from types import SimpleNamespace
+
+    st = SimpleNamespace(secrets={"APP_PASSCODE": secret} if secret else {}, session_state=state)
+    assert (live_refusal(st) is not None) is refused
