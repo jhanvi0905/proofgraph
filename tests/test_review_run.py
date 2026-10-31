@@ -320,3 +320,41 @@ def test_at_most_four_parts_run_at_once(tmp_path):
 
     review = _run(claim, [PDF], _muse(tmp_path, Wide())).review
     assert len(review.parts) == 9 and 1 < peak["max"] <= 4
+
+
+def test_cap_gate_runs_before_split_is_even_called(tmp_path, monkeypatch):
+    """The transport never being hit is not enough: split itself must not run when capped."""
+    called = []
+    monkeypatch.setattr(run_mod, "split", lambda *a, **k: called.append(1))
+    review = _run(CLAIM2, [PDF], _muse(tmp_path, SmartTransport(), limit="0.01")).review
+    assert called == []
+    assert [b.kind for b in review.banners] == ["cap"]
+
+
+# ---- R-15b: absence receipt decides cannot_tell vs not_found ----
+
+ASIDE = {**GOOD, "relation": "set_aside", "weakener_type": None, "quote": "", "why": "Not relevant."}
+
+
+def _status_for(tmp_path, claim, relate_reply, paths, checker=_agree):
+    transport = FakeTransport({"parts": [{"text": claim}]}, relate_reply)
+    return _run(claim, paths, _muse(tmp_path, transport), checker=checker).review.parts[0].status
+
+
+def test_unread_scan_beside_a_read_page_with_no_cards_is_cannot_tell(tmp_path):
+    scan = tmp_path / "scan.pdf"
+    Image.new("RGB", (300, 400), "white").save(scan)
+    assert _status_for(tmp_path, "Zebra widgets ship nightly.", ASIDE, [PDF, scan]) == "cannot_tell"
+
+
+def test_fully_read_part_with_no_hits_and_no_cards_is_not_found(tmp_path):
+    assert _status_for(tmp_path, "Zebra widgets ship nightly.", ASIDE, [PDF]) == "not_found"
+
+
+def test_uncited_sweep_hit_on_a_read_page_makes_no_card_part_cannot_tell(tmp_path):
+    assert _status_for(tmp_path, CLAIM, ASIDE, [PDF]) == "cannot_tell"
+
+
+def test_a_supports_card_stays_supported_when_the_sweep_is_incomplete(tmp_path):
+    supports = {**GOOD, "relation": "supports", "weakener_type": None}
+    assert _status_for(tmp_path, CLAIM, supports, [PDF], checker=lambda q, p: "entails") == "supported"
