@@ -1,0 +1,35 @@
+{
+  "case_id": "freight-demo-001",
+  "dataset": "freight",
+  "mode": "whole",
+  "demonstration": true,
+  "benchmark": false,
+  "carrier": "Northwind Cartage",
+  "shipper": "Harbor Lane Goods",
+  "claim": null,
+  "verdict": "CONTRADICTED",
+  "lines": {
+    "detention": "CONTRADICTED",
+    "goods": "CONTRADICTED"
+  },
+  "truth": {
+    "arrived": "08:00",
+    "departed": "12:30",
+    "free_hours": 2,
+    "rate_usd_per_hour": 75,
+    "elapsed_hours": 4.5,
+    "billable_hours": 2.5,
+    "fair_detention_usd": 187.50,
+    "invoice_detention_usd": 450,
+    "goods_noun": null,
+    "goods_count": null,
+    "invoice_count": null
+  },
+  "assumed_rule": "Arrival and departure are on the same calendar day.",
+  "sources": {
+    "rate_conf": {"path": "rate_confirmation.pdf", "kind": "pdf", "method": "text_in_box"},
+    "pod": {"path": "pod.jpg", "kind": "image", "method": "blind_reread"},
+    "goods": {"path": "goods.jpg", "kind": "image", "method": "count_agreement"},
+    "invoice": {"path": "invoice.pdf", "kind": "pdf", "method": "text_in_box"}
+  }
+}
