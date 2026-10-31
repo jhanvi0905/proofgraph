@@ -209,3 +209,82 @@ def test_export_is_one_offline_file_with_keyboard_and_live_region(review):
     assert 'addEventListener("keydown"' in html
     assert 'aria-live="polite"' in html
     assert "Replayed from a saved run" in html
+
+
+# --- R-11c: reasons for qualified support, and text contrast ---
+
+UNCONFIRMED = "The second check did not confirm the supporting quote."
+NOT_DOUBLE_CHECKED = "Not double-checked"
+
+
+def _supported_by(review, *checks):
+    """P1 backed only by supporting cards with the given second-check marks."""
+    r = review.model_copy(deep=True)
+    part = r.parts[0]
+    part.conflict = False
+    part.reason = None
+    base = r.cards[0]
+    r.cards = [
+        base.model_copy(update={"id": f"s{i}", "relation": "supports", "check": ch, "weakener_type": None})
+        for i, ch in enumerate(checks)
+    ]
+    part.card_ids = [c.id for c in r.cards]
+    part.status = "cannot_tell" if all(ch == "disagrees" for ch in checks) else "supported"
+    return r
+
+
+def test_disagreed_only_support_shows_reason_once_and_keeps_the_red_card(review):
+    html = render(_supported_by(review, "disagrees"))
+    assert html.count(UNCONFIRMED) == 1
+    assert 'class="reason-line unconfirmed"' in html
+    assert 'class="chip cannot_tell"' in html
+    assert 'class="mark disagrees"' in html
+    assert NOT_DOUBLE_CHECKED not in html
+
+
+def test_unavailable_support_is_labelled_not_double_checked_and_stays_supported(review):
+    html = render(_supported_by(review, "unavailable"))
+    assert html.count(NOT_DOUBLE_CHECKED) == 1
+    assert 'class="not-double-checked"' in html
+    assert 'class="chip supported"' in html
+    assert UNCONFIRMED not in html
+
+
+def test_agreed_support_shows_neither_note(review):
+    html = render(_supported_by(review, "agrees"))
+    assert UNCONFIRMED not in html and NOT_DOUBLE_CHECKED not in html
+
+
+def test_one_agree_among_disagrees_shows_neither_note(review):
+    html = render(_supported_by(review, "disagrees", "agrees"))
+    assert UNCONFIRMED not in html and NOT_DOUBLE_CHECKED not in html
+
+
+def _luminance(hex_colour):
+    h = hex_colour.lstrip("#")
+    ch = [int(h[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+    ch = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in ch]
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+
+
+def _contrast(a, b):
+    hi, lo = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_disagrees_mark_text_meets_4_5_to_1_in_light_and_dark(review):
+    html = render(review)
+    css = html[: html.index("</style>")]
+    light = re.search(r":root\s*\{([^}]*)\}", css).group(1)
+    dark = re.search(r"prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{([^}]*)\}", css).group(1)
+    assert re.search(r"\.mark\.disagrees\s*\{[^}]*color:\s*var\(--red-text\)", css)
+    assert re.search(r"\.mark\.disagrees\s*\{[^}]*font-weight:\s*700[^}]*text-decoration:\s*underline", css)
+
+    def tok(block, name):
+        value = re.search(rf"--{name}:\s*#([0-9a-fA-F]{{3,6}})\b", block).group(1)
+        if len(value) == 3:
+            value = "".join(ch * 2 for ch in value)
+        return "#" + value
+
+    assert _contrast(tok(light, "red-text"), tok(light, "bg")) >= 4.5
+    assert _contrast(tok(dark, "red-text"), tok(dark, "bg")) >= 4.5

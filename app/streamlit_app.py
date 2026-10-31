@@ -2027,9 +2027,13 @@ def file_status(doc, name: str | None = None) -> tuple[bool, str]:
     if kinds == ["image"]:
         what = "image"
     elif all(k == "image_only" for k in kinds):
-        what = "scan (image only, will not be read)"
+        what = "scan (image only, will be transcribed and shown with dashed approximate boxes)"
     elif any(k == "image_only" for k in kinds):
-        what = f"text PDF ({kinds.count('image_only')} scanned pages will not be read)"
+        scanned = kinds.count("image_only")
+        what = (
+            f"text PDF ({scanned} scanned page{'' if scanned == 1 else 's'} "
+            "will be transcribed and shown with dashed approximate boxes)"
+        )
     else:
         what = "text PDF"
     return True, f"{name}: {what}, {noun}"

@@ -546,14 +546,6 @@ def test_status_line_for_a_good_text_pdf(tmp_path):
     assert ok and text.startswith("rate.pdf: text PDF, 1 page")
 
 
-def test_status_line_for_a_scan_says_it_will_not_be_read(tmp_path):
-    from PIL import Image
-
-    Image.new("RGB", (300, 400), "white").save(tmp_path / "src.pdf")
-    ok, text = _status(tmp_path, "scan.pdf", (tmp_path / "src.pdf").read_bytes())
-    assert ok and "scan" in text and "not be read" in text and "1 page" in text
-
-
 def test_status_line_for_an_image(tmp_path):
     import io
 
@@ -594,3 +586,29 @@ def test_review_page_has_an_export_download_button():
     tree = ast.parse(APP.read_text(encoding="utf-8"))
     calls = [n for n in ast.walk(_function(tree, "review_skeleton")) if isinstance(n, ast.Call)]
     assert "download_button" in {n.func.attr for n in calls if isinstance(n.func, ast.Attribute)}
+
+
+def test_status_line_for_a_scan_says_it_will_be_transcribed(tmp_path):
+    from PIL import Image
+
+    Image.new("RGB", (300, 400), "white").save(tmp_path / "src.pdf")
+    ok, text = _status(tmp_path, "scan.pdf", (tmp_path / "src.pdf").read_bytes())
+    assert ok
+    assert text == "scan.pdf: scan (image only, will be transcribed and shown with dashed approximate boxes), 1 page"
+
+
+def test_status_line_for_a_mixed_pdf_says_scanned_pages_will_be_transcribed(tmp_path):
+    from app.streamlit_app import file_status
+    from proofgraph.review.ingest import IngestedDoc, Page
+
+    doc = IngestedDoc(
+        doc_id="d1",
+        name="mixed.pdf",
+        original_name="mixed.pdf",
+        pages=[Page(page=1, kind="text", png=b""), Page(page=2, kind="image_only", png=b"")],
+    )
+    ok, text = file_status(doc)
+    assert ok
+    assert text == (
+        "mixed.pdf: text PDF (1 scanned page will be transcribed and shown with dashed approximate boxes), 2 pages"
+    )

@@ -5,6 +5,7 @@ import html
 from pathlib import Path
 
 from proofgraph.review.models import Banner, Card, Doc, Page, Part, Review
+from proofgraph.review.status import supports_reason
 
 TEMPLATE = Path(__file__).with_name("viewer.html")
 
@@ -47,6 +48,8 @@ CHECK_LABEL = {
     "unavailable": "Second check unavailable",
     "not_run": "Second check not run",
 }
+UNCONFIRMED_TEXT = "The second check did not confirm the supporting quote."
+NOT_DOUBLE_CHECKED_TEXT = "Not double-checked"
 REPLAY_TEXT = "Replayed from a saved run, not a live check"
 
 
@@ -58,7 +61,7 @@ def _pct(value: int) -> str:
     return f"{value / 10:g}%"
 
 
-def _part(part: Part) -> str:
+def _part(part: Part, reason_kind: str | None = None) -> str:
     conflict = (
         '<p class="conflict">Sources disagree on this part.</p>' if part.conflict else ""
     )
@@ -71,14 +74,22 @@ def _part(part: Part) -> str:
             if part.receipt.unread:
                 extra += f" Pages not read: {', '.join(map(str, part.receipt.unread))}."
         help_ = f'<p class="state-help {part.status}">{_e(STATE_HELP[part.status])}{_e(extra)}</p>'
+    unconfirmed = (
+        f'<p class="reason-line unconfirmed">{UNCONFIRMED_TEXT}</p>' if reason_kind == "unconfirmed" else ""
+    )
     return (
         f'<li class="part {_e(part.status)}" data-part-id="{_e(part.id)}">'
         f'<span class="chip {_e(part.status)}">{_e(STATUS_LABEL[part.status])}</span> '
-        f"<span>{_e(part.text)}</span>{help_}{reason}{conflict}</li>"
+        f"<span>{_e(part.text)}</span>{unconfirmed}{help_}{reason}{conflict}</li>"
     )
 
 
-def _card(card: Card) -> str:
+def _card(card: Card, reason_kind: str | None = None) -> str:
+    unchecked = (
+        f' <span class="not-double-checked">{NOT_DOUBLE_CHECKED_TEXT}</span>'
+        if reason_kind == "not_double_checked" and card.relation == "supports" and card.check != "disagrees"
+        else ""
+    )
     weakener = f" · {_e(card.weakener_type)}" if card.weakener_type else ""
     computed = f'<p class="computed">{_e(card.computed.text)}</p>' if card.computed else ""
     return (
@@ -89,16 +100,16 @@ def _card(card: Card) -> str:
         f'<p class="why">{_e(card.why)}</p>{computed}'
         f'<p class="meta">{_e(card.doc)} p{card.page}{weakener} · '
         f"box {_e(card.box_status)} · "
-        f'<span class="mark {_e(card.check)}">{_e(CHECK_LABEL[card.check])}</span></p></article>'
+        f'<span class="mark {_e(card.check)}">{_e(CHECK_LABEL[card.check])}</span>{unchecked}</p></article>'
     )
 
 
-def _cards(cards: list[Card]) -> str:
+def _cards(cards: list[Card], reasons: dict[str, str | None]) -> str:
     out = []
     for relation, label in GROUPS:
         group = [c for c in cards if c.relation == relation]
         if group:
-            out.append(f'<section class="group"><h3>{label}</h3>{"".join(map(_card, group))}</section>')
+            out.append(f'<section class="group"><h3>{label}</h3>{"".join(_card(c, reasons.get(c.part)) for c in group)}</section>')
     return "".join(out)
 
 
@@ -146,14 +157,15 @@ def render(
     notes += _unreadable_notes(review)
     banners = "".join(map(_banner, review.banners))
     badge = f'<p class="replay-badge" role="note">{REPLAY_TEXT}</p>' if replay else ""
+    reasons = {p.id: supports_reason(c for c in review.cards if c.part == p.id) for p in review.parts}
     pages = "".join(_page(d, p, review.cards, images) for d in review.docs for p in d.pages)
     # "<" escaped so the JSON can never close its script tag.
     data = review.model_dump_json().replace("<", "\\u003c")
     body = (
         f'<header><h1>{_e(STATUS_LABEL[review.status])}</h1><p class="claim">{_e(review.claim.text)}</p>'
         f"{badge}{banners}</header>"
-        f'<main><nav aria-label="Claim parts"><ul>{"".join(map(_part, review.parts))}</ul>{notes}</nav>'
-        f'<section aria-label="Evidence cards">{_cards(review.cards)}</section>'
+        f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id]) for p in review.parts)}</ul>{notes}</nav>'
+        f'<section aria-label="Evidence cards">{_cards(review.cards, reasons)}</section>'
         f'<section aria-label="Page">{pages}</section></main>'
         f'<script type="application/json" id="review">{data}</script>'
     )
