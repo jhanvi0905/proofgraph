@@ -21,7 +21,11 @@
     "explaination": "LEAK_EXPLAINATION sic spelling on numeric testmini",
     "python_calculation": "LEAK_PYTHON 183479 - 180996",
     "execution_result": "LEAK_EXEC 2483",
-    "knowledge": "LEAK_KNOWLEDGE outside the filing"
+    "knowledge": "LEAK_KNOWLEDGE outside the filing",
+    "gold": "LEAK_GOLD key",
+    "note": "LEAK_NOTE key",
+    "ground_truth": "LEAK_GROUND_TRUTH key",
+    "expected_verdict": "LEAK_EXPECTED_VERDICT key"
   },
   {
     "example_id": "knowledge-fixture-0",

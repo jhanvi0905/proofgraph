@@ -7,7 +7,8 @@ from proofgraph.schema import Case
 
 # docs/05 names the FinDVer fields that contain the answer or the worked
 # solution. docs/08 also bars entailment_label from the engine; the adapter
-# maps that bool onto Case.answer, then strips the raw key.
+# maps that bool onto Case.answer, then strips the raw key. Final-plan C12 adds
+# the pack and suite gold keys (gold, note, ground_truth, expected_verdict).
 LEAK_FIELDS = frozenset(
     {
         "explanation",
@@ -16,6 +17,10 @@ LEAK_FIELDS = frozenset(
         "execution_result",
         "knowledge",
         "entailment_label",
+        "gold",
+        "note",
+        "ground_truth",
+        "expected_verdict",
     }
 )
 
