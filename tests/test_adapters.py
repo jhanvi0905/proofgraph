@@ -15,6 +15,10 @@ LEAK_MARKERS = (
     "LEAK_PYTHON",
     "LEAK_EXEC",
     "LEAK_KNOWLEDGE",
+    "LEAK_GOLD",
+    "LEAK_NOTE",
+    "LEAK_GROUND_TRUTH",
+    "LEAK_EXPECTED_VERDICT",
 )
 
 
@@ -240,10 +244,15 @@ def test_adapters_do_not_import_gold_or_packs():
             assert not any("review.packs" in n or "load_gold" in n for n in names), path.name
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="R-17 gap: proofgraph/adapters/base.py LEAK_FIELDS lacks the pack and suite gold "
-    "keys (gold, note, ground_truth, expected_verdict) that final-plan C12 says to add",
-)
 def test_leak_list_covers_pack_and_suite_gold_keys():
     assert PACK_GOLD_KEYS <= LEAK_FIELDS
+
+
+@pytest.mark.parametrize("field", sorted(PACK_GOLD_KEYS))
+def test_pack_gold_key_is_stripped_and_absent_from_engine_view(tmp_path: Path, field: str):
+    sentinel = f"SENTINEL-{field}-4c1a"
+    assert field not in strip_leak_fields({field: sentinel, "statement": "kept"})
+    _write_claims(tmp_path, [_numeric(**{field: sentinel})])
+    case = list(FinDVerAdapter(tmp_path).cases("testmini", "passage", None))[0]
+    for payload in (case.model_dump(), for_engine(case).model_dump()):
+        assert sentinel not in json.dumps(payload)

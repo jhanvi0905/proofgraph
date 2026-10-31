@@ -349,6 +349,9 @@ from proofgraph.review.split import split  # noqa: E402
 PRODUCT = ROOT / "proofgraph"
 REVIEW = PRODUCT / "review"
 PACKS_PY = REVIEW / "packs.py"
+# The one path allowed the literal "ground_truth": LEAK_FIELDS there lists field
+# names to STRIP, which is the opposite of reading gold. Nothing else is exempt.
+LEAK_LIST_PY = PRODUCT / "adapters" / "base.py"
 FORBIDDEN_IDENTS = re.compile(r"^(load_gold|Gold\w*|Solutions|ground_truth|GROUND_TRUTH)$")
 FORBIDDEN_TEXT = ("ground_truth", "Solutions", "pack.json", "_Evaluation", "annotation_sets", "load_gold")
 FORBIDDEN_PATH = ("ground_truth", "Solutions", "pack.json", "_Evaluation", "annotation_sets", "handoff-2026-10-31")
@@ -390,6 +393,8 @@ def _mentions(path: Path) -> list[str]:
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
             found += [f"string:{t}" for t in FORBIDDEN_TEXT if t in node.value]
         found += [i for i in idents if FORBIDDEN_IDENTS.match(i)]
+    if path == LEAK_LIST_PY:
+        found = [f for f in found if f != "string:ground_truth"]
     return found
 
 
@@ -401,6 +406,17 @@ def test_only_packs_py_mentions_gold_or_ground_truth():
     assert _product_files()
     for path in _product_files():
         assert _mentions(path) == [], path.relative_to(ROOT)
+
+
+def test_ground_truth_exemption_covers_only_the_leak_list_file(tmp_path: Path):
+    planted = tmp_path / "other.py"
+    planted.write_text('KEYS = ("ground_truth",)\n', encoding="utf-8")
+    assert _mentions(planted) == ["string:ground_truth"]
+    siblings = [p for p in LEAK_LIST_PY.parent.glob("*.py") if p != LEAK_LIST_PY]
+    assert siblings
+    for sibling in siblings:
+        assert _mentions(sibling) == [], sibling.name
+    assert LEAK_LIST_PY.read_text(encoding="utf-8").count("ground_truth") >= 1
 
 
 def test_no_product_module_imports_packs():
