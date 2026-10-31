@@ -49,6 +49,25 @@ Build in this order. Don't start a tier until the one before it works and is tes
 
 **Never cut:** the engine, both benchmarks against Direct Muse, the conflict traps, the parts-off test (including the self-check run), the proof graph, and the objection loop and visual citations on freight.
 
+## 31 Oct amendment (accepted 31 Oct, D30 to D37)
+
+Tier 0 stays done. Tier 1 and the never-cut list above are replaced for the window that submits on Wed 4 Nov 2026:
+
+| Order | Item | Done when |
+|---|---|---|
+| 1 | Review layer (`proofgraph/review/`): ingest, claim split, per-part relation reading, snapping, status rule, blind card check, absence receipt (D32) | An uploaded packet and a pasted claim give per-part statuses and boxed cards |
+| 2 | Three-pane viewer in one HTML/JS file inside Streamlit (D33) | Cards, parts and boxes link both ways; states render; export works offline |
+| 3 | Scan path: Muse Spark transcription with approximate boxes | A scan page yields a card with a dashed box, or page plus quote if probe P1 fails |
+| 4 | Evaluation on the 29-case set (D31): DEV runs, then HELD-OUT once | `results/report.md` generated from `runs/`, per pool, with n and intervals |
+| 5 | Deploy (D25 with the labelled replay fallback) | The private URL runs the lead case live under the cap |
+| Should | Numeric bridge, template note, injection banner, Direct Muse side table, scan re-read upgrade | In that order, only before Mon 2 Nov 20:00 IST |
+
+**Never cut (amended):** the review layer, the blind check on every card, exact boxes on text-layer pages, the held-out run with honest wording, the frozen engine and its tests.
+
+Stopped for this window: full FinDVer runs, ContractNLI 300, conflict traps, the parts-off and self-check runs, the proof graph on documents, the objection loop, the Muse Code gate, SAM counts in the demo, Next.js and FastAPI.
+
+Out-of-scope line amended: "A custom React or front-end framework" stays out; one self-contained vanilla HTML/JS viewer file mounted with `st.components.v1.html` is allowed (D33, guardrail B9).
+
 ## Definition of done for submission
 - [ ] Public GitHub repo, MIT licence, README with the scope sentence and generated results
 - [ ] `make test` green in CI

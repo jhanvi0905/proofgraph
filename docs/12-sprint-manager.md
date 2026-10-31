@@ -10,6 +10,12 @@ A running product exists by the end of **Tue 3 Nov 2026**. Wed 4 is buffer and s
 
 D25 (28 Oct): the judge-facing Streamlit app runs a live check. It does not play a saved verdict. The app URL is for judges. The key stays in the host secret store, and a spend cap bounds the remaining Meta credit. Scored `runs/` stay the report record. Streamlit stays. Vercel stays out.
 
+## Status, Sat 31 Oct evening (accepted 31 Oct, D30 to D37)
+
+The live board for the rest of the window is `docs/sprint/2026-10-31-final.md`, section "31 Oct evening board (R tickets)". The five musts and the D29 gate below are history once D37 is approved: FinDVer and ContractNLI-300 do not run in this window. The sprint manager's job is unchanged: each morning name overdue R tickets first, then due ones, then those that may run beside them.
+
+Probe gates (Sat night, under $1): P1 boxes on TC40 p1, TC25 p1, frt-03 POD, TC14 PNG; P2 Spark Open image crop; P3 per-part relation call on TC17, TC40, frt-07. Walking skeleton checkpoint: Sun 1 Nov 12:00 IST on TC40. Deploy by Mon 2 Nov 16:00. Kill rule: any Should unfinished at Mon 2 Nov 20:00 is reverted. Freeze tag `v0.9-freeze` Mon night.
+
 ## Job
 
 1. Each morning, name the tasks that are due that day, and any overdue task. Overdue work comes first and blocks new scope. The public-branch landing is the human's item. It does not stop an owner who is already in flight. Due tasks get built that day.

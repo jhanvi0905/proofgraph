@@ -205,3 +205,57 @@ These detention and late-fee sources are the lines from those documents, stored 
 7. On freight, every smudged or ambiguous value ends UNRESOLVED, never guessed.
 
 If a criterion fails, report it as it is, with reason codes. Never hide or re-define a metric after seeing the results.
+
+## 31 Oct final set (accepted 31 Oct, D31; replaces the 28 Oct data plan and the success criteria above for this window)
+
+Written Sat 31 Oct 2026, evening. The sections above stay as history. The evaluation for the submission is the 29 cases below. Tune only on DEV. Run HELD-OUT once, after the freeze tag, from `scripts/eval_review.py`.
+
+### Sources and citations
+
+| Source | Cases used | Licence status | In the repo |
+|---|---|---|---|
+| ContractNLI (Koreeda and Manning, 2021, Findings of EMNLP), official test split | 37, 38, 40, 41, 43, 44, 45, 46 | CC BY 4.0; contracts are third-party documents redistributed by the dataset | Pointer: file name, sha256, path in the official zip |
+| LegalReasonBench, micro1 public sample, revision `1bfa904c8f255925baf2610c0f86aa7c05d94ed9` | 11, 12, 14, 16, 17, 18, 20, 22 | CC BY 4.0 per source card; documents are expert-authored or adapted | IHP PDF conversions committed with attribution; Braddock by pointer |
+| Tobacco800 (Doermann, Tobacco800_1; YACCLAB repackaging, Grana et al., ICPR 2016) | 23, 25, 27 | Unverified for redistribution | Pointer only |
+| Company Documents (local `archive (3).zip`; Kaggle listing unverified) | 4, 10 | Unverified | Pointer only |
+| Our packs (synthetic, written and labelled during the hackathon) | frt-07, frt-03, fin-08, aipm-05, frt-01, frt-05, fin-07, leg-02 | Ours | Committed |
+
+The human's suite has 46 cases. Excluded with reasons in `final-plan.md` section 1.4: Company Documents 1 to 3 and 5 to 9; LegalReasonBench 13, 15, 19, 21; Tobacco800 24, 26; SD02 28 to 36 (synthesized forms, diagnostic only); ContractNLI 39 (budget) and 42 (annotation dispute on that topic). Unused members of a source-overlap group stay out of every split.
+
+### Split
+
+| Split | Cases |
+|---|---|
+| DEV (11; demo cases live here) | TC17, TC18, TC20, TC22, TC37, TC40, TC25, frt-07, frt-03, fin-08, aipm-05 |
+| HELD-OUT (18; run once) | TC11, TC12, TC14, TC16, TC38, TC41, TC43, TC44, TC45, TC46, TC23, TC27, TC4, TC10, frt-01, frt-05, fin-07, leg-02 |
+
+Held-out reference mix: supported 6, contradicted 7, insufficient evidence 4, conflicting 1. 18 cases form 12 source groups; report both counts.
+
+### Ingestion notes
+
+- The IHP evidence (17 to 22) is DOCX in the suite. Use the exact PDF conversions in the dataset's `Format Conversions/LegalReasonBench/` (hashes in its `provenance.json`). They belong to the same source group as the originals.
+- Tobacco800 PNGs are 1-bit with ink stored as white on black. Ingest inverts them.
+- Some ContractNLI file names contain `%20` or a leading space. Ingest sanitises display names.
+- Several ContractNLI agreements are unsigned templates. Claims concern wording only.
+
+### Gold (`gold-1`)
+
+One JSON per case in `tests/fixtures/gold/`, read only by `scripts/eval_review.py` and `scripts/report_review.py`. Fields: case, pool, source dataset, split, claim, reference verdict with origin (`external_label`, `curated`, `author`), parts with spans and five-way status plus `conflict`, relations with part, relation, weakener type, file, page, verbatim quote, `quote_pdf`, optional boxes and origin.
+
+| Source label | Our label |
+|---|---|
+| supported / contradicted | same |
+| insufficient_evidence | not_found (fact absent after reading) or cannot_tell (judgment missing) |
+| conflicting_evidence | contradicted with `conflict: true`; a pass needs a pinned supports and a pinned contradicts card |
+| anchor `context_only` | relabelled to weakens (with type), set_aside or not_enough; marked `relabelled` |
+| pack weakens / conditions / irrelevant | weakens / weakens (condition) / set_aside |
+
+The suite's `Solutions/`, `_Evaluation/`, annotation files, `.fmt` and `.tab` never enter a model call. A blind relabel of 6 cases (12, 16, 43, 45, 23, 4) by a session without the reference reports agreement before the held-out run.
+
+### Metrics
+
+Kept from the 31 Oct roadmap: contradicts precision and recall, weakens recall, weakener type accuracy, five-way part status accuracy, false red on true claims, set-aside false positives, text-layer and scan box pass rates, pin rate by status, cost and time per claim. New: claim-level agreement with the suite reference verdict; conflict pass rate. Every rate carries n, the source-group count and a Wilson 95% interval, reported per pool.
+
+### Wording we may use
+
+"Measured once on 18 held-out cases: 6 questions on 3 real agreements with labels adapted from ContractNLI, legal benchmark files and historical scans with answers curated by the builder, and 4 synthetic packets we wrote. Relation and weakener labels are ours." Never "benchmark result", "externally validated accuracy" or a win over Direct Muse.
