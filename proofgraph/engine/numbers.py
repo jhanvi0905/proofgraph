@@ -103,6 +103,7 @@ class Literal:
     value: Decimal
     unit: Decimal
     hedged: bool
+    percent: bool = False
 
 
 def _display_unit(digits: str, decimal: str | None) -> Decimal:
@@ -139,7 +140,12 @@ def iter_literals(text: str, *, skip_years: bool = False) -> list[Literal]:
             unit = unit / Decimal(100)
         window = text[max(0, match.start() - 48) : match.start()]
         literals.append(
-            Literal(value=value, unit=unit, hedged=bool(_HEDGE.search(window)))
+            Literal(
+                value=value,
+                unit=unit,
+                hedged=bool(_HEDGE.search(window)),
+                percent=percent,
+            )
         )
     return literals
 

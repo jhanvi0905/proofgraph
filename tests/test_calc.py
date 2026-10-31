@@ -228,3 +228,43 @@ def test_calculator_source_does_not_call_eval():
     for node in ast.walk(tree):
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
             assert node.func.id not in {"eval", "exec", "compile"}
+
+
+# Percent claims. The verdict must not depend on how the proposer writes the number.
+# Working capital deficit 84,255 -> 116,603 is a 38.3925% increase.
+_DEFICIT = {"d": Decimal(116603), "m": Decimal(84255)}
+_PHRASINGS = (
+    "(d - m) / m * 100 == {pct}",
+    "(d - m) / m == {frac}",
+    "(d - m) / m == {pct}%",
+)
+
+
+@pytest.mark.parametrize("phrasing", _PHRASINGS)
+def test_true_percent_claim_passes_in_every_phrasing(phrasing):
+    claim = "The deficit increased by 38.39%."
+    expr = phrasing.format(pct="38.39", frac="0.3839")
+    assert evaluate(expr, _DEFICIT, claim) is True
+
+
+@pytest.mark.parametrize("phrasing", _PHRASINGS)
+@pytest.mark.parametrize("claim", ["The deficit increased by 38.33%.", "The deficit increased by approximately 38.33%."])
+def test_false_percent_claim_fails_in_every_phrasing_hedged_or_not(phrasing, claim):
+    expr = phrasing.format(pct="38.33", frac="0.3833")
+    assert evaluate(expr, _DEFICIT, claim) is False
+
+
+def test_hedge_does_not_widen_a_percent_beyond_its_rounding():
+    # 59.9956% rounds to 60.00%; 59.98% is 0.016 points away.
+    values = {"a": Decimal(4582), "b": Decimal(1833)}
+    expr = "(a - b) / a * 100 == {}"
+    assert evaluate(expr.format("60.00"), values, "a decrease of approximately 60.00%") is True
+    assert evaluate(expr.format("59.98"), values, "a decrease of approximately 59.98%") is False
+
+
+def test_negative_percent_uses_the_claim_digits_for_tolerance():
+    values = {"a": Decimal("86724037"), "b": Decimal("95974747")}
+    expr = "(a - b) / b * 100 == {}"
+    assert evaluate(expr.format("-9.64"), values, "a change of -9.64%") is True
+    assert evaluate(expr.format("-9.63"), values, "a change of -9.63%") is False
+    assert evaluate(expr.format("-9.63"), values, "a change of approximately -9.63%") is False
