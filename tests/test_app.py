@@ -15,6 +15,7 @@ from app.streamlit_app import (
     check_claim,
     failure_message,
     live_case,
+    live_refusal,
     span_rows,
     value_text,
 )
@@ -508,3 +509,20 @@ def test_old_page_passcode_check_comes_before_any_client_is_built():
         refusal = min(n.lineno for n in calls if n.func.id == "live_refusal")
         built = [n.lineno for n in calls if n.func.id in {"check_claim", "_review_live"}]
         assert built and refusal < min(built)
+
+
+@pytest.mark.parametrize(
+    "secret,state,refused",
+    [
+        (None, {"passcode": "x"}, True),  # unset passcode never passes
+        ("right", {}, True),  # widget not yet committed: key absent
+        ("right", {"passcode": ""}, True),
+        ("right", {"passcode": "wrong"}, True),
+        ("right", {"passcode": "right"}, False),
+    ],
+)
+def test_live_refusal_gate_is_fail_closed(secret, state, refused):
+    from types import SimpleNamespace
+
+    st = SimpleNamespace(secrets={"APP_PASSCODE": secret} if secret else {}, session_state=state)
+    assert (live_refusal(st) is not None) is refused
