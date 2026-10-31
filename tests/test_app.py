@@ -430,6 +430,87 @@ def test_overlay_marks_come_from_quotes_or_boxes():
     assert all(color != (0x9F, 0x12, 0x39) for _count, color in blank_colors)
 
 
+# --- R-08b: the app opens on the new review screen; the packet app is the second page. ---
+
+_ENTRY = "from app.streamlit_app import run_app\nrun_app()\n"
+_BOOM_ENTRY = (
+    "from app.streamlit_app import run_app\n"
+    "def boom():\n"
+    "    raise AssertionError('model client built before the passcode check')\n"
+    "run_app(make_muse=boom)\n"
+)
+
+
+def _entry(script: str = _ENTRY, secret: str | None = None):
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_string(script, default_timeout=30)
+    if secret is not None:
+        at.secrets["APP_PASSCODE"] = secret
+    return at.run()
+
+
+def test_the_default_page_is_the_new_review_screen():
+    at = _entry()
+    assert not at.exception
+    assert [b.label for b in at.button] == ["Check the claim"]
+    assert [t.label for t in at.text_area] == ["Claim"]
+
+
+def test_the_default_page_has_exactly_one_passcode_box():
+    at = _entry()
+    assert [t.label for t in at.text_input].count("Passcode") == 1
+
+
+def test_the_old_packet_page_has_exactly_one_passcode_box_and_its_content():
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_string("from app.streamlit_app import main\nmain()\n", default_timeout=30).run()
+    assert [t.label for t in at.text_input].count("Passcode") == 1
+    assert "Load the export-button packet" in [b.label for b in at.button]
+
+
+def test_set_page_config_is_called_once_and_only_by_the_entry():
+    tree = ast.parse(APP.read_text(encoding="utf-8"))
+    owners = [
+        fn.name
+        for fn in ast.walk(tree)
+        if isinstance(fn, ast.FunctionDef)
+        and any(isinstance(n, ast.Attribute) and n.attr == "set_page_config" for n in ast.walk(fn))
+    ]
+    assert owners == ["run_app"]
+
+
+def test_the_two_pages_are_the_new_review_then_the_packet_app():
+    from app.streamlit_app import page_plan
+
+    plan = page_plan()
+    assert [(p.title, p.default) for p in plan] == [("New review", True), ("Packet app", False)]
+    assert len({p.url_path for p in plan}) == 2
+
+
+@pytest.mark.parametrize("secret,entered", [(None, "x"), ("right", ""), ("right", "wrong")])
+def test_new_page_passcode_blocks_before_any_model_client_is_built(secret, entered):
+    at = _entry(_BOOM_ENTRY, secret)
+    at.text_input(key="passcode").set_value(entered)
+    at.text_area[0].set_value("Detention is paid at $100.00 per hour.")
+    at.get("form_submit_button")[0].click()
+    at.run()
+    assert not at.exception
+    assert at.error and "passcode" in at.error[0].value.lower()
+
+
+def test_old_page_passcode_check_comes_before_any_client_is_built():
+    # The old page builds its client only inside check_claim or _review_live, after live_refusal.
+    tree = ast.parse(APP.read_text(encoding="utf-8"))
+    for name in ("_show_upload", "_run_lead"):
+        fn = _function(tree, name)
+        calls = [n for n in ast.walk(fn) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)]
+        refusal = min(n.lineno for n in calls if n.func.id == "live_refusal")
+        built = [n.lineno for n in calls if n.func.id in {"check_claim", "_review_live"}]
+        assert built and refusal < min(built)
+
+
 @pytest.mark.parametrize(
     "secret,state,refused",
     [
