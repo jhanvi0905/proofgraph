@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review</title>
+<style>
+  :root { --bg:#fff; --fg:#1a1a1a; --mut:#666; --line:#ddd; --red:#c62828; --amb:#b26a00; --grn:#2e7d32; --gry:#757575; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161616; --fg:#eee; --mut:#aaa; --line:#333; } }
+  body { margin:0; font:14px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); }
+  h1 { margin:0; font-size:18px; } .claim { margin:4px 0 0; color:var(--mut); }
+  main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,1.4fr); gap:12px; padding:12px 16px; }
+  @media (max-width:900px) { main { grid-template-columns:1fr; } }
+  ul { list-style:none; margin:0; padding:0; } .part { padding:8px 0; border-bottom:1px solid var(--line); }
+  .chip { display:inline-block; padding:1px 8px; border-radius:10px; color:#fff; font-size:12px; background:var(--gry); }
+  .chip.contradicted { background:var(--red); } .chip.weakened { background:var(--amb); } .chip.supported { background:var(--grn); }
+  .conflict { margin:4px 0 0; color:var(--red); font-weight:600; } .reason, .docnote, .meta { color:var(--mut); margin:4px 0 0; }
+  h3 { margin:12px 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); }
+  .card { border:1px solid var(--line); border-left:4px solid var(--gry); border-radius:6px; padding:8px 10px; margin-bottom:8px; cursor:pointer; }
+  .card.contradicts { border-left-color:var(--red); } .card.weakens { border-left-color:var(--amb); } .card.supports { border-left-color:var(--grn); }
+  .card:focus-visible, .card.active { outline:2px solid currentColor; outline-offset:1px; }
+  blockquote { margin:0; font-style:italic; } .why, .computed { margin:6px 0 0; }
+  .page { position:relative; width:100%; border:1px solid var(--line); } .page img { display:block; width:100%; height:100%; }
+  .noimg { padding:24px; color:var(--mut); }
+  .box { position:absolute; box-sizing:border-box; border:2px solid var(--red); background:rgba(198,40,40,.18); pointer-events:none; display:none; }
+  .box.active { display:block; } .box.approximate, .box.unpinned { border-style:dashed; }
+  .banner { margin:6px 0 0; padding:6px 8px; border:1px solid var(--amb); border-radius:4px; }
+</style>
+</head>
+<body>
+<!--BODY-->
+<script>
+(function () {
+  var cards = document.querySelectorAll("[data-card-id]");
+  function show(card) {
+    document.querySelectorAll(".card.active, .box.active").forEach(function (n) { n.classList.remove("active"); });
+    document.querySelectorAll(".page").forEach(function (p) {
+      p.hidden = !(p.dataset.doc === card.dataset.doc && p.dataset.page === card.dataset.page);
+    });
+    card.classList.add("active");
+    document.querySelectorAll('[data-box-for="' + card.dataset.cardId + '"]').forEach(function (b) { b.classList.add("active"); });
+  }
+  cards.forEach(function (c) {
+    c.addEventListener("click", function () { show(c); });
+    c.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); show(c); } });
+  });
+  if (cards.length) show(cards[0]);
+})();
+</script>
+</body>
+</html>
