@@ -20,7 +20,13 @@ from PIL import Image, ImageOps, ImageStat
 GRID = 1000
 LONG_SIDE_PX = 1600
 RENDER_DPI = 144
+# Invert only a dark two-tone image (white-on-black negative or inverted scan):
+# mean below DARK_MEAN AND at least NEGATIVE_BLACK_SHARE of pixels near-black
+# (gray <= NEAR_BLACK). A dark photo of a page has mid-tone surround, so it
+# stays as is. Tuned on synthetic images; when unsure, do not invert.
 DARK_MEAN = 100
+NEAR_BLACK = 30
+NEGATIVE_BLACK_SHARE = 0.5
 MIN_TEXT_WORDS = 5
 CID_SHARE = 0.10
 
@@ -132,7 +138,9 @@ def _pdf_kind(words: list[Word]) -> str:
 
 def _image_page(data: bytes) -> Page:
     gray = Image.open(io.BytesIO(data)).convert("L")
-    if ImageStat.Stat(gray).mean[0] < DARK_MEAN:
+    hist = gray.histogram()
+    black_share = sum(hist[: NEAR_BLACK + 1]) / sum(hist)
+    if ImageStat.Stat(gray).mean[0] < DARK_MEAN and black_share >= NEGATIVE_BLACK_SHARE:
         gray = ImageOps.invert(gray)
     if max(gray.size) > LONG_SIDE_PX:
         gray.thumbnail((LONG_SIDE_PX, LONG_SIDE_PX))
