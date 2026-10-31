@@ -51,6 +51,25 @@ proofgraph/
 └── results/     report.md (generated)
 ```
 
+## New paths approved 31 Oct (D32 to D36)
+
+```
+proofgraph/review/                    ingest.py · models.py · split.py · relate.py · snap.py · scan.py
+                                      check.py · absence.py · numeric.py · status.py · packs.py · run.py
+                                      NO imports of gold loaders; never reads Dataset Solutions/ or _Evaluation/
+app/viewer/                           viewer.html (self-contained, no external URL) · render.py
+prompts/                              split.md · relate.md · transcribe.md
+scripts/                              eval_review.py · report_review.py (the ONLY readers of tests/fixtures/gold/)
+examples/demo-packs/                  frt-07, tc17, tc18 uploads + claim.txt + SOURCE.md (no gold)
+examples/suite/manifest.json          case ids, claims, file names, sha256, citation, split, licence status (no evidence bytes for pointer-only sources)
+tests/fixtures/gold/                  gold-1 JSON per case (read only by scripts)
+tests/fixtures/packs/                 synthetic pack files used by offline tests
+docs/council/gold-review.md           human gold review and blind relabel agreement
+docs/council/2026-10-31-probes.md     probe numbers and triggered rulings
+```
+
+`scripts/download_data.sh` gains a step that copies suite evidence from a local dataset folder into `data/suite/` (gitignored) and checks sha256.
+
 ## Key interfaces
 ```python
 # adapters

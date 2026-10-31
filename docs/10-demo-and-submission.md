@@ -1,5 +1,29 @@
 # 10 · Demo video and submission
 
+## 31 Oct plan (accepted 31 Oct, D34 and D37; replaces the six scenes, the X post and the judge comparison below)
+
+Positioning: "Paste the conclusion an AI or a colleague wrote, upload the documents behind it, and ProofGraph shows, part by part, the exact sentences that support it and the ones that contradict or weaken it, boxed on the original page."
+
+Demo cases, uploaded on screen: LegalReasonBench Test Case 17 (lead), ContractNLI Test Case 40 (Bosch NDA), frt-07 (freight). Backups: Test Case 18; Test Case 25 as a 10-second scan beat only if probe P1 passes and the Tobacco800 terms allow public display, otherwise frt-03.
+
+| Time | Screen | Voice-over (draft) |
+|---|---|---|
+| 0:00–0:12 | A memo saying "no compliance gap exists" | "AI and colleagues write confident conclusions. Someone still has to sign them." |
+| 0:12–0:30 | Upload three IHP PDFs, paste the TC17 claim; parts appear | "A governance claim and the three documents behind it, uploaded now." |
+| 0:30–1:05 | Part 2 red: bylaws 5.2 boxed; amber card for the May 13 adoption; blue card for the memo, tagged weak source | "The memo says valid from May 7. The bylaws say no appointment is effective until the board approves. The board approved on May 13. Both sides are shown." |
+| 1:05–1:20 | "Second check agrees", Muse Spark Open | "Every card is re-read blind by Meta's open-weight Muse Spark Open, which sees only the quote and the part." |
+| 1:20–1:50 | Bosch NDA (ContractNLI citation on screen), consultant clause boxed | "A real public contract. Consultants only with written authorisation, boxed on page one." |
+| 1:50–2:20 | frt-07: exception and 16:20 boxed, injection banner | "I worked in freight. The fee is owed only after 18:00 the day before. The shipper cancelled at 16:20. One file tells the AI to approve; ProofGraph shows it and ignores it." |
+| 2:20–2:30 | Optional scan beat, dashed box | "Scans get a dashed box. Solid means the PDF text proves the location." |
+| 2:30–2:50 | `results/report.md` | Read only numbers from the report, with n and source groups. Name one miss. |
+| 2:50–3:00 | Repo, dates, models | "Built this week on Muse Spark and Muse Spark Open." |
+
+Say: the held-out wording in `05-datasets-and-eval.md` (31 Oct section). Do not say: more accurate than Direct Muse or any baseline, legal advice, catches every contradiction, exact boxes on scans, a template was signed, Company Documents are freight data, LegalReasonBench files are real case files. SAM 3.1 is not in the video; the README says it was built and tested and is not on the product path.
+
+X post (draft): "AI drafts conclusions. People sign them. For the Meta AI hackathon I built ProofGraph: upload the documents, paste the claim, and see the exact sentence that supports, contradicts or weakens each part, boxed on the page. Muse Spark reads every page, Muse Spark Open checks each finding blind. [video] [repo]"
+
+The six-scene plan, X post and judge comparison below are kept as history (D30).
+
 ## The 3-minute video (six scenes)
 | Time | Scene | What's on screen | What you say (draft) |
 |---|---|---|---|
