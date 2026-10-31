@@ -1,0 +1,528 @@
+{
+  "schema": "suite-manifest-1",
+  "note": "Pointers and sha256 only. Evidence bytes are never committed; run scripts/download_data.sh --suite <Dataset dir>. sha256 values come from the dataset manifest (Test Cases/_Evaluation/manifest.json) and Format Conversions/provenance.json. Paths are relative to the Dataset folder.",
+  "cases": [
+    {
+      "id": "TC11",
+      "title": "Penalty reduction is not exoneration",
+      "claim": "Braddock was cleared of misconduct when his dismissal was reduced to a suspension.",
+      "source_dataset": "LegalReasonBench (micro1 public sample)",
+      "source_group": "source_group_04",
+      "citation": "micro1, LegalReasonBench. https://huggingface.co/datasets/micro1-inc/LegalReasonBench ; pinned revision 1bfa904c8f255925baf2610c0f86aa7c05d94ed9.",
+      "licence_status": "CC BY 4.0 per source card; committable with attribution",
+      "split": "heldout",
+      "files": [
+        {
+          "name": "final_notice_adverse_action_braddock.pdf",
+          "path": "LegalReasonBench - micro1 public sample/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf",
+          "sha256": "536b5777885724e73cecfb2aa51dbe4c37bcc2ec501659add1afc4e4adb8d457",
+          "bytes": 38075
+        },
+        {
+          "name": "braddock_arbitration_award.pdf",
+          "path": "LegalReasonBench - micro1 public sample/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf",
+          "sha256": "64b52da449b73009df4dc478b6993615b8539de30f77b2f12a7b1019f95ed815",
+          "bytes": 34619
+        },
+        {
+          "name": "perb_decision_braddock.pdf",
+          "path": "LegalReasonBench - micro1 public sample/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/perb_decision_braddock.pdf",
+          "sha256": "343671fcca3187cb1237e630a7f24ce29c8fc6087d64f39e9f966016842c75ee",
+          "bytes": 31144
+        }
+      ]
+    },
+    {
+      "id": "TC12",
+      "title": "Conflicting suspension lengths",
+      "claim": "Braddock's dismissal was replaced with a 45-day unpaid suspension.",
+      "source_dataset": "LegalReasonBench (micro1 public sample)",
+      "source_group": "source_group_04",
+      "citation": "micro1, LegalReasonBench. https://huggingface.co/datasets/micro1-inc/LegalReasonBench ; pinned revision 1bfa904c8f255925baf2610c0f86aa7c05d94ed9.",
+      "licence_status": "CC BY 4.0 per source card; committable with attribution",
+      "split": "heldout",
+      "files": [
+        {
+          "name": "final_notice_adverse_action_braddock.pdf",
+          "path": "LegalReasonBench - micro1 public sample/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf",
+          "sha256": "536b5777885724e73cecfb2aa51dbe4c37bcc2ec501659add1afc4e4adb8d457",
+          "bytes": 38075
+        },
+        {
+          "name": "braddock_arbitration_award.pdf",
+          "path": "LegalReasonBench - micro1 public sample/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf",
+          "sha256": "64b52da449b73009df4dc478b6993615b8539de30f77b2f12a7b1019f95ed815",
+          "bytes": 34619
+        },
+        {
+          "name": "perb_decision_braddock.pdf",
+          "path": "LegalReasonBench - micro1 public sample/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/perb_decision_braddock.pdf",
+          "sha256": "343671fcca3187cb1237e630a7f24ce29c8fc6087d64f39e9f966016842c75ee",
+          "bytes": 31144
+        }
+      ]
+    },
+    {
+      "id": "TC14",
+      "title": "Whether misconduct comparisons match",
+      "claim": "The Department's comparator cases all involved officers who were off duty, like Braddock.",
+      "source_dataset": "LegalReasonBench (micro1 public sample)",
+      "source_group": "source_group_04",
+      "citation": "micro1, LegalReasonBench. https://huggingface.co/datasets/micro1-inc/LegalReasonBench ; pinned revision 1bfa904c8f255925baf2610c0f86aa7c05d94ed9.",
+      "licence_status": "CC BY 4.0 per source card; committable with attribution",
+      "split": "heldout",
+      "files": [
+        {
+          "name": "final_notice_adverse_action_braddock.pdf",
+          "path": "LegalReasonBench - micro1 public sample/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf",
+          "sha256": "536b5777885724e73cecfb2aa51dbe4c37bcc2ec501659add1afc4e4adb8d457",
+          "bytes": 38075
+        },
+        {
+          "name": "braddock_arbitration_award.pdf",
+          "path": "LegalReasonBench - micro1 public sample/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf",
+          "sha256": "64b52da449b73009df4dc478b6993615b8539de30f77b2f12a7b1019f95ed815",
+          "bytes": 34619
+        },
+        {
+          "name": "comparator_discipline_cases-1.png",
+          "path": "Format Conversions/LegalReasonBench/comparator_discipline_cases-1.png",
+          "sha256": "b51ec9a36835738f7254570d781484c710ad973512009f3d945af70b3c165ea2",
+          "bytes": 361109
+        }
+      ]
+    },
+    {
+      "id": "TC16",
+      "title": "Back-pay entitlement",
+      "claim": "Braddock was awarded full back pay without any deduction for his unpaid suspension or interim earnings.",
+      "source_dataset": "LegalReasonBench (micro1 public sample)",
+      "source_group": "source_group_04",
+      "citation": "micro1, LegalReasonBench. https://huggingface.co/datasets/micro1-inc/LegalReasonBench ; pinned revision 1bfa904c8f255925baf2610c0f86aa7c05d94ed9.",
+      "licence_status": "CC BY 4.0 per source card; committable with attribution",
+      "split": "heldout",
+      "files": [
+        {
+          "name": "final_notice_adverse_action_braddock.pdf",
+          "path": "LegalReasonBench - micro1 public sample/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf",
+          "sha256": "536b5777885724e73cecfb2aa51dbe4c37bcc2ec501659add1afc4e4adb8d457",
+          "bytes": 38075
+        },
+        {
+          "name": "braddock_arbitration_award.pdf",
+          "path": "LegalReasonBench - micro1 public sample/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf",
+          "sha256": "64b52da449b73009df4dc478b6993615b8539de30f77b2f12a7b1019f95ed815",
+          "bytes": 34619
+        }
+      ]
+    },
+    {
+      "id": "TC17",
+      "title": "Appointment authorization gap",
+      "claim": "Connors was continuously authorized to act as Interim CMO from May 7, 2026.",
+      "source_dataset": "LegalReasonBench (micro1 public sample)",
+      "source_group": "source_group_05",
+      "citation": "micro1, LegalReasonBench. https://huggingface.co/datasets/micro1-inc/LegalReasonBench ; pinned revision 1bfa904c8f255925baf2610c0f86aa7c05d94ed9.",
+      "licence_status": "CC BY 4.0 per source card; committable with attribution",
+      "split": "dev",
+      "files": [
+        {
+          "name": "IHP_GC_Memo_Appointment_Ratification.pdf",
+          "path": "Format Conversions/LegalReasonBench/IHP_GC_Memo_Appointment_Ratification.pdf",
+          "sha256": "8314bc61cfbc6d9ffea4fffd176fba31c5aa003e21a408facaf3bc652316f76f",
+          "converted_from_sha256": "c01329fd1afe9092a7828839a9804bbdeb22a499a52e3f2a0933d0eef2219b06"
+        },
+        {
+          "name": "IHP_Board_Resolution_2026-14.pdf",
+          "path": "Format Conversions/LegalReasonBench/IHP_Board_Resolution_2026-14.pdf",
+          "sha256": "d2ff03cb3095410635e60e8eb4496675e7cbf9738399d2c985fc30d78bbbe000",
+          "converted_from_sha256": "658f08d6a52b449c93091938d21ed962140dab295b8847afe83fa1f98aea6527"
+        },
+        {
+          "name": "IHP_Bylaws_Excerpt_Article_V_Officers.pdf",
+          "path": "Format Conversions/LegalReasonBench/IHP_Bylaws_Excerpt_Article_V_Officers.pdf",
+          "sha256": "d1d0b63e1ef722b4afbad07d65d9e0f5200bf615fcf9bf814f0b58f510ca8e59",
+          "converted_from_sha256": "960199775cb0ec80d33285c6cceb915f326555361d3ca994c205346c57196bca"
+        }
+      ]
+    },
+    {
+      "id": "TC18",
+      "title": "Board approval before work began",
+      "claim": "The IHP board approved Connors' appointment before she began performing CMO duties.",
+      "source_dataset": "LegalReasonBench (micro1 public sample)",
+      "source_group": "source_group_05",
+      "citation": "micro1, LegalReasonBench. https://huggingface.co/datasets/micro1-inc/LegalReasonBench ; pinned revision 1bfa904c8f255925baf2610c0f86aa7c05d94ed9.",
+      "licence_status": "CC BY 4.0 per source card; committable with attribution",
+      "split": "dev",
+      "files": [
+        {
+          "name": "IHP_CMO_Interim_Appointment_Letter_Connors.pdf",
+          "path": "Format Conversions/LegalReasonBench/IHP_CMO_Interim_Appointment_Letter_Connors.pdf",
+          "sha256": "c2a782f3220fe940a9d3618b3fba7646531e1e99fe224170e69aa1c48fdda404",
+          "converted_from_sha256": "eda5856d5dc3eb4692814608b58b9dc2b06cb0164ded5dc26049682c9662b7de"
+        },
+        {
+          "name": "IHP_CEO_Email_Executive_Staff_Connors_Announcement.pdf",
+          "path": "Format Conversions/LegalReasonBench/IHP_CEO_Email_Executive_Staff_Connors_Announcement.pdf",
+          "sha256": "998ca07aa5c4e89f828c2062e86a360607e8b99e108afe063d8bbf3776d61b42",
+          "converted_from_sha256": "c3d99b39ef5548498a8e6309d096d51c3f7c1c85b4dbf5704116f4a360b05c16"
+        },
+        {
+          "name": "IHP_Board_Resolution_2026-14.pdf",
+          "path": "Format Conversions/LegalReasonBench/IHP_Board_Resolution_2026-14.pdf",
+          "sha256": "d2ff03cb3095410635e60e8eb4496675e7cbf9738399d2c985fc30d78bbbe000",
+          "converted_from_sha256": "658f08d6a52b449c93091938d21ed962140dab295b8847afe83fa1f98aea6527"
+        }
+      ]
+    },
+    {
+      "id": "TC20",
+      "title": "Evidence of professional licensing",
+      "claim": "Connors held an unrestricted California medical license when she began as Interim CMO.",
+      "source_dataset": "LegalReasonBench (micro1 public sample)",
+      "source_group": "source_group_05",
+      "citation": "micro1, LegalReasonBench. https://huggingface.co/datasets/micro1-inc/LegalReasonBench ; pinned revision 1bfa904c8f255925baf2610c0f86aa7c05d94ed9.",
+      "licence_status": "CC BY 4.0 per source card; committable with attribution",
+      "split": "dev",
+      "files": [
+        {
+          "name": "IHP_Bylaws_Excerpt_Article_V_Officers.pdf",
+          "path": "Format Conversions/LegalReasonBench/IHP_Bylaws_Excerpt_Article_V_Officers.pdf",
+          "sha256": "d1d0b63e1ef722b4afbad07d65d9e0f5200bf615fcf9bf814f0b58f510ca8e59",
+          "converted_from_sha256": "960199775cb0ec80d33285c6cceb915f326555361d3ca994c205346c57196bca"
+        },
+        {
+          "name": "IHP_CMO_Interim_Appointment_Letter_Connors.pdf",
+          "path": "Format Conversions/LegalReasonBench/IHP_CMO_Interim_Appointment_Letter_Connors.pdf",
+          "sha256": "c2a782f3220fe940a9d3618b3fba7646531e1e99fe224170e69aa1c48fdda404",
+          "converted_from_sha256": "eda5856d5dc3eb4692814608b58b9dc2b06cb0164ded5dc26049682c9662b7de"
+        },
+        {
+          "name": "IHP_CEO_Email_Executive_Staff_Connors_Announcement.pdf",
+          "path": "Format Conversions/LegalReasonBench/IHP_CEO_Email_Executive_Staff_Connors_Announcement.pdf",
+          "sha256": "998ca07aa5c4e89f828c2062e86a360607e8b99e108afe063d8bbf3776d61b42",
+          "converted_from_sha256": "c3d99b39ef5548498a8e6309d096d51c3f7c1c85b4dbf5704116f4a360b05c16"
+        }
+      ]
+    },
+    {
+      "id": "TC22",
+      "title": "Authority to appoint a principal officer",
+      "claim": "IHP's bylaws allowed the CEO to appoint a principal officer without board approval.",
+      "source_dataset": "LegalReasonBench (micro1 public sample)",
+      "source_group": "source_group_05",
+      "citation": "micro1, LegalReasonBench. https://huggingface.co/datasets/micro1-inc/LegalReasonBench ; pinned revision 1bfa904c8f255925baf2610c0f86aa7c05d94ed9.",
+      "licence_status": "CC BY 4.0 per source card; committable with attribution",
+      "split": "dev",
+      "files": [
+        {
+          "name": "IHP_Bylaws_Excerpt_Article_V_Officers.pdf",
+          "path": "Format Conversions/LegalReasonBench/IHP_Bylaws_Excerpt_Article_V_Officers.pdf",
+          "sha256": "d1d0b63e1ef722b4afbad07d65d9e0f5200bf615fcf9bf814f0b58f510ca8e59",
+          "converted_from_sha256": "960199775cb0ec80d33285c6cceb915f326555361d3ca994c205346c57196bca"
+        },
+        {
+          "name": "IHP_CMO_Interim_Appointment_Letter_Connors.pdf",
+          "path": "Format Conversions/LegalReasonBench/IHP_CMO_Interim_Appointment_Letter_Connors.pdf",
+          "sha256": "c2a782f3220fe940a9d3618b3fba7646531e1e99fe224170e69aa1c48fdda404",
+          "converted_from_sha256": "eda5856d5dc3eb4692814608b58b9dc2b06cb0164ded5dc26049682c9662b7de"
+        },
+        {
+          "name": "IHP_Board_Resolution_2026-14.pdf",
+          "path": "Format Conversions/LegalReasonBench/IHP_Board_Resolution_2026-14.pdf",
+          "sha256": "d2ff03cb3095410635e60e8eb4496675e7cbf9738399d2c985fc30d78bbbe000",
+          "converted_from_sha256": "658f08d6a52b449c93091938d21ed962140dab295b8847afe83fa1f98aea6527"
+        }
+      ]
+    },
+    {
+      "id": "TC37",
+      "title": "Reverse engineering requires consent",
+      "claim": "The Bosch NDA prohibits reverse engineering of confidential prototypes without the discloser's prior written consent.",
+      "source_dataset": "ContractNLI",
+      "source_group": "source_group_13",
+      "citation": "Koreeda, Y., and Manning, C. D. (2021). ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts. Findings of EMNLP. https://aclanthology.org/2021.findings-emnlp.164/",
+      "licence_status": "pointer only; CC BY 4.0 dataset, third-party contracts, not committed",
+      "split": "dev",
+      "files": [
+        {
+          "name": "01_Bosch-Automotive-Service-Solutions-Mutual-Non-Disclosure-Agreement-7-12-17.pdf",
+          "path": "ContractNLI/contract-nli/raw/01_Bosch-Automotive-Service-Solutions-Mutual-Non-Disclosure-Agreement-7-12-17.pdf",
+          "sha256": "af837571ee7013a91c4789283784806e5c82274faa646dae9687125499aa5f18",
+          "bytes": 109931
+        }
+      ]
+    },
+    {
+      "id": "TC38",
+      "title": "Retention exception to a return obligation",
+      "claim": "The JEA NDA allows limited retention of confidential information after a return request to satisfy legal record-retention requirements.",
+      "source_dataset": "ContractNLI",
+      "source_group": "source_group_14",
+      "citation": "Koreeda, Y., and Manning, C. D. (2021). ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts. Findings of EMNLP. https://aclanthology.org/2021.findings-emnlp.164/",
+      "licence_status": "pointer only; CC BY 4.0 dataset, third-party contracts, not committed",
+      "split": "heldout",
+      "files": [
+        {
+          "name": " 064-19 Non Disclosure Agreement 2019.pdf",
+          "path": "ContractNLI/contract-nli/raw/ 064-19 Non Disclosure Agreement 2019.pdf",
+          "sha256": "1d8e74e43c56e06565918966a127984e207a9e337e4cd6cb00476ca08a2dd81f",
+          "bytes": 461261
+        }
+      ]
+    },
+    {
+      "id": "TC40",
+      "title": "Consultants require written authorization",
+      "claim": "The Bosch NDA allows the recipient to share confidential information with outside consultants without written authorization.",
+      "source_dataset": "ContractNLI",
+      "source_group": "source_group_13",
+      "citation": "Koreeda, Y., and Manning, C. D. (2021). ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts. Findings of EMNLP. https://aclanthology.org/2021.findings-emnlp.164/",
+      "licence_status": "pointer only; CC BY 4.0 dataset, third-party contracts, not committed",
+      "split": "dev",
+      "files": [
+        {
+          "name": "01_Bosch-Automotive-Service-Solutions-Mutual-Non-Disclosure-Agreement-7-12-17.pdf",
+          "path": "ContractNLI/contract-nli/raw/01_Bosch-Automotive-Service-Solutions-Mutual-Non-Disclosure-Agreement-7-12-17.pdf",
+          "sha256": "af837571ee7013a91c4789283784806e5c82274faa646dae9687125499aa5f18",
+          "bytes": 109931
+        }
+      ]
+    },
+    {
+      "id": "TC41",
+      "title": "Confidentiality survives the commercial relationship",
+      "claim": "The Halifax–Nova Scotia NDA keeps the recipient's confidentiality obligations in force after the SAP-services agreement ends.",
+      "source_dataset": "ContractNLI",
+      "source_group": "source_group_16",
+      "citation": "Koreeda, Y., and Manning, C. D. (2021). ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts. Findings of EMNLP. https://aclanthology.org/2021.findings-emnlp.164/",
+      "licence_status": "pointer only; CC BY 4.0 dataset, third-party contracts, not committed",
+      "split": "heldout",
+      "files": [
+        {
+          "name": "130806ca141.pdf",
+          "path": "ContractNLI/contract-nli/raw/130806ca141.pdf",
+          "sha256": "a0a1c21331683915946f3b3b244e323d11a27745dbb586a494a899ab3a1c9f59",
+          "bytes": 449341
+        }
+      ]
+    },
+    {
+      "id": "TC43",
+      "title": "A copying exception is not an unrestricted IP licence",
+      "claim": "The Frodsham NDA grants the recipient an unrestricted licence to the Council's intellectual property.",
+      "source_dataset": "ContractNLI",
+      "source_group": "source_group_18",
+      "citation": "Koreeda, Y., and Manning, C. D. (2021). ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts. Findings of EMNLP. https://aclanthology.org/2021.findings-emnlp.164/",
+      "licence_status": "pointer only; CC BY 4.0 dataset, third-party contracts, not committed",
+      "split": "heldout",
+      "files": [
+        {
+          "name": "118.3-Non-disclosure-agreement.pdf",
+          "path": "ContractNLI/contract-nli/raw/118.3-Non-disclosure-agreement.pdf",
+          "sha256": "cb07f3d4ecb5d028371a743519f4f3062dc91382583bda18440ec915e77328d2",
+          "bytes": 12273
+        }
+      ]
+    },
+    {
+      "id": "TC44",
+      "title": "A disclosure exception does not establish a notice duty",
+      "claim": "The Frodsham NDA requires the recipient to notify the Council before disclosing information under a court order.",
+      "source_dataset": "ContractNLI",
+      "source_group": "source_group_18",
+      "citation": "Koreeda, Y., and Manning, C. D. (2021). ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts. Findings of EMNLP. https://aclanthology.org/2021.findings-emnlp.164/",
+      "licence_status": "pointer only; CC BY 4.0 dataset, third-party contracts, not committed",
+      "split": "heldout",
+      "files": [
+        {
+          "name": "118.3-Non-disclosure-agreement.pdf",
+          "path": "ContractNLI/contract-nli/raw/118.3-Non-disclosure-agreement.pdf",
+          "sha256": "cb07f3d4ecb5d028371a743519f4f3062dc91382583bda18440ec915e77328d2",
+          "bytes": 12273
+        }
+      ]
+    },
+    {
+      "id": "TC45",
+      "title": "Protected information extends beyond technical material",
+      "claim": "The JEA NDA protects technical information only.",
+      "source_dataset": "ContractNLI",
+      "source_group": "source_group_14",
+      "citation": "Koreeda, Y., and Manning, C. D. (2021). ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts. Findings of EMNLP. https://aclanthology.org/2021.findings-emnlp.164/",
+      "licence_status": "pointer only; CC BY 4.0 dataset, third-party contracts, not committed",
+      "split": "heldout",
+      "files": [
+        {
+          "name": " 064-19 Non Disclosure Agreement 2019.pdf",
+          "path": "ContractNLI/contract-nli/raw/ 064-19 Non Disclosure Agreement 2019.pdf",
+          "sha256": "1d8e74e43c56e06565918966a127984e207a9e337e4cd6cb00476ca08a2dd81f",
+          "bytes": 461261
+        }
+      ]
+    },
+    {
+      "id": "TC46",
+      "title": "Independent development is an exception",
+      "claim": "The JEA NDA excludes independently developed information from its restrictions when JEA's confidential information was not used.",
+      "source_dataset": "ContractNLI",
+      "source_group": "source_group_14",
+      "citation": "Koreeda, Y., and Manning, C. D. (2021). ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts. Findings of EMNLP. https://aclanthology.org/2021.findings-emnlp.164/",
+      "licence_status": "pointer only; CC BY 4.0 dataset, third-party contracts, not committed",
+      "split": "heldout",
+      "files": [
+        {
+          "name": " 064-19 Non Disclosure Agreement 2019.pdf",
+          "path": "ContractNLI/contract-nli/raw/ 064-19 Non Disclosure Agreement 2019.pdf",
+          "sha256": "1d8e74e43c56e06565918966a127984e207a9e337e4cd6cb00476ca08a2dd81f",
+          "bytes": 461261
+        }
+      ]
+    },
+    {
+      "id": "TC23",
+      "title": "Research result versus an uncompleted instrument",
+      "claim": "The MALIBU study established that participants preferred the lower-menthol product.",
+      "source_dataset": "Tobacco800 (YACCLAB-packaged version)",
+      "source_group": "source_group_06",
+      "citation": "Doermann, D. Tobacco 800 Dataset (Tobacco800), v1, ID Tobacco800_1. https://tc11.cvc.uab.es/datasets/tobacco800_1 ; Grana, Bolelli, Baraldi, Vezzani (2016). YACCLAB. ICPR. doi:10.1109/ICPR.2016.7900112",
+      "licence_status": "pointer only; licence terms unverified, not committed",
+      "split": "heldout",
+      "files": [
+        {
+          "name": "MALIBU_study_plan.pdf",
+          "path": "Format Conversions/Tobacco 800/MALIBU_study_plan.pdf",
+          "sha256": "591068fd1adfeb37b86b20669886dc1aa8370f6ea046a8b67fcbcbe93431ae8b",
+          "bytes": 81121
+        },
+        {
+          "name": "avc85f00-page02_3.png",
+          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/avc85f00-page02_3.png",
+          "sha256": "ce6d59dda7703efc0e305920d514822a13d1998979516c81148de15917660ac9",
+          "bytes": 45107
+        },
+        {
+          "name": "avc85f00-page02_4.png",
+          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/avc85f00-page02_4.png",
+          "sha256": "065cf44378905aa17291f7f81e1a826d2b5a1bb8e09835b1813780ef20af9ad4",
+          "bytes": 43188
+        },
+        {
+          "name": "avc85f00-page02_5.png",
+          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/avc85f00-page02_5.png",
+          "sha256": "09a392844acc7a8f07b4c6917a5e513e139d92779a5016721ad7b2df0aead82d",
+          "bytes": 17160
+        }
+      ]
+    },
+    {
+      "id": "TC25",
+      "title": "Permission to use trademarks",
+      "claim": "Philip Morris authorized Sega's use of MARLBORO branding in SUPER MONACO GP.",
+      "source_dataset": "Tobacco800 (YACCLAB-packaged version)",
+      "source_group": "source_group_07",
+      "citation": "Doermann, D. Tobacco 800 Dataset (Tobacco800), v1, ID Tobacco800_1. https://tc11.cvc.uab.es/datasets/tobacco800_1 ; Grana, Bolelli, Baraldi, Vezzani (2016). YACCLAB. ICPR. doi:10.1109/ICPR.2016.7900112",
+      "licence_status": "pointer only; licence terms unverified, not committed",
+      "split": "dev",
+      "files": [
+        {
+          "name": "adh36e00_1.png",
+          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/adh36e00_1.png",
+          "sha256": "e85edcafad3ba270f106eabf0b35c0f56121da0288e591d6deb9e31036b045a8",
+          "bytes": 110189
+        },
+        {
+          "name": "adh36e00_2.png",
+          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/adh36e00_2.png",
+          "sha256": "89e33d50c4d810e12ebc57c10422fd9ff1c5ac8ca02b359bf5a8a9ac132c69b9",
+          "bytes": 171359
+        }
+      ]
+    },
+    {
+      "id": "TC27",
+      "title": "Independent evidence versus a company denial",
+      "claim": "Philip Morris supplied independent laboratory results disproving Angela Ober's asbestos allegation.",
+      "source_dataset": "Tobacco800 (YACCLAB-packaged version)",
+      "source_group": "source_group_08",
+      "citation": "Doermann, D. Tobacco 800 Dataset (Tobacco800), v1, ID Tobacco800_1. https://tc11.cvc.uab.es/datasets/tobacco800_1 ; Grana, Bolelli, Baraldi, Vezzani (2016). YACCLAB. ICPR. doi:10.1109/ICPR.2016.7900112",
+      "licence_status": "pointer only; licence terms unverified, not committed",
+      "split": "heldout",
+      "files": [
+        {
+          "name": "aao54e00_1.png",
+          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/aao54e00_1.png",
+          "sha256": "5d266f5822afb571d8f068e98a4b98cb048b238e5fe91cc91bba64d41f2ab02f",
+          "bytes": 136309
+        },
+        {
+          "name": "aao54e00_2.png",
+          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/aao54e00_2.png",
+          "sha256": "a5286a68fcadc37cc72d752211252615919b85556332e4239572e01e83eca06c",
+          "bytes": 42108
+        }
+      ]
+    },
+    {
+      "id": "TC4",
+      "title": "Delivery confirmation",
+      "claim": "Vins et alcools Chevalier received order 10248 on July 16, 2016.",
+      "source_dataset": "Company Documents (Kaggle archive (3).zip)",
+      "source_group": "source_group_01",
+      "citation": "Company Documents: local archive designation 'archive (3).zip'; Kaggle listing not verified.",
+      "licence_status": "pointer only; licence unverified, not committed",
+      "split": "heldout",
+      "files": [
+        {
+          "name": "invoice_10248.pdf",
+          "path": "Company Documents - Archive 3/CompanyDocuments/invoices/invoice_10248.pdf",
+          "sha256": "bc95a144939b7f21abd832019625a3f2c182a7abe8d57f9bd25e7c6f5d6b3ba5",
+          "bytes": 2052
+        },
+        {
+          "name": "purchase_orders_10248.pdf",
+          "path": "Company Documents - Archive 3/CompanyDocuments/purchase_orders/purchase_orders_10248.pdf",
+          "sha256": "ad8f14ad77a98d0926a68d17e5ce822c2f9d3a355ccf4a6b1ded5327c31cbb87",
+          "bytes": 8412
+        },
+        {
+          "name": "order_10248.pdf",
+          "path": "Company Documents - Archive 3/CompanyDocuments/shipping_orders/order_10248.pdf",
+          "sha256": "5ee01b997176b9124302899471651ce4d4b160f292caf79f2250e2e8324e3480",
+          "bytes": 2780
+        }
+      ]
+    },
+    {
+      "id": "TC10",
+      "title": "Purchase authorization versus billed goods",
+      "claim": "Franchi was billed only for the quantities and unit prices authorized in purchase order 11060.",
+      "source_dataset": "Company Documents (Kaggle archive (3).zip)",
+      "source_group": "source_group_03",
+      "citation": "Company Documents: local archive designation 'archive (3).zip'; Kaggle listing not verified.",
+      "licence_status": "pointer only; licence unverified, not committed",
+      "split": "heldout",
+      "files": [
+        {
+          "name": "invoice_11060.pdf",
+          "path": "Company Documents - Archive 3/CompanyDocuments/invoices/invoice_11060.pdf",
+          "sha256": "7d8c995bb85ea38548801997e4cae15e2d8c0b4f07248d5e40a06baa6cddcdee",
+          "bytes": 2003
+        },
+        {
+          "name": "order_11060.pdf",
+          "path": "Company Documents - Archive 3/CompanyDocuments/shipping_orders/order_11060.pdf",
+          "sha256": "47ca7aa2c7b61ff580ce2e7e44592794945de48ae6a8c1ded76214aa6f344eaa",
+          "bytes": 2692
+        },
+        {
+          "name": "purchase_orders_11060-1.png",
+          "path": "Format Conversions/Company Documents/purchase_orders_11060-1.png",
+          "sha256": "b25472cec1bee625f0c53b0fa47d0f2406db35d7f604e8b61fa5e9814628e0ee",
+          "bytes": 66934
+        }
+      ]
+    }
+  ]
+}
