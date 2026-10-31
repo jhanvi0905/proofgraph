@@ -9,7 +9,13 @@ Gold comes from `--gold` paths (a gold-1 JSON file, a pack directory, or a direc
 default `tests/fixtures/gold`. Gold stays out of the product: only this script reads it.
 
 How a case is scored
-- A card matches a gold relation when part, relation, page agree and at least half of the gold
+- Run parts are aligned to gold parts first (ids play no role). Overlap of the run part's claim span
+  with the gold span, over the gold span length; each run part goes to the gold part it covers most;
+  a gold part is matched when its run parts cover >= 0.5 of it. Gold span None: casefolded,
+  whitespace-collapsed text similarity (difflib) >= 0.8. Several run parts on one gold part are
+  merged (worst status, cards unioned). Unmatched gold parts are misses in every metric; unmatched
+  run parts are listed, not scored. The "alignment" row is the share of gold parts matched.
+- A card matches a gold relation when its run part's aligned gold part, relation, page agree and at least half of the gold
   quote's words appear in the card quote. Precision is by card relation, recall by gold relation.
   Gold `not_enough` relations have no card relation, so they are counted and listed, not scored.
 - Part status is exact match. A gold part with `conflict: true` passes only when the run part is
@@ -24,15 +30,18 @@ How a case is scored
 """
 
 import argparse
+import difflib
 import glob
 import json
 import math
 import re
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 
-from proofgraph.review.models import Card, Review
-from proofgraph.review.packs import Gold, GoldRelation, load_gold
+from proofgraph.review.models import Card, Part, Review
+from proofgraph.review.packs import Gold, GoldPart, GoldRelation, load_gold
+from proofgraph.review.status import WORST_FIRST
 
 Tally = dict[str, tuple[int, int]]
 Z = 1.96
@@ -80,8 +89,82 @@ def word_overlap(gold_quote: str, card_quote: str) -> float:
     return len(gold & _words(card_quote)) / len(gold) if gold else 0.0
 
 
-def _matches(card: Card, rel: GoldRelation) -> bool:
-    return (card.part == rel.part and card.relation == rel.relation and card.page == rel.page
+MIN_OVERLAP = 0.5
+MIN_TEXT_RATIO = 0.8
+
+
+def _norm(text: str) -> str:
+    return " ".join(text.casefold().split())
+
+
+@dataclass(frozen=True)
+class Match:
+    gold: str
+    run: tuple[str, ...]
+    overlap: float
+
+
+@dataclass(frozen=True)
+class Alignment:
+    matches: tuple[Match, ...] = ()
+    gold_unmatched: list[str] = field(default_factory=list)
+    run_unmatched: list[str] = field(default_factory=list)
+
+
+def _score(run_part: Part, gold_part: GoldPart) -> tuple[float, int]:
+    """(share of the gold part this run part covers, tie-break size); (0, 0) when no overlap."""
+    if gold_part.span is not None:
+        lo, hi = max(run_part.span[0], gold_part.span[0]), min(run_part.span[1], gold_part.span[1])
+        inter = max(0, hi - lo)
+        length = gold_part.span[1] - gold_part.span[0]
+        return (inter / length, inter) if inter and length else (0.0, 0)
+    ratio = difflib.SequenceMatcher(None, _norm(run_part.text), _norm(gold_part.text)).ratio()
+    return (ratio, 0) if ratio >= MIN_TEXT_RATIO else (0.0, 0)
+
+
+def _covered(run_parts: list[Part], gold_part: GoldPart) -> float:
+    if gold_part.span is None:
+        return max(_score(p, gold_part)[0] for p in run_parts)
+    chars = {i for p in run_parts for i in range(*p.span)} & set(range(*gold_part.span))
+    return len(chars) / (gold_part.span[1] - gold_part.span[0])
+
+
+def align(review: Review | None, gold: Gold) -> Alignment:
+    """Align run parts to gold parts by claim span (text similarity when the gold span is None).
+
+    Each run part goes to the one gold part it covers most (ties: earlier gold part). A gold part is
+    matched when the run parts sent to it cover at least MIN_OVERLAP of it. Ids never matter.
+    """
+    run_parts = list(review.parts) if review else []
+    assigned: dict[str, list[Part]] = {g.id: [] for g in gold.parts}
+    for rp in run_parts:
+        best = max(((_score(rp, g), -i, g.id) for i, g in enumerate(gold.parts)), default=None)
+        if best and best[0][0] > 0:
+            assigned[best[2]].append(rp)
+    matches, used = [], set()
+    for g in gold.parts:
+        group = assigned[g.id]
+        overlap = _covered(group, g) if group else 0.0
+        if overlap >= MIN_OVERLAP:
+            matches.append(Match(g.id, tuple(p.id for p in group), overlap))
+            used |= {p.id for p in group}
+    matched = {m.gold for m in matches}
+    return Alignment(tuple(matches), [g.id for g in gold.parts if g.id not in matched],
+                     [p.id for p in run_parts if p.id not in used])
+
+
+def _merge_parts(parts: list[Part]) -> tuple[str, bool]:
+    """Status and conflict of several run parts scored as one: the worst status wins."""
+    def rank(p: Part) -> int:
+        return WORST_FIRST.index(p.status) if p.status in WORST_FIRST else -1  # checking/error: worst
+
+    worst = min(parts, key=rank).status
+    return worst, any(p.conflict for p in parts) and worst == "contradicted"
+
+
+def _matches(card: Card, rel: GoldRelation, aligned: dict[str, str]) -> bool:
+    """`aligned` maps run part id to the gold part id it was aligned to; unaligned cards never match."""
+    return (aligned.get(card.part) == rel.part and card.relation == rel.relation and card.page == rel.page
             and word_overlap(rel.quote_pdf, card.quote) >= 0.5)
 
 
@@ -118,24 +201,34 @@ def score_case(review: Review | None, gold: Gold) -> Tally:
     cards = review.cards if review else []
     _add(t, "case_has_run", review is not None)
 
-    for card in cards:
-        _add(t, f"precision:{card.relation}", any(_matches(card, r) for r in gold.relations if r.part == card.part))
-
-    run_parts = {p.id: p for p in review.parts} if review else {}
+    alignment = align(review, gold)
+    by_id = {p.id: p for p in review.parts} if review else {}
+    aligned = {rid: m.gold for m in alignment.matches for rid in m.run}
+    _add(t, "alignment", False, 0)
     for part in gold.parts:
-        got = run_parts.get(part.id)
+        _add(t, "alignment", part.id not in alignment.gold_unmatched)
+
+    # Cards on run parts that aligned to no gold part are listed in the report, not scored.
+    for card in cards:
+        if card.part in aligned:
+            _add(t, f"precision:{card.relation}",
+                 any(_matches(card, r, aligned) for r in gold.relations if r.part == aligned[card.part]))
+
+    merged = {m.gold: _merge_parts([by_id[r] for r in m.run]) for m in alignment.matches}
+    for part in gold.parts:
+        got = merged.get(part.id)
         if part.conflict:
-            ok = got is not None and got.status == "contradicted" and got.conflict
+            ok = got is not None and got[0] == "contradicted" and got[1]
             _add(t, "conflict_pass", ok)
         else:
-            ok = got is not None and got.status == part.status
+            ok = got is not None and got[0] == part.status
         _add(t, "part_status", ok)
 
     for rel in gold.relations:
         if rel.relation == "not_enough":
             _add(t, "excluded:not_enough", True)
             continue
-        hits = [c for c in cards if _matches(c, rel)]
+        hits = [c for c in cards if _matches(c, rel, aligned)]
         _add(t, f"recall:{rel.relation}", bool(hits))
         if not rel.boxes:
             continue
@@ -163,13 +256,31 @@ def build_rows(runs: dict[str, Review], golds: list[Gold]) -> dict[str, Tally]:
     return rows
 
 
-def render(rows: dict[str, Tally], *, missing: list[str], extra: list[str], title: str) -> str:
+def alignment_report(runs: dict[str, Review], golds: list[Gold]) -> str:
+    """Audit table: per gold case, which run part(s) each gold part was aligned to, and what was left over."""
+    lines = ["### Part alignment", "", "| case | gold part | run part(s) | overlap |", "|---|---|---|---|"]
+    notes = []
+    for gold in sorted(golds, key=lambda g: g.case):
+        al = align(runs.get(gold.case), gold)
+        by_gold = {m.gold: m for m in al.matches}
+        for part in gold.parts:
+            m = by_gold.get(part.id)
+            run_ids, overlap = (", ".join(m.run), m.overlap) if m else ("unmatched (miss)", 0.0)
+            lines.append(f"| {gold.case} | {part.id} | {run_ids} | {overlap:.2f} |")
+        if al.run_unmatched:
+            notes.append(f"- {gold.case}: run parts not aligned (listed, not scored): {', '.join(al.run_unmatched)}")
+    return "\n".join(lines + [""] + notes) + "\n"
+
+
+def render(rows: dict[str, Tally], *, missing: list[str], extra: list[str], title: str, alignment: str = "") -> str:
     out = [f"# {title}", ""]
     out.append(f"Gold cases with no run: {', '.join(sorted(missing)) if missing else 'none'} (each counted as a miss)")
     out.append(f"Run cases with no gold: {', '.join(sorted(extra)) if extra else 'none'} (not scored)")
+    if alignment:
+        out += ["", alignment.rstrip("\n")]
     for label, t in rows.items():
         out += ["", f"## {label}", ""]
-        names = [("case_has_run", "cases with a run")]
+        names = [("case_has_run", "cases with a run"), ("alignment", "alignment (gold parts matched)")]
         names += [(f"precision:{r}", f"precision, {r}") for r in RELATIONS]
         names += [(f"recall:{r}", f"recall, {r}") for r in RELATIONS]
         names += [("part_status", "part status accuracy"), ("conflict_pass", "conflict pass rule"),
@@ -230,7 +341,8 @@ def main(argv: list[str] | None = None) -> int:
         runs = load_runs(Path(name))
         rows = build_rows(runs, golds)
         sections.append(render(rows, missing=sorted(ids - set(runs)), extra=sorted(set(runs) - ids),
-                               title=f"Review run {Path(name).name}"))
+                               title=f"Review run {Path(name).name}",
+                               alignment=alignment_report(runs, golds)))
     text = "\n".join(sections)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(text)
