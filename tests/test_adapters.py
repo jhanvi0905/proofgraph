@@ -173,3 +173,77 @@ def _write_claims(root: Path, records: list[object], *, name: str = "testmini.js
     data = root / "data"
     data.mkdir(parents=True, exist_ok=True)
     (data / name).write_text(json.dumps(records), encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# R-17: adapters hand the pipeline only the claim and evidence.
+# ---------------------------------------------------------------------------
+
+import ast  # noqa: E402
+
+from proofgraph.adapters import strip_leak_fields  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[1]
+ADAPTERS = ROOT / "proofgraph" / "adapters"
+# Final-plan C12: pack and suite gold keys the leak list must also cover.
+PACK_GOLD_KEYS = {"gold", "note", "ground_truth", "expected_verdict"}
+
+
+@pytest.mark.parametrize("field", sorted(LEAK_FIELDS))
+def test_each_leak_field_is_dropped_from_case_and_engine_view(tmp_path: Path, field: str):
+    # entailment_label must stay a bool for the row to load; the others carry a sentinel.
+    sentinel = f"SENTINEL-{field}-9d2e"
+    _write_claims(tmp_path, [_numeric(**{field: True if field == "entailment_label" else sentinel})])
+    case = list(FinDVerAdapter(tmp_path).cases("testmini", "passage", None))[0]
+    for payload in (case.model_dump(), for_engine(case).model_dump()):
+        assert sentinel not in json.dumps(payload)
+        assert LEAK_FIELDS.isdisjoint(payload)
+
+
+def test_engine_view_exposes_only_claim_and_evidence():
+    for case in FinDVerAdapter(FIXTURE).cases("testmini", "passage", None):
+        visible = for_engine(case)
+        assert visible.answer is None
+        assert visible.gold_evidence == []
+        assert visible.claim and visible.sources
+        # gold stays on the adapter's case, not the engine's copy
+        assert case.answer is not None and case.gold_evidence
+
+
+# docs/05 and docs/08, pinned here so shrinking LEAK_FIELDS cannot silently pass.
+DOCUMENTED_LEAKS = {
+    "explanation", "explaination", "python_calculation", "execution_result", "knowledge",
+    "entailment_label",
+}
+
+
+def test_leak_list_keeps_every_documented_field():
+    assert DOCUMENTED_LEAKS <= LEAK_FIELDS
+
+
+def test_strip_leak_fields_removes_every_listed_key_and_keeps_the_rest():
+    row = {key: f"SENTINEL-{key}" for key in DOCUMENTED_LEAKS} | {"statement": "kept", "example_id": "x"}
+    assert strip_leak_fields(row) == {"statement": "kept", "example_id": "x"}
+
+
+def test_adapters_do_not_import_gold_or_packs():
+    files = list(ADAPTERS.rglob("*.py"))
+    assert files
+    for path in files:
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ImportFrom):
+                names = [node.module or ""] + [f"{node.module}.{a.name}" for a in node.names]
+            elif isinstance(node, ast.Import):
+                names = [a.name for a in node.names]
+            else:
+                continue
+            assert not any("review.packs" in n or "load_gold" in n for n in names), path.name
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="R-17 gap: proofgraph/adapters/base.py LEAK_FIELDS lacks the pack and suite gold "
+    "keys (gold, note, ground_truth, expected_verdict) that final-plan C12 says to add",
+)
+def test_leak_list_covers_pack_and_suite_gold_keys():
+    assert PACK_GOLD_KEYS <= LEAK_FIELDS
