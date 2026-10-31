@@ -306,3 +306,19 @@ def test_engine_propose_and_cli_do_not_read_sealed_case_fields():
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute):
                 assert node.attr not in {"answer", "gold_evidence"}
+
+
+def test_review_check_stays_blind_and_pure():
+    path = ROOT / "proofgraph" / "review" / "check.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    banned = ("proofgraph.review.relate", "proofgraph.clients.muse", "gold", "packs")
+    for node in ast.walk(tree):
+        names: list[str] = []
+        if isinstance(node, ast.Import):
+            names = [a.name for a in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            names = [node.module or ""] + [f"{node.module}.{a.name}" for a in node.names]
+        for name in names:
+            assert not any(b in name for b in banned), name
+        if isinstance(node, ast.Attribute):
+            assert node.attr not in {"answer", "gold_evidence", "why", "doc", "page"}
