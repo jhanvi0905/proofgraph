@@ -262,6 +262,10 @@ class MuseClient:
             offline=transport is not None,
         )
 
+    def ensure_budget(self) -> None:
+        """Raise SpendCapReached if the spend cap is reached. Sends nothing."""
+        self._spend.check()
+
     def upload_user_data(self, path: str | Path) -> str:
         """Upload a local file once. Return the cached file id for these bytes.
 

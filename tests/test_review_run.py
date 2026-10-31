@@ -320,3 +320,12 @@ def test_at_most_four_parts_run_at_once(tmp_path):
 
     review = _run(claim, [PDF], _muse(tmp_path, Wide())).review
     assert len(review.parts) == 9 and 1 < peak["max"] <= 4
+
+
+def test_cap_gate_runs_before_split_is_even_called(tmp_path, monkeypatch):
+    """The transport never being hit is not enough: split itself must not run when capped."""
+    called = []
+    monkeypatch.setattr(run_mod, "split", lambda *a, **k: called.append(1))
+    review = _run(CLAIM2, [PDF], _muse(tmp_path, SmartTransport(), limit="0.01")).review
+    assert called == []
+    assert [b.kind for b in review.banners] == ["cap"]

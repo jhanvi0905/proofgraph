@@ -847,3 +847,17 @@ def test_openai_transport_sets_the_timeout_and_reads_retry_after(tmp_path, monke
     assert caught.value.retry_after == 3.0
     assert captured["init"]["timeout"] == 180.0
     assert captured["init"]["max_retries"] == 0
+
+
+def test_ensure_budget_raises_at_the_cap_and_sends_nothing(tmp_path):
+    from proofgraph.spend import SpendCapReached
+
+    transport = FakeTransport([])
+    client = _client(tmp_path, transport, SPEND_LIMIT_USD="0.01")
+    with pytest.raises(SpendCapReached):
+        client.ensure_budget()
+    assert transport.calls == 0
+
+
+def test_ensure_budget_passes_under_the_cap(tmp_path):
+    _client(tmp_path, FakeTransport([]), SPEND_LIMIT_USD="50").ensure_budget()

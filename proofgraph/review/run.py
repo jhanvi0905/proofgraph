@@ -129,7 +129,7 @@ def run_review(
 
     # Gates first: the spend cap is checked before split, so a stopped run sends nothing.
     try:
-        muse._spend.check()
+        muse.ensure_budget()
         pieces = split(claim, muse)
     except Exception as exc:  # a stop or split failure is a banner, not a crash
         whole.status, whole.reason = "error", "The claim was not split; nothing was checked."
