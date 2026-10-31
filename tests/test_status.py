@@ -5,13 +5,13 @@ import itertools
 import pytest
 
 from proofgraph.review.models import Card
-from proofgraph.review.status import overall_status, part_status
+from proofgraph.review.status import overall_status, part_status, supports_reason
 
 
-def card(relation: str, box_status: str = "pinned", cid: str = "c") -> Card:
+def card(relation: str, box_status: str = "pinned", cid: str = "c", check: str = "not_run") -> Card:
     return Card(
         id=cid, part="P1", relation=relation, quote="q", doc="d1", page=1,
-        box_status=box_status, why="w", check="not_run",
+        box_status=box_status, why="w", check=check,
     )
 
 
@@ -84,3 +84,47 @@ def test_invalid_input_is_rejected():
         part_status(["supports"], receipt_complete=True)
     with pytest.raises(ValueError):
         part_status([], receipt_complete=None)
+
+
+S, D, A, U, N = "supports", "disagrees", "agrees", "unavailable", "not_run"
+
+
+@pytest.mark.parametrize(
+    ("cards", "expected"),
+    [
+        ([card(S, check=D)], ("cannot_tell", False)),
+        ([card(S, check=D), card(S, check=A)], ("supported", False)),
+        ([card(S, check=U)], ("supported", False)),
+        ([card(S, check=N)], ("supported", False)),
+        ([card("weakens", check=D), card(S, check=D)], ("weakened", False)),
+        ([card("contradicts", check=D)], ("contradicted", False)),
+        ([card(S, check=D), card("contradicts", check=A)], ("contradicted", True)),
+        # Accepted limitation (product lead, 1 Nov): an unavailable check keeps the part supported.
+        ([card(S, check=D), card(S, check=U)], ("supported", False)),
+        ([card("set_aside", check=A), card(S, check=D)], ("cannot_tell", False)),
+        ([card("set_aside", check=D), card(S, check=A)], ("supported", False)),
+        ([card(S, "approximate", check=D)], ("cannot_tell", False)),
+    ],
+)
+def test_disagreed_support_rule_table(cards, expected):
+    assert part_status(cards, receipt_complete=True) == expected
+    assert all(part_status(list(p), receipt_complete=True) == expected for p in itertools.permutations(cards))
+
+
+@pytest.mark.parametrize(
+    ("cards", "expected"),
+    [
+        ([card(S, check=D)], "unconfirmed"),
+        ([card(S, check=D), card(S, check=U)], "not_double_checked"),
+        ([card(S, check=U)], "not_double_checked"),
+        ([card(S, check=N)], "not_double_checked"),
+        ([card(S, check=A)], None),
+        ([card(S, check=D), card(S, check=A)], None),
+        ([card(S, check=A), card(S, check=U)], None),
+        ([], None),
+        ([card("weakens", check=D)], None),
+        ([card("set_aside", check=D)], None),
+    ],
+)
+def test_supports_reason(cards, expected):
+    assert supports_reason(cards) == expected

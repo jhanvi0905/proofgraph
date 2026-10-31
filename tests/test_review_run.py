@@ -263,7 +263,8 @@ def test_final_review_has_every_part_in_order_with_checks_and_keeps_disagreeing_
     assert [c.part for c in review.cards] == ["p1", "p2"]
     assert [p.card_ids for p in review.parts] == [["c1"], ["c2"]]
     assert [c.check for c in review.cards] == ["agrees", "disagrees"]
-    assert review.parts[1].status == "supported"  # a disagreement never hides or changes status
+    # D38: the only supporting card was disagreed with, so the part is cannot_tell; the card is still kept
+    assert review.parts[1].status == "cannot_tell"
     assert review.status == "contradicted" and review.driver_part == "p1"
     Review.model_validate_json(review.model_dump_json())
 
