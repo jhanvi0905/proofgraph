@@ -522,7 +522,9 @@ def _full_offline_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rec: _Ope
     client = MuseClient(settings, transport=muse, files_transport=_Files(muse))
 
     assert [p.text for p in split(CLAIM, client)] == [CLAIM]
-    result = run_review(CLAIM, [pdf], client)
+    # run_review streams events since R-15; drain them. A stub checker keeps this offline: the
+    # blind-check request body is recorded below through check_cards.
+    result = list(run_review(CLAIM, [pdf], client, checker=lambda quote, part: "entails"))[-1].result
     buf = io.BytesIO()
     Image.new("L", (40, 60), 220).save(buf, format="PNG")
     transcribe(buf.getvalue(), client)
