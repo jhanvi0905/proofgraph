@@ -18,6 +18,7 @@ def test_packet_directory_has_the_real_filing_and_the_bills():
         "late-fee-overcharge.json",
         "numeric-test-0.json",
         "numeric-val-0.json",
+        "ship-export-this-week.direct.json",
         "ship-export-this-week.json",
     ]
 

@@ -1,0 +1,14 @@
+{
+  "kind": "recording",
+  "note": "Recorded answer from one earlier call to Direct Muse. This is a recording, not a live answer.",
+  "system": "A · Direct Muse",
+  "case_id": "ship-export-this-week",
+  "model": "muse-spark-1.3",
+  "recorded_at": "2026-10-31T07:07:14Z",
+  "label": "refuted",
+  "text": "Step 1: usage_note states 'Export is used by 40% of weekly active accounts' which supports the 'Weekly use is 40%' part of the claim. Step 2: support_note states 'Export support costs $4,200 a month' which directly contradicts the claim's 'support cost is $1,000 a month'. Step 3: release_note states 'The release this cycle covers search filters and the billing page' which does not include the export button, contradicting 'We should ship the export button this week'. Because the cost figure is false and the release scope does not include export, the claim as a whole is refuted.",
+  "raw": {
+    "answer": "refuted",
+    "reasoning": "Step 1: usage_note states 'Export is used by 40% of weekly active accounts' which supports the 'Weekly use is 40%' part of the claim. Step 2: support_note states 'Export support costs $4,200 a month' which directly contradicts the claim's 'support cost is $1,000 a month'. Step 3: release_note states 'The release this cycle covers search filters and the billing page' which does not include the export button, contradicting 'We should ship the export button this week'. Because the cost figure is false and the release scope does not include export, the claim as a whole is refuted."
+  }
+}
