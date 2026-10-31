@@ -103,12 +103,12 @@ def test_quote_that_does_not_snap_is_unpinned_and_not_red(tmp_path):
     assert review.parts[0].status != "contradicted"
 
 
-def test_image_only_page_is_unreadable_banner_and_no_model_call(tmp_path):
+def test_image_only_page_whose_transcription_fails_is_unreadable_banner_and_no_relate_call(tmp_path):
     scan = tmp_path / "scan.pdf"
     Image.new("RGB", (300, 400), "white").save(scan)
-    transport = FakeTransport()
-    review = _run(CLAIM, [scan], _muse(tmp_path, transport)).review
-    assert transport.bodies == []
+    transport = ScanTransport(fail_scan=True)
+    review = _run(CLAIM, [scan], _scan_muse(tmp_path, transport)).review
+    assert transport.log == ["transcribe"]
     assert [b.kind for b in review.banners] == ["unreadable"]
     assert review.docs[0].pages[0].readable is False
     assert review.parts[0].status == "cannot_tell"
@@ -358,3 +358,162 @@ def test_uncited_sweep_hit_on_a_read_page_makes_no_card_part_cannot_tell(tmp_pat
 def test_a_supports_card_stays_supported_when_the_sweep_is_incomplete(tmp_path):
     supports = {**GOOD, "relation": "supports", "weakener_type": None}
     assert _status_for(tmp_path, CLAIM, supports, [PDF], checker=lambda q, p: "entails") == "supported"
+
+
+# ---- R-13b: scan pages are transcribed inside the run ----
+
+SCAN_LINES = {"lines": [
+    {"text": "Guard check-in 10/14/2025 09:18", "box": [100, 230, 500, 260]},
+    {"text": "Unload complete 10:51", "box": [100, 300, 400, 330]},
+]}
+SCAN_PART = "Guard check-in was at 09:18 on 10/14/2025."
+CLAIM_SCAN = f"{PART_A} {SCAN_PART}"
+SCAN_QUOTE = "Guard check-in 10/14/2025 09:18"
+
+
+class FakeFiles:
+    def __init__(self) -> None:
+        self.uploads: list[str] = []
+
+    def create(self, *, filename, content, purpose):
+        self.uploads.append(filename)
+        return {"id": "file_" + filename}
+
+
+def _scan(tmp_path, shade=255):
+    path = tmp_path / f"scan{shade}.pdf"
+    Image.new("RGB", (300, 400), (shade, shade, shade)).save(path)
+    return path
+
+
+class ScanTransport:
+    """Routes by request: image requests are transcriptions, 'CLAIM PART:' ones are relate."""
+
+    def __init__(self, scan_doc=None, lines=SCAN_LINES, fail_scan=False, split=None, delay=0.0, relate=None):
+        self.scan_doc, self.lines, self.fail_scan, self.delay = scan_doc, lines, fail_scan, delay
+        self.split = split or {"parts": [{"text": PART_A}, {"text": SCAN_PART}]}
+        self.relate = relate
+        self.bodies: list[dict] = []
+        self.log: list[str] = []
+        self.active = self.peak = 0
+        self.lock = threading.Lock()
+
+    def create(self, body):
+        with self.lock:
+            self.bodies.append(json.loads(json.dumps(body)))
+        prompt = body["input"]
+        if not isinstance(prompt, str):  # a page image: transcribe
+            with self.lock:
+                self.log.append("transcribe")
+                self.active += 1
+                self.peak = max(self.peak, self.active)
+            try:
+                time.sleep(self.delay)
+                if self.fail_scan:
+                    raise RuntimeError("vision down")
+                return _envelope(self.lines)
+            finally:
+                with self.lock:
+                    self.active -= 1
+        if "CLAIM PART:" not in prompt:
+            self.log.append("split")
+            return _envelope(self.split)
+        self.log.append("relate")
+        if self.relate is not None:
+            return _envelope(self.relate)
+        if f"CLAIM PART:\n{SCAN_PART}" in prompt:
+            return _envelope({**GOOD, "relation": "supports", "weakener_type": None,
+                              "quote": SCAN_QUOTE, "doc": self.scan_doc, "page": 1,
+                              "why": "Check-in time matches."})
+        return _envelope(GOOD)
+
+
+def _scan_muse(tmp_path, transport, limit="0", files=None):
+    settings = load_settings({"MODEL_API_KEY": "k", "CACHE_DIR": str(tmp_path / "cache"), "SPEND_LIMIT_USD": limit})
+    return MuseClient(settings, transport=transport, files_transport=files or FakeFiles())
+
+
+def test_text_pdf_and_scan_page_both_reach_cards_and_the_scan_card_is_approximate(tmp_path):
+    scan = _scan(tmp_path)
+    doc = ingest([scan])[0].doc_id
+    review = _run(CLAIM_SCAN, [PDF, scan], _scan_muse(tmp_path, ScanTransport(scan_doc=doc))).review
+    by_part = {c.part: c for c in review.cards}
+    assert by_part["p1"].box_status == "pinned"
+    assert by_part["p2"].box_status == "approximate" and by_part["p2"].boxes and by_part["p2"].doc == doc
+    assert all(c.box_status != "pinned" for c in review.cards if c.doc == doc)
+    assert review.parts[1].status == "supported"
+    assert not [b for b in review.banners if b.kind == "unreadable"]
+    assert all(p.readable for d in review.docs for p in d.pages)
+
+
+def test_relate_request_carries_transcribed_text_under_the_scan_tag_and_no_gold(tmp_path):
+    scan = _scan(tmp_path)
+    doc = ingest([scan])[0].doc_id
+    transport = ScanTransport(scan_doc=doc)
+    _run(CLAIM_SCAN, [PDF, scan], _scan_muse(tmp_path, transport))
+    relate = [b["input"] for b in transport.bodies if isinstance(b["input"], str) and "CLAIM PART:" in b["input"]]
+    assert relate
+    for prompt in relate:
+        assert f"[doc {doc} p1]\n| Guard check-in 10/14/2025 09:18\n| Unload complete 10:51" in prompt
+    blob = json.dumps(transport.bodies)
+    assert "ground_truth" not in blob and "pack.json" not in blob
+
+
+@pytest.mark.parametrize("mode", ["error", "empty"])
+def test_failed_transcription_keeps_unreadable_banner_and_cannot_tell_while_other_parts_finish(tmp_path, mode):
+    scan = _scan(tmp_path)
+    doc = ingest([scan])[0].doc_id
+    if mode == "error":
+        transport = ScanTransport(scan_doc=doc, fail_scan=True)
+    else:
+        transport = ScanTransport(scan_doc=doc, lines={"lines": [{"text": "  ", "box": [1, 1, 9, 9]}]})
+    review = _run(CLAIM_SCAN, [PDF, scan], _scan_muse(tmp_path, transport)).review
+    assert [b.kind for b in review.banners if b.kind == "unreadable"] == ["unreadable"]
+    assert [p.readable for d in review.docs if d.id == doc for p in d.pages] == [False]
+    by_id = {p.id: p for p in review.parts}
+    assert by_id["p1"].status == "contradicted"  # the text page's part still finished
+    assert by_id["p2"].status == "cannot_tell"
+
+
+def test_transcribed_scan_counts_as_read_so_an_absent_term_is_not_found(tmp_path):
+    scan = _scan(tmp_path)
+    claim = "Zebra widgets ship nightly."
+
+    def part_for(ok, sub):
+        (tmp_path / sub).mkdir()
+        t = ScanTransport(fail_scan=not ok, split={"parts": [{"text": claim}]}, relate=ASIDE)
+        return _run(claim, [PDF, scan], _scan_muse(tmp_path / sub, t)).review.parts[0]
+
+    ok, bad = part_for(True, "ok"), part_for(False, "bad")
+    assert ok.status == "not_found" and ok.receipt.unread == []
+    assert bad.status == "cannot_tell" and bad.receipt.unread == [1]
+
+
+def test_transcription_is_bounded_to_four_and_finishes_before_any_part_starts(tmp_path):
+    scans = [_scan(tmp_path, shade=200 + i) for i in range(7)]
+    transport = ScanTransport(scan_doc="d1", delay=0.05)
+    _run(CLAIM_SCAN, [PDF, *scans], _scan_muse(tmp_path, transport))
+    assert 1 < transport.peak <= 4
+    assert transport.log.count("transcribe") == 7
+    assert transport.log[:7] == ["transcribe"] * 7  # all scans done before split or relate
+    assert transport.log[7] == "split"
+
+
+def test_cap_gate_blocks_before_any_transcription(tmp_path):
+    scan = _scan(tmp_path)
+    transport, files = ScanTransport(scan_doc="d1"), FakeFiles()
+    review = _run(CLAIM_SCAN, [PDF, scan], _scan_muse(tmp_path, transport, limit="0.01", files=files)).review
+    assert transport.bodies == [] and files.uploads == []
+    assert "cap" in [b.kind for b in review.banners]  # the untranscribed scan also reads as unread
+    assert review.status == "error"
+
+
+def test_second_identical_run_makes_no_new_transcription_request(tmp_path):
+    scan = _scan(tmp_path)
+    transport = ScanTransport(scan_doc=ingest([scan])[0].doc_id)
+    muse = _scan_muse(tmp_path, transport)
+    _run(CLAIM_SCAN, [PDF, scan], muse)
+    first = len(transport.bodies)
+    assert transport.log.count("transcribe") == 1
+    _run(CLAIM_SCAN, [PDF, scan], muse)
+    assert len(transport.bodies) == first
