@@ -1087,7 +1087,6 @@ def main() -> None:
 
     import streamlit as st
 
-    st.set_page_config(page_title="ProofGraph", layout="wide")
     _story(st)
     st.text_input(
         "Passcode",
@@ -2030,7 +2029,7 @@ def skeleton_submit(st, claim: str, files, make_muse) -> tuple[str | None, str |
 
 
 def review_skeleton(make_muse: Callable[[], object] | None = None) -> None:
-    """New entry: upload, claim, passcode, three-pane viewer. Not wired into main()."""
+    """New review page: passcode, claim and files submit together, then the three-pane viewer."""
 
     import streamlit as st
     import streamlit.components.v1 as components
@@ -2039,11 +2038,13 @@ def review_skeleton(make_muse: Callable[[], object] | None = None) -> None:
         from proofgraph.review.run import default_muse
 
         make_muse = default_muse
-    st.set_page_config(page_title="ProofGraph", layout="wide")
-    st.text_input("Passcode", type="password", key="passcode")
-    claim = st.text_area("Claim", height=88)
-    files = st.file_uploader("Evidence packet", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
-    if st.button("Check the claim"):
+    # One form: a text box only sends its value on blur or Enter, so the three inputs go together.
+    with st.form("review_form"):
+        st.text_input("Passcode", type="password", key="passcode")
+        claim = st.text_area("Claim", height=88)
+        files = st.file_uploader("Evidence packet", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
+        submitted = st.form_submit_button("Check the claim")
+    if submitted:
         page, error = skeleton_submit(st, claim, files, make_muse)
         st.session_state["skeleton_html"], st.session_state["skeleton_error"] = page, error
     if st.session_state.get("skeleton_error"):
@@ -2052,5 +2053,32 @@ def review_skeleton(make_muse: Callable[[], object] | None = None) -> None:
         components.html(st.session_state["skeleton_html"], height=900, scrolling=True)
 
 
+@dataclass(frozen=True)
+class PageSpec:
+    title: str
+    url_path: str
+    default: bool
+
+
+def page_plan() -> tuple[PageSpec, ...]:
+    """The two pages, in order. The new review is the default."""
+
+    return (PageSpec("New review", "review", True), PageSpec("Packet app", "packets", False))
+
+
+def run_app(make_muse: Callable[[], object] | None = None) -> None:
+    """Entry: one set_page_config, then the chosen page. Each page owns its own passcode box."""
+
+    import streamlit as st
+
+    st.set_page_config(page_title="ProofGraph", layout="wide")
+    bodies = {"review": lambda: review_skeleton(make_muse), "packets": main}
+    pages = [
+        st.Page(bodies[spec.url_path], title=spec.title, url_path=spec.url_path, default=spec.default)
+        for spec in page_plan()
+    ]
+    st.navigation(pages).run()
+
+
 if __name__ == "__main__":
-    main()
+    run_app()
