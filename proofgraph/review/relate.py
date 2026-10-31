@@ -32,6 +32,7 @@ class Relate(BaseModel):
     doc: str
     page: int
     why: str
+    injection_quote: str | None = None
 
 
 def relate(part: str, pages: list[PageText], muse: MuseClient) -> Relate:
