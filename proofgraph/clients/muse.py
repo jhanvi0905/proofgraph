@@ -17,6 +17,12 @@ and the write for an experiment. One repair call is made when the output is
 not valid JSON for the schema; the next failure raises ExtractionFailed.
 Timeouts and malformed responses are not repaired.
 
+HTTP 429 and 5xx are retried at most four times with backoff, and Retry-After
+is honored (``proofgraph.spend.call_with_retries``). Each attempt times out at
+180s. A timeout is not retried. Before each paid call the total spend cap is
+checked (``SpendCapReached``) and after it the real cost is added to the
+ledger. A cache hit costs nothing.
+
 A local PDF or image is uploaded with files.create and purpose "user_data".
 The file id is cached under the SHA-256 of those bytes, so the same bytes
 are not uploaded again. A call that attaches files sends input as a user
@@ -28,6 +34,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, Mapping, Protocol, TypeVar
@@ -36,6 +43,18 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from proofgraph.cache import CachedCall, DiskCache, cache_key
 from proofgraph.config import Settings, load_settings
+from proofgraph.spend import (
+    REQUEST_TIMEOUT_S,
+    MuseError,
+    SpendCapReached,
+    SpendGuard,
+    SpendLedger,
+    call_with_retries,
+    responses_cost_usd,
+    retry_after_seconds,
+)
+
+__all__ = ["MuseError", "SpendCapReached"]
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -49,10 +68,6 @@ DEFAULT_REASONING_EFFORT = "medium"
 _EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
 
 
-class MuseError(Exception):
-    """A Muse call failed before any verdict exists."""
-
-
 class MissingApiKeyError(MuseError):
     """MODEL_API_KEY is absent, so the API was not called."""
 
@@ -63,6 +78,17 @@ class MuseTimeoutError(MuseError):
 
 class MuseResponseError(MuseError):
     """The API answered with a body this client cannot read as text."""
+
+
+class MuseHTTPError(MuseResponseError):
+    """The API answered with an HTTP error status. 429 and 5xx are retried."""
+
+    def __init__(
+        self, status_code: int, message: str = "", *, retry_after: float | None = None
+    ) -> None:
+        super().__init__(message or f"Muse request failed with HTTP {status_code}")
+        self.status_code = status_code
+        self.retry_after = retry_after
 
 
 class ExtractionFailed(MuseError):
@@ -134,9 +160,14 @@ class OpenAIResponsesTransport:
     def __init__(self, *, api_key: str, base_url: str) -> None:
         from openai import OpenAI
 
-        # The SDK retries 429/5xx twice unless this is 0. This slice repairs
-        # malformed JSON once and does not retry HTTP failures.
-        self._client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
+        # The SDK retries 429/5xx twice unless this is 0. MuseClient retries
+        # 429/5xx itself, so every attempt is visible and counted.
+        self._client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            max_retries=0,
+            timeout=REQUEST_TIMEOUT_S,
+        )
 
     def create(self, body: Mapping[str, Any]) -> Mapping[str, Any]:
         from openai import APIError, APITimeoutError
@@ -155,6 +186,12 @@ class OpenAIResponsesTransport:
             code = getattr(exc, "code", None)
             if status == 504 or code == "gateway_timeout":
                 raise MuseTimeoutError("Muse gateway timeout") from exc
+            if isinstance(status, int):
+                raise MuseHTTPError(
+                    status,
+                    f"Muse request failed: {exc}",
+                    retry_after=retry_after_seconds(exc),
+                ) from exc
             raise MuseResponseError(f"Muse request failed: {exc}") from exc
         except TimeoutError as exc:
             raise MuseTimeoutError("Muse response timed out") from exc
@@ -208,6 +245,8 @@ class MuseClient:
         transport: ResponsesTransport | None = None,
         files_transport: FilesTransport | None = None,
         cache: DiskCache | None = None,
+        ledger: SpendLedger | None = None,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self.settings = settings if settings is not None else load_settings()
         self.spend_limit_usd = self.settings.spend_limit_usd
@@ -216,6 +255,12 @@ class MuseClient:
         self._files_transport = files_transport
         self.cache = cache if cache is not None else DiskCache(self.settings.cache_dir)
         self._file_cache = DiskCache(self.cache.directory / "files")
+        self._sleep = sleep
+        self._spend = SpendGuard(
+            ledger if ledger is not None else SpendLedger(self.cache.directory),
+            self.spend_limit_usd,
+            offline=transport is not None,
+        )
 
     def upload_user_data(self, path: str | Path) -> str:
         """Upload a local file once. Return the cached file id for these bytes.
@@ -376,6 +421,7 @@ class MuseClient:
             )
 
     def _create(self, body: Mapping[str, Any]) -> dict[str, Any]:
+        self._spend.check()
         transport = self._transport
         if transport is None:
             if self._api_key is None:
@@ -386,7 +432,11 @@ class MuseClient:
                 api_key=self._api_key,
                 base_url=self.settings.muse_base_url,
             )
-        return self._read_json(lambda: transport.create(body))
+        response = self._read_json(
+            lambda: call_with_retries(lambda: transport.create(body), sleep=self._sleep)
+        )
+        self._spend.charge(responses_cost_usd(response))
+        return response
 
     def _cached_file_id(self, digest: str) -> str | None:
         cached = self._file_cache.get(digest)
