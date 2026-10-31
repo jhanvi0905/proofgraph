@@ -4,7 +4,7 @@ import base64
 import html
 from pathlib import Path
 
-from proofgraph.review.models import Card, Doc, Page, Part, Review
+from proofgraph.review.models import Banner, Card, Doc, Page, Part, Review
 
 TEMPLATE = Path(__file__).with_name("viewer.html")
 
@@ -25,6 +25,31 @@ STATUS_LABEL = {
 }
 
 
+# What each state means and what to do, in plain words.
+STATE_HELP = {
+    "checking": "Still being checked. This is not a result yet.",
+    "not_found": "Nothing on the pages read supports or contradicts this part.",
+    "cannot_tell": "The pages read are not enough to decide. Check the original document yourself.",
+    "error": "This part could not be checked because of an error. Run the check again.",
+}
+BANNER_HELP = {
+    "cap": ("Spend cap reached.", "No more checks were run. Raise the limit or try again later."),
+    "checker_unavailable": (
+        "The second check was unavailable.",
+        "Results below were not confirmed by a second check. Try again later.",
+    ),
+    "unreadable": ("A file or page could not be read.", "Upload a text PDF or retype the passage."),
+    "injection": ("A file contains instructions aimed at the checker.", "They were ignored. Read that file yourself."),
+}
+CHECK_LABEL = {
+    "agrees": "Second check agrees",
+    "disagrees": "Second check disagrees",
+    "unavailable": "Second check unavailable",
+    "not_run": "Second check not run",
+}
+REPLAY_TEXT = "Replayed from a saved run, not a live check"
+
+
 def _e(value: object) -> str:
     return html.escape(str(value), quote=True)
 
@@ -38,10 +63,18 @@ def _part(part: Part) -> str:
         '<p class="conflict">Sources disagree on this part.</p>' if part.conflict else ""
     )
     reason = f'<p class="reason">{_e(part.reason)}</p>' if part.reason else ""
+    help_ = ""
+    if part.status in STATE_HELP:
+        extra = ""
+        if part.receipt and part.status == "not_found":
+            extra = f" Pages read: {part.receipt.pages_read}."
+            if part.receipt.unread:
+                extra += f" Pages not read: {', '.join(map(str, part.receipt.unread))}."
+        help_ = f'<p class="state-help {part.status}">{_e(STATE_HELP[part.status])}{_e(extra)}</p>'
     return (
-        f'<li class="part" data-part-id="{_e(part.id)}">'
+        f'<li class="part {_e(part.status)}" data-part-id="{_e(part.id)}">'
         f'<span class="chip {_e(part.status)}">{_e(STATUS_LABEL[part.status])}</span> '
-        f"<span>{_e(part.text)}</span>{reason}{conflict}</li>"
+        f"<span>{_e(part.text)}</span>{help_}{reason}{conflict}</li>"
     )
 
 
@@ -55,7 +88,8 @@ def _card(card: Card) -> str:
         f'<blockquote>{_e(card.quote)}</blockquote>'
         f'<p class="why">{_e(card.why)}</p>{computed}'
         f'<p class="meta">{_e(card.doc)} p{card.page}{weakener} · '
-        f"box {_e(card.box_status)} · check {_e(card.check)}</p></article>"
+        f"box {_e(card.box_status)} · "
+        f'<span class="mark {_e(card.check)}">{_e(CHECK_LABEL[card.check])}</span></p></article>'
     )
 
 
@@ -88,16 +122,36 @@ def _page(doc: Doc, page: Page, cards: list[Card], images: dict[tuple[str, int],
     )
 
 
-def render(review: Review, page_images: dict[tuple[str, int], bytes] | None = None) -> str:
+def _banner(banner: Banner) -> str:
+    head, tip = BANNER_HELP[banner.kind]
+    return f'<p class="banner {_e(banner.kind)}"><strong>{_e(head)}</strong> {_e(banner.text)} {_e(tip)}</p>'
+
+
+def _unreadable_notes(review: Review) -> str:
+    return "".join(
+        f'<p class="pagenote unreadable">{_e(d.name)} p{p.n}: image only, not transcribed, '
+        "so nothing on it was checked. Upload a text PDF or retype it.</p>"
+        for d in review.docs
+        for p in d.pages
+        if not p.readable
+    )
+
+
+def render(
+    review: Review, page_images: dict[tuple[str, int], bytes] | None = None, replay: bool = False
+) -> str:
+    """The whole review as one self-contained page. replay=True adds the saved-run badge."""
     images = page_images or {}
     notes = "".join(f'<p class="docnote">{_e(d.name)}: {_e(d.note)}</p>' for d in review.docs if d.note)
-    banners = "".join(f'<p class="banner {_e(b.kind)}">{_e(b.text)}</p>' for b in review.banners)
+    notes += _unreadable_notes(review)
+    banners = "".join(map(_banner, review.banners))
+    badge = f'<p class="replay-badge" role="note">{REPLAY_TEXT}</p>' if replay else ""
     pages = "".join(_page(d, p, review.cards, images) for d in review.docs for p in d.pages)
     # "<" escaped so the JSON can never close its script tag.
     data = review.model_dump_json().replace("<", "\\u003c")
     body = (
         f'<header><h1>{_e(STATUS_LABEL[review.status])}</h1><p class="claim">{_e(review.claim.text)}</p>'
-        f"{banners}</header>"
+        f"{badge}{banners}</header>"
         f'<main><nav aria-label="Claim parts"><ul>{"".join(map(_part, review.parts))}</ul>{notes}</nav>'
         f'<section aria-label="Evidence cards">{_cards(review.cards)}</section>'
         f'<section aria-label="Page">{pages}</section></main>'

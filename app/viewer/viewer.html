@@ -32,6 +32,14 @@
   .noimg { padding:24px; color:var(--mut); }
   .box { position:absolute; box-sizing:border-box; border:2px solid var(--red); background:rgba(198,40,40,.18); pointer-events:auto; display:none; }
   .box.active { display:block; } .box.approximate, .box.unpinned { border-style:dashed; }
+  .chip.not_found { background:#37474f; } .chip.cannot_tell { background:#6a1b9a; } .chip.error { background:var(--red); }
+  .state-help { margin:4px 0 0; padding-left:8px; border-left:3px solid var(--gry); }
+  .state-help.not_found { border-left-color:#37474f; } .state-help.cannot_tell { border-left-color:#6a1b9a; }
+  .state-help.error { border-left-color:var(--red); } .state-help.checking { border-left-style:dashed; }
+  .pagenote.unreadable { margin:6px 0 0; padding:6px 8px; border:1px dashed var(--gry); border-radius:4px; }
+  .mark { font-weight:600; } .mark.disagrees { font-weight:700; color:var(--red); text-decoration:underline; }
+  .replay-badge { display:inline-block; margin:6px 0 0; padding:3px 10px; border:2px solid var(--amb); border-radius:4px; font-weight:700; }
+  .banner.cap { border-color:var(--red); } .banner.checker_unavailable { border-style:dashed; }
   .banner { margin:6px 0 0; padding:6px 8px; border:1px solid var(--amb); border-radius:4px; }
 </style>
 </head>

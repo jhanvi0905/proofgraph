@@ -526,3 +526,71 @@ def test_live_refusal_gate_is_fail_closed(secret, state, refused):
 
     st = SimpleNamespace(secrets={"APP_PASSCODE": secret} if secret else {}, session_state=state)
     assert (live_refusal(st) is not None) is refused
+
+
+# --- R-19: per-file ingest status and the export button ---
+
+
+def _status(tmp_path, name, data):
+    from app.streamlit_app import file_status
+    from proofgraph.review.ingest import ingest
+
+    path = tmp_path / name
+    path.write_bytes(data)
+    return file_status(ingest([path])[0])
+
+
+def test_status_line_for_a_good_text_pdf(tmp_path):
+    data = (ROOT / "tests" / "fixtures" / "text_span_rate.pdf").read_bytes()
+    ok, text = _status(tmp_path, "rate.pdf", data)
+    assert ok and text.startswith("rate.pdf: text PDF, 1 page")
+
+
+def test_status_line_for_a_scan_says_it_will_not_be_read(tmp_path):
+    from PIL import Image
+
+    Image.new("RGB", (300, 400), "white").save(tmp_path / "src.pdf")
+    ok, text = _status(tmp_path, "scan.pdf", (tmp_path / "src.pdf").read_bytes())
+    assert ok and "scan" in text and "not be read" in text and "1 page" in text
+
+
+def test_status_line_for_an_image(tmp_path):
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (50, 50), "white").save(buf, "PNG")
+    ok, text = _status(tmp_path, "photo.png", buf.getvalue())
+    assert ok and "image" in text and "1 page" in text
+
+
+def test_status_line_for_a_corrupt_file_uses_ingest_error(tmp_path):
+    ok, text = _status(tmp_path, "bad.pdf", b"not a pdf")
+    assert not ok and text.startswith("bad.pdf: Could not read bad.pdf")
+
+
+def test_status_line_for_docx_says_save_as_pdf(tmp_path):
+    from proofgraph.review.ingest import DOCX_ERROR
+
+    ok, text = _status(tmp_path, "memo.docx", b"PK")
+    assert not ok and text == f"memo.docx: {DOCX_ERROR}"
+
+
+def test_files_ready_event_uses_the_uploaded_name_not_the_temp_name():
+    from types import SimpleNamespace
+
+    from app.streamlit_app import FilesReady, review_events
+
+    st = SimpleNamespace(secrets={"APP_PASSCODE": "p"}, session_state={"passcode": "p"})
+    up = SimpleNamespace(name="rate.pdf", getvalue=lambda: b"not a pdf")
+    first = next(review_events(st, "claim", [up], lambda: None))
+    assert isinstance(first, FilesReady)
+    assert first.lines[0][1].startswith("rate.pdf: ")
+    assert "0-rate.pdf" not in first.lines[0][1]
+
+
+def test_review_page_has_an_export_download_button():
+    tree = ast.parse(APP.read_text(encoding="utf-8"))
+    calls = [n for n in ast.walk(_function(tree, "review_skeleton")) if isinstance(n, ast.Call)]
+    assert "download_button" in {n.func.attr for n in calls if isinstance(n.func, ast.Attribute)}

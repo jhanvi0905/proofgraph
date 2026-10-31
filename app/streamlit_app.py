@@ -2008,6 +2008,33 @@ class Refusal:
     text: str
 
 
+@dataclass(frozen=True)
+class FilesReady:
+    """Per-file ingest status lines (ok, text), shown before the check starts."""
+
+    lines: tuple[tuple[bool, str], ...]
+
+
+def file_status(doc, name: str | None = None) -> tuple[bool, str]:
+    """One plain-words line for an ingested file. Errors are ingest's own strings."""
+
+    name = name or doc.name
+    if doc.error:
+        return False, f"{name}: {doc.error.replace(doc.original_name, name)}"
+    kinds = [p.kind for p in doc.pages]
+    count = len(kinds)
+    noun = f"{count} page" + ("" if count == 1 else "s")
+    if kinds == ["image"]:
+        what = "image"
+    elif all(k == "image_only" for k in kinds):
+        what = "scan (image only, will not be read)"
+    elif any(k == "image_only" for k in kinds):
+        what = f"text PDF ({kinds.count('image_only')} scanned pages will not be read)"
+    else:
+        what = "text PDF"
+    return True, f"{name}: {what}, {noun}"
+
+
 def review_events(st, claim: str, files, make_muse):
     """Gate, then stream run events (R-15). Yields one Refusal, or run_review's events.
 
@@ -2032,6 +2059,11 @@ def review_events(st, claim: str, files, make_muse):
             path = Path(tmp) / f"{index}-{Path(str(getattr(uploaded, 'name', 'file'))).name}"
             path.write_bytes(uploaded.getvalue() if hasattr(uploaded, "getvalue") else Path(uploaded).read_bytes())
             paths.append(path)
+        from proofgraph.review.ingest import ingest
+
+        names = [Path(str(getattr(u, "name", "file"))).name for u in files]
+        # Local only, no model. Show the uploaded name, not the indexed temp name.
+        yield FilesReady(tuple(file_status(d, n) for d, n in zip(ingest(paths), names)))
         yield from run_review(str(claim), paths, make_muse())
 
 
@@ -2088,6 +2120,9 @@ def review_skeleton(make_muse: Callable[[], object] | None = None) -> None:
         for event in review_events(st, claim, files, make_muse):
             if isinstance(event, Refusal):
                 st.session_state["skeleton_error"] = event.text
+            elif isinstance(event, FilesReady):
+                for ok, line in event.lines:
+                    (st.success if ok else st.error)(line)
             elif isinstance(event, PartsReady):
                 for part in event.parts:  # all grey "Checking" at once
                     texts[part.id] = part.text
@@ -2097,12 +2132,17 @@ def review_skeleton(make_muse: Callable[[], object] | None = None) -> None:
                 rows[event.part_id].markdown(chip_markdown(event.status, texts[event.part_id]))
             elif isinstance(event, AllDone):
                 review = event.result.review
-                st.session_state["skeleton_html"] = render(review, event.result.page_images)
+                replay = review.run.mode == "replayed"
+                st.session_state["skeleton_html"] = render(review, event.result.page_images, replay=replay)
                 for banner in review.banners:
                     st.warning(banner.text)
     if st.session_state.get("skeleton_error"):
         st.error(st.session_state["skeleton_error"])
     if st.session_state.get("skeleton_html"):
+        st.download_button(
+            "Download as one HTML file", st.session_state["skeleton_html"],
+            file_name="proofgraph-review.html", mime="text/html",
+        )
         components.html(st.session_state["skeleton_html"], height=900, scrolling=True)
 
 
