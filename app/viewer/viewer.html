@@ -20,19 +20,39 @@
   .card { border:1px solid var(--line); border-left:4px solid var(--gry); border-radius:6px; padding:8px 10px; margin-bottom:8px; cursor:pointer; }
   .card.contradicts { border-left-color:var(--red); } .card.weakens { border-left-color:var(--amb); } .card.supports { border-left-color:var(--grn); }
   .card:focus-visible, .card.active { outline:2px solid currentColor; outline-offset:1px; }
+  .card:focus-visible { outline-width:3px; }
+  .card.flash, .part.flash { outline:2px solid var(--amb); outline-offset:1px; }
+  @keyframes flash { 0% { box-shadow:0 0 0 0 var(--amb); } 100% { box-shadow:0 0 0 8px transparent; } }
+  .box.flash, .part.flash { animation:flash .8s ease-out; }
+  .box.flash { outline:2px solid var(--amb); outline-offset:2px; cursor:pointer; }
+  @media (prefers-reduced-motion: reduce) { .box.flash, .part.flash { animation:none; } }
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
   blockquote { margin:0; font-style:italic; } .why, .computed { margin:6px 0 0; }
   .page { position:relative; width:100%; border:1px solid var(--line); } .page img { display:block; width:100%; height:100%; }
   .noimg { padding:24px; color:var(--mut); }
-  .box { position:absolute; box-sizing:border-box; border:2px solid var(--red); background:rgba(198,40,40,.18); pointer-events:none; display:none; }
+  .box { position:absolute; box-sizing:border-box; border:2px solid var(--red); background:rgba(198,40,40,.18); pointer-events:auto; display:none; }
   .box.active { display:block; } .box.approximate, .box.unpinned { border-style:dashed; }
   .banner { margin:6px 0 0; padding:6px 8px; border:1px solid var(--amb); border-radius:4px; }
 </style>
 </head>
 <body>
+<div id="live" class="sr" role="status" aria-live="polite"></div>
 <!--BODY-->
 <script>
 (function () {
-  var cards = document.querySelectorAll("[data-card-id]");
+  var cards = Array.prototype.slice.call(document.querySelectorAll("[data-card-id]"));
+  var live = document.getElementById("live");
+  function byId(id) { return document.querySelector('[data-card-id="' + id + '"]'); }
+  function related(card) {
+    var out = Array.prototype.slice.call(document.querySelectorAll('[data-box-for="' + card.dataset.cardId + '"]'));
+    var part = document.querySelector('[data-part-id="' + card.dataset.part + '"]');
+    if (part) out.push(part);
+    out.push(card);
+    return out;
+  }
+  function flash(card, on) {
+    related(card).forEach(function (n) { n.classList.toggle("flash", on); });
+  }
   function show(card) {
     document.querySelectorAll(".card.active, .box.active").forEach(function (n) { n.classList.remove("active"); });
     document.querySelectorAll(".page").forEach(function (p) {
@@ -41,9 +61,59 @@
     card.classList.add("active");
     document.querySelectorAll('[data-box-for="' + card.dataset.cardId + '"]').forEach(function (b) { b.classList.add("active"); });
   }
-  cards.forEach(function (c) {
-    c.addEventListener("click", function () { show(c); });
-    c.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); show(c); } });
+  function announce(card) {
+    var i = cards.indexOf(card) + 1;
+    var q = card.querySelector("blockquote");
+    live.textContent = "Card " + i + " of " + cards.length + ", " + card.className.replace(/card|active|flash/g, "").trim() +
+      ", " + (q ? q.textContent : "") + ", " + (card.querySelector(".meta") || {}).textContent;
+  }
+  function current() {
+    var a = document.activeElement && document.activeElement.closest && document.activeElement.closest("[data-card-id]");
+    return a || document.querySelector(".card.active");
+  }
+  function go(step, only) {
+    var list = only ? cards.filter(function (c) { return c.classList.contains(only); }) : cards;
+    if (!list.length) return;
+    var cur = current(), at = list.indexOf(cur);
+    if (at < 0) {
+      var from = cards.indexOf(cur), ahead = list.filter(function (c) { return step > 0 ? cards.indexOf(c) > from : cards.indexOf(c) < from; });
+      (ahead.length ? ahead[step > 0 ? 0 : ahead.length - 1] : list[step > 0 ? 0 : list.length - 1]).focus();
+      return;
+    }
+    list[(at + step + list.length) % list.length].focus();
+  }
+  function typing(t) {
+    var n = t && t.tagName;
+    return n === "INPUT" || n === "TEXTAREA" || n === "SELECT" || (t && t.isContentEditable);
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return;
+    var k = e.key;
+    if (k === "j" || k === "k") go(k === "j" ? 1 : -1);
+    else if (k === "]" || k === "[") go(k === "]" ? 1 : -1, "contradicts");
+    else if ((k === "Enter" || k === " ") && e.target.closest && e.target.closest("[data-card-id]")) {
+      var c = e.target.closest("[data-card-id]");
+      show(c);
+      var b = document.querySelector('[data-box-for="' + c.dataset.cardId + '"]');
+      (b || c).scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    } else return;
+    e.preventDefault();
+  });
+  function cardOf(e) { return e.target.closest && e.target.closest("[data-card-id]"); }
+  document.addEventListener("focusin", function (e) {
+    var c = cardOf(e);
+    if (c) { show(c); flash(c, true); announce(c); }
+  });
+  document.addEventListener("focusout", function (e) { var c = cardOf(e); if (c) flash(c, false); });
+  document.addEventListener("mouseover", function (e) { var c = cardOf(e); if (c) flash(c, true); });
+  document.addEventListener("mouseout", function (e) {
+    var c = cardOf(e);
+    if (c && c !== document.activeElement) flash(c, false);
+  });
+  document.addEventListener("click", function (e) {
+    var box = e.target.closest && e.target.closest("[data-box-for]");
+    var c = box ? byId(box.dataset.boxFor) : cardOf(e);
+    if (c) { show(c); if (box) c.focus(); }
   });
   if (cards.length) show(cards[0]);
 })();

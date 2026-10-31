@@ -72,3 +72,47 @@ def test_wrapped_quote_gets_one_box_div_per_rectangle(review):
     divs = re.findall(r'<div class="box [^"]*" data-box-for="([^"]+)"', html)
     assert divs.count("c1") == 2
     assert len(divs) == sum(len(c.boxes) for c in review.cards)
+
+
+def _script(review):
+    html = render(review)
+    return html, re.search(r"<script>(.*?)</script>", html, re.S).group(1)
+
+
+def test_keyboard_uses_one_delegated_keydown_handler(review):
+    _, js = _script(review)
+    assert js.count('addEventListener("keydown"') == 1
+    assert "document.addEventListener" in js
+
+
+def test_aria_live_region_announces_focused_card(review):
+    html, js = _script(review)
+    assert re.search(r'aria-live="polite"', html)
+    assert "live" in js
+
+
+def test_card_navigation_keys_are_handled(review):
+    _, js = _script(review)
+    for key in ('"j"', '"k"', '"["', '"]"', '"Enter"'):
+        assert key in js
+    assert "scrollIntoView" in js
+
+
+def test_keys_ignored_while_typing_in_form_fields(review):
+    _, js = _script(review)
+    for token in ("INPUT", "TEXTAREA", "isContentEditable", "ctrlKey", "metaKey", "altKey"):
+        assert token in js
+
+
+def test_reduced_motion_and_focus_styles(review):
+    html, _ = _script(review)
+    assert "prefers-reduced-motion: reduce" in html
+    assert ".card:focus-visible" in html
+    assert "@keyframes flash" in html
+
+
+def test_hover_focus_and_box_click_link_card_box_and_part(review):
+    _, js = _script(review)
+    for token in ("mouseover", "focusin", "data-box-for", "data-part-id", "flash"):
+        assert token in js
+    assert "pointer-events:auto" in render(review).replace(" ", "")
