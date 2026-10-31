@@ -185,7 +185,7 @@ def _png(source: Source, box: list[int] | None, pad: float) -> bytes:
     """PNG bytes of the image, or of the 0-1000 box padded by ``pad`` of the page."""
     if not source.path:
         raise ValueError("image has no path")
-    from PIL import Image  # transitive via streamlit; not a declared dependency
+    from PIL import Image
 
     with Image.open(source.path) as image:
         image = image.convert("RGB")
