@@ -116,3 +116,96 @@ def test_hover_focus_and_box_click_link_card_box_and_part(review):
     for token in ("mouseover", "focusin", "data-box-for", "data-part-id", "flash"):
         assert token in js
     assert "pointer-events:auto" in render(review).replace(" ", "")
+
+
+# --- R-19 viewer S3: states, check mark, replay badge, export ---
+
+
+def _with(review, *, status=None, receipt=None, reason=None, banners=(), readable=True, check=None):
+    from proofgraph.review.models import Banner, Receipt
+
+    r = review.model_copy(deep=True)
+    part = r.parts[0]
+    part.conflict = False
+    if status:
+        part.status = status
+    if receipt is not None:
+        part.receipt = Receipt(**receipt)
+    part.reason = reason
+    r.banners = [Banner(kind=k, text=t) for k, t in banners]
+    if not readable:
+        r.docs[0].pages[1].readable = False
+        r.docs[0].pages[1].kind = "image_only"
+        r.docs[0].pages[1].note = "Image only; not transcribed."
+    if check:
+        r.cards[0].check = check
+    return r
+
+
+@pytest.mark.parametrize(
+    "kwargs,css,words",
+    [
+        (dict(status="checking"), 'class="state-help checking"', "Still being checked"),
+        (dict(status="not_found", receipt=dict(pages_read=4)), 'class="state-help not_found"', "Pages read: 4"),
+        (dict(status="cannot_tell"), 'class="state-help cannot_tell"', "not enough to decide"),
+        (dict(status="error"), 'class="state-help error"', "could not be checked"),
+        (dict(readable=False), 'class="pagenote unreadable"', "not transcribed"),
+        (dict(banners=[("cap", "Limit hit.")]), 'class="banner cap"', "Spend cap reached"),
+        (
+            dict(banners=[("checker_unavailable", "Down.")]),
+            'class="banner checker_unavailable"',
+            "second check was unavailable",
+        ),
+    ],
+)
+def test_each_state_renders_distinct_class_and_plain_words(review, kwargs, css, words):
+    html = render(_with(review, **kwargs))
+    assert css in html
+    assert words in html
+
+
+def test_not_found_shows_why_the_receipt_is_incomplete(review):
+    r = _with(review, status="not_found", receipt=dict(pages_read=2, unread=[3, 4]), reason="Pages 3 and 4 are scans.")
+    html = render(r)
+    assert "Pages read: 2" in html
+    assert "Pages not read: 3, 4" in html
+    assert "Pages 3 and 4 are scans." in html
+
+
+@pytest.mark.parametrize(
+    "check,words",
+    [("agrees", "agrees"), ("disagrees", "disagrees"), ("unavailable", "unavailable"), ("not_run", "not run")],
+)
+def test_every_check_mark_is_visible_on_the_card(review, check, words):
+    html = render(_with(review, check=check))
+    assert f'class="mark {check}"' in html
+    assert f"Second check {words}" in html
+
+
+def test_disagrees_mark_is_never_hidden(review):
+    html = render(_with(review, check="disagrees"))
+    assert re.search(r"\.mark\.disagrees\s*\{[^}]*font-weight", html)
+    assert not re.search(r"\.mark[^{]*\{[^}]*display:\s*none", html)
+
+
+def test_replay_badge_only_when_replay_true(review):
+    text = "Replayed from a saved run, not a live check"
+    assert text not in render(review)
+    assert text not in render(review, replay=False)
+    html = render(review, replay=True)
+    assert text in html
+    assert html.index(text) < html.index("</header>")
+
+
+def test_missing_page_image_shows_placeholder(review):
+    assert "image not available" in render(review, page_images={})
+
+
+def test_export_is_one_offline_file_with_keyboard_and_live_region(review):
+    html = render(review, page_images={("d1", 1): b"\x89PNG fake"}, replay=True)
+    assert not re.search(r"https?://", html, re.I)
+    assert not re.search(r'\bsrc="(?!data:)', html)
+    assert not re.search(r"fetch\(|XMLHttpRequest|import\(|<link|<iframe", html)
+    assert 'addEventListener("keydown"' in html
+    assert 'aria-live="polite"' in html
+    assert "Replayed from a saved run" in html
