@@ -50,7 +50,7 @@ def _run_from_gold(gold: Gold, kind="text_layer") -> Review:
         for i, r in enumerate(gold.relations)
     ]
     parts = [
-        {"id": p.id, "text": p.text, "span": [0, 1], "status": p.status, "conflict": p.conflict,
+        {"id": p.id, "text": p.text, "span": list(p.span or (0, 1)), "status": p.status, "conflict": p.conflict,
          "card_ids": [c["id"] for c in cards if c["part"] == p.id]}
         for p in gold.parts
     ]
@@ -250,3 +250,148 @@ def test_main_writes_report_and_stdout(tmp_path, capsys):
     assert rr.main(["--runs-glob", str(run), "--gold", str(gdir), "--out", str(out)]) == 0
     assert "(2/2)" in out.read_text()
     assert "(2/2)" in capsys.readouterr().out
+
+
+# ---- R-12b: parts are aligned by claim span (or text) before scoring; ids play no role ----
+# The old exact-id expectations are replaced by span-based ones: _run_from_gold now copies each gold
+# part's span into the run part, and tests that need a different id or span say so explicitly.
+
+def _rename(review: Review, mapping: dict[str, str], reverse_order: bool = True) -> Review:
+    def edit(raw):
+        for p in raw["parts"]:
+            p["id"] = mapping[p["id"]]
+        for c in raw["cards"]:
+            c["part"] = mapping[c["part"]]
+        if reverse_order:
+            raw["parts"].reverse()
+
+    return _mutate(review, edit)
+
+
+def _alignment_of(review, gold):
+    a = rr.align(review, gold)
+    return {m.gold: (m.run, m.overlap) for m in a.matches}, a
+
+
+def test_renamed_lowercase_ids_and_different_order_still_score_one_everywhere():
+    gold = _gold()
+    run = _rename(_run_from_gold(gold), {"P1": "p2", "P2": "p1"})
+    t = rr.score_case(run, gold)
+    assert t["alignment"] == (2, 2)
+    for key in ("recall:supports", "recall:weakens", "precision:supports", "precision:weakens", "part_status",
+                "pin_rate", "hit50:text_layer", "centre:text_layer"):
+        assert key in t, key
+    for key, (k, n) in t.items():
+        assert n > 0 and k == n, f"{key}: {k}/{n}"
+
+
+def test_finer_split_is_merged_worst_status_wins_and_cards_are_unioned():
+    gold = _gold()
+
+    def split(raw):
+        p2 = raw["parts"][1]
+        a = p2 | {"id": "x1", "text": "be", "span": [6, 8], "status": "weakened", "card_ids": []}
+        b = p2 | {"id": "x2", "text": "ta", "span": [8, 10], "status": "supported"}  # card sits here
+        raw["parts"][1:] = [a, b]
+        raw["cards"][1]["part"] = "x2"
+
+    run = _mutate(_run_from_gold(gold), split)
+    got, _ = _alignment_of(run, gold)
+    assert got["P2"] == (("x1", "x2"), 1.0)
+    t = rr.score_case(run, gold)
+    assert t["part_status"] == (2, 2)  # weakened (worst of weakened and supported) equals gold
+    assert t["recall:weakens"] == (1, 1) and t["precision:weakens"] == (1, 1)
+    assert t["alignment"] == (2, 2)
+
+    def both_supported(raw):
+        split(raw)
+        raw["parts"][1]["status"] = "supported"
+
+    t2 = rr.score_case(_mutate(_run_from_gold(gold), both_supported), gold)
+    assert t2["part_status"] == (1, 2)  # both pieces supported, gold says weakened
+
+
+def test_coarser_run_part_scores_best_overlap_gold_part_and_lists_the_other_as_a_miss():
+    gold = _gold()
+
+    def coarse(raw):
+        merged = raw["parts"][0] | {"id": "only", "text": "alpha beta", "span": [0, 10],
+                                    "card_ids": [c["id"] for c in raw["cards"]]}
+        raw["parts"] = [merged]
+        for c in raw["cards"]:
+            c["part"] = "only"
+
+    run = _mutate(_run_from_gold(gold), coarse)
+    got, a = _alignment_of(run, gold)
+    assert got == {"P1": (("only",), 1.0)}
+    assert a.gold_unmatched == ["P2"] and a.run_unmatched == []
+    t = rr.score_case(run, gold)
+    assert t["alignment"] == (1, 2)
+    assert t["part_status"] == (1, 2)
+    assert t["recall:supports"] == (1, 1)
+    assert t["recall:weakens"] == (0, 1)  # the other gold part's relation is a miss
+
+
+def test_gold_part_without_span_aligns_by_normalised_text_similarity():
+    raw = _gold().model_dump(mode="json")
+    raw["parts"][0] |= {"text": "first  thing", "span": None}
+    gold = Gold.model_validate(raw)
+
+    def text(r):
+        r["parts"][0]["text"] = " FIRST thing "
+        r["parts"][0]["span"] = [40, 52]
+
+    run = _mutate(_run_from_gold(gold), text)
+    got, _ = _alignment_of(run, gold)
+    assert got["P1"][0] == ("P1",)
+    assert rr.score_case(run, gold)["alignment"] == (2, 2)
+
+    def other(r):
+        r["parts"][0]["text"] = "something else entirely"
+        r["parts"][0]["span"] = [40, 52]
+
+    assert rr.score_case(_mutate(_run_from_gold(gold), other), gold)["alignment"] == (1, 2)
+
+
+def test_no_overlap_leaves_every_gold_part_unmatched_and_nothing_divides_by_zero():
+    gold = _gold()
+
+    def far(raw):
+        for p, start in zip(raw["parts"], (100, 200)):
+            p["span"] = [start, start + 5]
+
+    far_run = _mutate(_run_from_gold(gold), far)
+    empty_run = _mutate(_run_from_gold(gold), lambda r: r.update(parts=[], cards=[]))
+    for run in (far_run, empty_run):
+        t = rr.score_case(run, gold)
+        assert t["alignment"] == (0, 2)
+        assert t["part_status"] == (0, 2)
+        assert t["recall:supports"] == (0, 1) and t["recall:weakens"] == (0, 1)
+        assert t["pin_rate"] == (0, 2)
+        text = rr.render(rr.build_rows({"C1": run}, [gold]), missing=[], extra=[], title="t")
+        assert "alignment" in text
+    assert rr.align(far_run, gold).run_unmatched == ["P1", "P2"]
+
+
+def test_alignment_table_is_in_the_report_and_deterministic():
+    gold = _gold()
+    run = _rename(_run_from_gold(gold), {"P1": "p1", "P2": "p2"}, reverse_order=False)
+    one = rr.alignment_report({"C1": run}, [gold])
+    assert one == rr.alignment_report({"C1": run}, [gold])
+    assert "C1" in one and "P1" in one and "p1" in one and "1.00" in one
+    text = rr.render(rr.build_rows({"C1": run}, [gold]), missing=[], extra=[], title="t", alignment=one)
+    assert one in text
+    assert "alignment" in text.lower() and "(2/2)" in text
+
+
+def test_right_ids_with_wrong_spans_do_not_match():
+    gold = _gold()
+
+    def wrong(raw):
+        raw["parts"][0]["span"] = [50, 55]
+        raw["parts"][1]["span"] = [60, 64]
+
+    t = rr.score_case(_mutate(_run_from_gold(gold), wrong), gold)
+    assert t["alignment"] == (0, 2)
+    assert t["part_status"] == (0, 2)
+    assert t["recall:supports"] == (0, 1)
