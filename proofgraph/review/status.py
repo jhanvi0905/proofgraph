@@ -1,7 +1,7 @@
 """Part and overall status from accepted cards. Pure, no model, no network."""
 
 from collections.abc import Iterable
-from typing import get_args
+from typing import Literal, get_args
 
 from proofgraph.review.models import BoxStatus, Card, PartStatus, Relation
 
@@ -34,9 +34,30 @@ def part_status(cards: Iterable[Card], *, receipt_complete: bool) -> tuple[PartS
         return "contradicted", has("contradicts", {"pinned"}) and has("supports", {"pinned"})
     if has("weakens", set(get_args(BoxStatus))):
         return "weakened", False
-    if has("supports", set(get_args(BoxStatus))):
+    supporting = [c for c in cards if c.relation == "supports"]
+    if any(_stands(c) for c in supporting):
         return "supported", False
+    if supporting:  # every supporting card was disagreed with by the second check (D38)
+        return "cannot_tell", False
     return ("not_found" if receipt_complete else "cannot_tell"), False
+
+
+# D38 (provisional): a supporting card the blind second check disagreed with cannot, alone,
+# make a part `supported`. To revert to "badge only", make this return True.
+def _stands(card: Card) -> bool:
+    return card.check != "disagrees"
+
+
+def supports_reason(cards: Iterable[Card]) -> Literal["unconfirmed", "not_double_checked"] | None:
+    """Why the viewer should qualify a part's support, or None when it needs no note.
+
+    "unconfirmed": every supporting card was disagreed with (the part is cannot_tell).
+    "not_double_checked": support stands but no supporting card was confirmed (agrees).
+    """
+    supporting = [c for c in cards if c.relation == "supports"]
+    if not supporting or any(c.check == "agrees" for c in supporting):
+        return None
+    return "not_double_checked" if any(_stands(c) for c in supporting) else "unconfirmed"
 
 
 def overall_status(parts: Iterable[PartStatus]) -> PartStatus:
