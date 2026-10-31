@@ -9,7 +9,7 @@ Worker threads compute and return plain data only. They never touch Streamlit; t
 script thread consumes the events and draws. Errors become banners, never stack traces. A
 spend stop or model failure marks that part ``error``; it is never read as a finding.
 
-No gold, no pack files, no scan transcription (later tickets).
+No gold, no pack files, no scan transcription yet (unread pages reach the absence sweep as None).
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from PIL import Image
 from proofgraph.clients.checker import blind_wording
 from proofgraph.clients.muse import MuseClient
 from proofgraph.review import ingest as ingest_mod
+from proofgraph.review.absence import AbsencePage, build_receipt
 from proofgraph.review.check import Checker, check_cards
 from proofgraph.review.models import (
     Banner, Card, Claim, Doc, Page, Part, PartStatus, Receipt, Review, Run,
@@ -96,6 +97,7 @@ def run_review(
     texts: list[PageText] = []
     words: dict[tuple[str, int], list] = {}
     unread: list[int] = []
+    sweep: list[AbsencePage] = []  # every page, text None when it was not read
 
     for item in ingest_mod.ingest(paths):
         if item.error:
@@ -112,6 +114,7 @@ def run_review(
             else:
                 texts.append(PageText(item.doc_id, page.page, _page_text(page.words)))
                 words[(item.doc_id, page.page)] = page.words
+            sweep.append(AbsencePage(item.doc_id, page.page, texts[-1].text if readable else None))
             images[(item.doc_id, page.page)] = page.png
             pages.append(Page(n=page.page, kind=_KIND[page.kind], png=f"{item.doc_id}-{page.page}.png",
                               w=width, h=height, readable=readable, note=note))
@@ -141,7 +144,7 @@ def run_review(
 
     pool = ThreadPoolExecutor(max_workers=max(1, min(max_workers, MAX_WORKERS)))
     try:
-        futures = {pool.submit(_run_part, p, texts, words, muse, checker): p for p in parts}
+        futures = {pool.submit(_run_part, p, texts, words, sweep, muse, checker): p for p in parts}
         outcomes: dict[str, _Outcome] = {}
         for future in as_completed(futures):
             outcome = future.result()
@@ -155,7 +158,8 @@ def run_review(
                  [b for o in ordered for b in o.banners])
 
 
-def _run_part(part: Part, texts: list[PageText], words: dict, muse: MuseClient, checker: Checker) -> _Outcome:
+def _run_part(part: Part, texts: list[PageText], words: dict, sweep: list[AbsencePage],
+              muse: MuseClient, checker: Checker) -> _Outcome:
     """Worker: relate, snap, blind check, status for ONE part. Returns plain data; never raises."""
     banners: list[Banner] = []
     cards: list[Card] = []
@@ -179,7 +183,8 @@ def _run_part(part: Part, texts: list[PageText], words: dict, muse: MuseClient, 
                     page=found.page, boxes=pinned.boxes, box_status=pinned.status,
                     why=found.why, check="not_run")
         cards = check_cards([card], [part], checker=checker)
-    done.status, done.conflict = part_status(cards, receipt_complete=not (done.receipt and done.receipt.unread))
+    complete = build_receipt(part.text, sweep, cards).complete
+    done.status, done.conflict = part_status(cards, receipt_complete=complete)
     done.card_ids = [c.id for c in cards]
     return _Outcome(done, cards, banners)
 
