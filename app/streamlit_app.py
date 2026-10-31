@@ -2001,22 +2001,30 @@ def _highlight_figures(text: str, rows: tuple[SpanRow, ...]) -> tuple[str, tuple
     return "".join(parts), tuple(captions)
 
 
-def skeleton_submit(st, claim: str, files, make_muse) -> tuple[str | None, str | None]:
-    """Walking skeleton (R-08): (viewer html, None) or (None, why it did not run).
+@dataclass(frozen=True)
+class Refusal:
+    """Why the run did not start. Yielded instead of any model work."""
 
-    The passcode is checked first, so no model client exists before it passes. The spend
-    cap is enforced inside MuseClient before each request."""
+    text: str
 
-    from app.viewer.render import render
+
+def review_events(st, claim: str, files, make_muse):
+    """Gate, then stream run events (R-15). Yields one Refusal, or run_review's events.
+
+    The passcode and input checks come first, so no model client exists before they pass.
+    The spend cap is checked inside run_review before the claim is split. This generator
+    runs on the Streamlit script thread; the worker threads live inside run_review."""
+
     from proofgraph.review.run import run_review
 
     refusal = live_refusal(st)
+    if refusal is None and not str(claim).strip():
+        refusal = "Write the claim before running the check."
+    if refusal is None and not files:
+        refusal = "Upload at least one file."
     if refusal is not None:
-        return None, refusal
-    if not str(claim).strip():
-        return None, "Write the claim before running the check."
-    if not files:
-        return None, "Upload at least one file."
+        yield Refusal(refusal)
+        return
     with tempfile.TemporaryDirectory() as tmp:
         paths = []
         for index, uploaded in enumerate(files):
@@ -2024,15 +2032,44 @@ def skeleton_submit(st, claim: str, files, make_muse) -> tuple[str | None, str |
             path = Path(tmp) / f"{index}-{Path(str(getattr(uploaded, 'name', 'file'))).name}"
             path.write_bytes(uploaded.getvalue() if hasattr(uploaded, "getvalue") else Path(uploaded).read_bytes())
             paths.append(path)
-        result = run_review(str(claim), paths, make_muse())
-    return render(result.review, result.page_images), None
+        yield from run_review(str(claim), paths, make_muse())
+
+
+def skeleton_submit(st, claim: str, files, make_muse) -> tuple[str | None, str | None]:
+    """Blocking form of review_events: (viewer html, None) or (None, why it did not run)."""
+
+    from app.viewer.render import render
+
+    last = None
+    for last in review_events(st, claim, files, make_muse):
+        if isinstance(last, Refusal):
+            return None, last.text
+    return render(last.result.review, last.result.page_images), None
+
+
+_CHIP = {
+    "checking": ("gray", "Checking"), "contradicted": ("red", "Contradicted"),
+    "weakened": ("orange", "Weakened"), "supported": ("green", "Supported"),
+    "not_found": ("blue", "Not found"), "cannot_tell": ("violet", "Can't tell"),
+    "error": ("red", "Error"),
+}
+
+
+def chip_markdown(status: str, text: str) -> str:
+    """One part row: a native Streamlit badge, then the part text ($ escaped for markdown)."""
+
+    color, label = _CHIP[status]
+    return f":{color}-badge[{label}] {text.replace('$', chr(92) + '$')}"
 
 
 def review_skeleton(make_muse: Callable[[], object] | None = None) -> None:
-    """New review page: passcode, claim and files submit together, then the three-pane viewer."""
+    """New review page: passcode, claim and files submit together, parts show live, then the viewer."""
 
     import streamlit as st
     import streamlit.components.v1 as components
+
+    from app.viewer.render import render
+    from proofgraph.review.run import AllDone, PartDone, PartsReady
 
     if make_muse is None:
         from proofgraph.review.run import default_muse
@@ -2045,8 +2082,24 @@ def review_skeleton(make_muse: Callable[[], object] | None = None) -> None:
         files = st.file_uploader("Evidence packet", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
         submitted = st.form_submit_button("Check the claim")
     if submitted:
-        page, error = skeleton_submit(st, claim, files, make_muse)
-        st.session_state["skeleton_html"], st.session_state["skeleton_error"] = page, error
+        st.session_state["skeleton_html"] = st.session_state["skeleton_error"] = None
+        rows: dict[str, object] = {}
+        texts: dict[str, str] = {}
+        for event in review_events(st, claim, files, make_muse):
+            if isinstance(event, Refusal):
+                st.session_state["skeleton_error"] = event.text
+            elif isinstance(event, PartsReady):
+                for part in event.parts:  # all grey "Checking" at once
+                    texts[part.id] = part.text
+                    rows[part.id] = st.empty()
+                    rows[part.id].markdown(chip_markdown("checking", part.text))
+            elif isinstance(event, PartDone):
+                rows[event.part_id].markdown(chip_markdown(event.status, texts[event.part_id]))
+            elif isinstance(event, AllDone):
+                review = event.result.review
+                st.session_state["skeleton_html"] = render(review, event.result.page_images)
+                for banner in review.banners:
+                    st.warning(banner.text)
     if st.session_state.get("skeleton_error"):
         st.error(st.session_state["skeleton_error"])
     if st.session_state.get("skeleton_html"):
