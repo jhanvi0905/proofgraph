@@ -2002,5 +2002,55 @@ def _highlight_figures(text: str, rows: tuple[SpanRow, ...]) -> tuple[str, tuple
     return "".join(parts), tuple(captions)
 
 
+def skeleton_submit(st, claim: str, files, make_muse) -> tuple[str | None, str | None]:
+    """Walking skeleton (R-08): (viewer html, None) or (None, why it did not run).
+
+    The passcode is checked first, so no model client exists before it passes. The spend
+    cap is enforced inside MuseClient before each request."""
+
+    from app.viewer.render import render
+    from proofgraph.review.run import run_review
+
+    refusal = live_refusal(st)
+    if refusal is not None:
+        return None, refusal
+    if not str(claim).strip():
+        return None, "Write the claim before running the check."
+    if not files:
+        return None, "Upload at least one file."
+    with tempfile.TemporaryDirectory() as tmp:
+        paths = []
+        for index, uploaded in enumerate(files):
+            # Index prefix keeps same-named uploads apart; ingest strips path parts from names.
+            path = Path(tmp) / f"{index}-{Path(str(getattr(uploaded, 'name', 'file'))).name}"
+            path.write_bytes(uploaded.getvalue() if hasattr(uploaded, "getvalue") else Path(uploaded).read_bytes())
+            paths.append(path)
+        result = run_review(str(claim), paths, make_muse())
+    return render(result.review, result.page_images), None
+
+
+def review_skeleton(make_muse: Callable[[], object] | None = None) -> None:
+    """New entry: upload, claim, passcode, three-pane viewer. Not wired into main()."""
+
+    import streamlit as st
+    import streamlit.components.v1 as components
+
+    if make_muse is None:
+        from proofgraph.review.run import default_muse
+
+        make_muse = default_muse
+    st.set_page_config(page_title="ProofGraph", layout="wide")
+    st.text_input("Passcode", type="password", key="passcode")
+    claim = st.text_area("Claim", height=88)
+    files = st.file_uploader("Evidence packet", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
+    if st.button("Check the claim"):
+        page, error = skeleton_submit(st, claim, files, make_muse)
+        st.session_state["skeleton_html"], st.session_state["skeleton_error"] = page, error
+    if st.session_state.get("skeleton_error"):
+        st.error(st.session_state["skeleton_error"])
+    if st.session_state.get("skeleton_html"):
+        components.html(st.session_state["skeleton_html"], height=900, scrolling=True)
+
+
 if __name__ == "__main__":
     main()
