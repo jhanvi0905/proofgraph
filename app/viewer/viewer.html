@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Review</title>
 <style>
-  :root { --bg:#fff; --fg:#1a1a1a; --mut:#666; --line:#ddd; --red:#c62828; --amb:#b26a00; --grn:#2e7d32; --gry:#757575; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#161616; --fg:#eee; --mut:#aaa; --line:#333; } }
+  :root { --bg:#fff; --fg:#1a1a1a; --mut:#666; --line:#ddd; --red:#c62828; --red-text:#c62828; --amb:#b26a00; --grn:#2e7d32; --gry:#757575; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161616; --fg:#eee; --mut:#aaa; --line:#333; --red-text:#ef5350; } }
   body { margin:0; font:14px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
   header { padding:12px 16px; border-bottom:1px solid var(--line); }
   h1 { margin:0; font-size:18px; } .claim { margin:4px 0 0; color:var(--mut); }
@@ -37,7 +37,9 @@
   .state-help.not_found { border-left-color:#37474f; } .state-help.cannot_tell { border-left-color:#6a1b9a; }
   .state-help.error { border-left-color:var(--red); } .state-help.checking { border-left-style:dashed; }
   .pagenote.unreadable { margin:6px 0 0; padding:6px 8px; border:1px dashed var(--gry); border-radius:4px; }
-  .mark { font-weight:600; } .mark.disagrees { font-weight:700; color:var(--red); text-decoration:underline; }
+  .mark { font-weight:600; } .mark.disagrees { font-weight:700; color:var(--red-text); text-decoration:underline; }
+  .reason-line { margin:4px 0 0; padding-left:8px; border-left:3px solid var(--gry); font-weight:600; }
+  .not-double-checked { margin-left:6px; padding:0 6px; border:1px dashed var(--gry); border-radius:4px; font-weight:600; }
   .replay-badge { display:inline-block; margin:6px 0 0; padding:3px 10px; border:2px solid var(--amb); border-radius:4px; font-weight:700; }
   .banner.cap { border-color:var(--red); } .banner.checker_unavailable { border-style:dashed; }
   .banner { margin:6px 0 0; padding:6px 8px; border:1px solid var(--amb); border-radius:4px; }
