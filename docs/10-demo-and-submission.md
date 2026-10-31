@@ -10,7 +10,7 @@
 | 2:05–2:40 | Scoreboard | `results/report.md`: wrongly approved, can't-tell cases caught, accuracy by label, blind check vs self-check | Read only numbers from the report. Say the D26 sentence below. Do not present 0 versus 5 as a win. |
 | 2:40–3:00 | Built + next | Commit log, `BUILT_DURING_HACKATHON.md` | "Built during the hackathon: the verification engine, visual citations, the objection loop, the evaluation and the app. Next: technical specifications and policies, fully on-premises with Muse Glimmer, and using the engine as a reward to train open models." |
 
-**Demo cases must come from real runs.** Use `scripts/pick_demo_cases.py` to list cases where A was wrong and ProofGraph was right. Don't stage model outputs. The freight bundles are labelled as our own demonstration set.
+**Demo cases must come from real runs.** Demo cases are named by hand from real runs in `runs/`. Model outputs are not staged. The freight bundles are labelled as our own demonstration set.
 
 The submission video is an animation the human makes from one of those runs (decision D25). The scene list above is the content. The Streamlit app the judges open runs the check again. It does not play a stored verdict.
 

@@ -37,7 +37,7 @@ proofgraph/
 ├── scripts/
 │   ├── download_data.sh              FinDVer clone; check ContractNLI is present
 │   ├── run_eval.py                   --dataset --mode --n --systems --seed → runs/*.jsonl
-│   ├── build_traps.py · make_freight_pdfs.py · pick_demo_cases.py
+│   ├── build_traps.py · make_freight_pdfs.py
 │   └── report.py                     runs/ → results/report.md (the ONLY source of numbers)
 ├── tests/
 │   ├── test_numbers.py · test_calc.py · test_ground.py · test_route.py · test_combine.py
