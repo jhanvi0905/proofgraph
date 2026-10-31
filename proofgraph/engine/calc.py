@@ -51,8 +51,12 @@ class ComputeResult:
 
 
 def literal_tolerance(literal: NumberLiteral) -> Decimal:
-    """Half a unit of the last digit, or the wider hedge band."""
-    if literal.hedged:
+    """Half a unit of the last digit, or the wider hedge band.
+
+    A percent is already a rounded ratio, so a hedge word does not widen it
+    past its own rounding.
+    """
+    if literal.hedged and not literal.percent:
         return max(literal.unit, abs(literal.value) * Decimal("0.02"))
     return literal.unit / Decimal(2)
 
@@ -399,7 +403,16 @@ def _compare(
 def _tolerance(literal: Decimal | None, literals: list[NumberLiteral]) -> Decimal:
     if literal is None:
         return Decimal(0)
-    matches = [literal_tolerance(item) for item in literals if item.value == literal]
+    # A claim's "38.33%" is stored as 0.3833. The expression may carry it as
+    # 0.3833 or as 38.33 percentage points, and a claimed "-9.63%" has no sign
+    # in the literal. Match on magnitude in both forms so the phrasing of the
+    # expression does not change the tolerance.
+    matches = []
+    for item in literals:
+        if abs(item.value) == abs(literal):
+            matches.append(literal_tolerance(item))
+        elif item.percent and abs(item.value) * 100 == abs(literal):
+            matches.append(literal_tolerance(item) * 100)
     if not matches:
         return Decimal(0)
     return max(matches)
