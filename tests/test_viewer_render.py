@@ -63,3 +63,12 @@ def test_viewer_template_is_valid_json_embedding(review):
     html = render(review)
     m = re.search(r'<script type="application/json" id="review">(.*?)</script>', html, re.S)
     assert json.loads(m.group(1))["review_id"] == review.review_id
+
+
+def test_wrapped_quote_gets_one_box_div_per_rectangle(review):
+    html = render(review)
+    c1 = next(c for c in review.cards if c.id == "c1")
+    assert len(c1.boxes) == 2
+    divs = re.findall(r'<div class="box [^"]*" data-box-for="([^"]+)"', html)
+    assert divs.count("c1") == 2
+    assert len(divs) == sum(len(c.boxes) for c in review.cards)
