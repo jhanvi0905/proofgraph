@@ -5,6 +5,7 @@ import html
 from pathlib import Path
 
 from proofgraph.review.models import Banner, Card, Doc, Page, Part, Review
+from proofgraph.review.reasons import check_reason
 from proofgraph.review.status import supports_reason
 
 TEMPLATE = Path(__file__).with_name("viewer.html")
@@ -92,6 +93,8 @@ def _card(card: Card, reason_kind: str | None = None) -> str:
     )
     weakener = f" · {_e(card.weakener_type)}" if card.weakener_type else ""
     computed = f'<p class="computed">{_e(card.computed.text)}</p>' if card.computed else ""
+    line = check_reason(card.relation, card.check, card.check_answer)
+    answer = f'<p class="reason-line check-answer">{_e(line)}</p>' if line else ""
     return (
         f'<article class="card {_e(card.relation)}" tabindex="0" '
         f'data-card-id="{_e(card.id)}" data-part="{_e(card.part)}" '
@@ -100,7 +103,7 @@ def _card(card: Card, reason_kind: str | None = None) -> str:
         f'<p class="why">{_e(card.why)}</p>{computed}'
         f'<p class="meta">{_e(card.doc)} p{card.page}{weakener} · '
         f"box {_e(card.box_status)} · "
-        f'<span class="mark {_e(card.check)}">{_e(CHECK_LABEL[card.check])}</span>{unchecked}</p></article>'
+        f'<span class="mark {_e(card.check)}">{_e(CHECK_LABEL[card.check])}</span>{unchecked}</p>{answer}</article>'
     )
 
 
