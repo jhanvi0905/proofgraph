@@ -5,6 +5,8 @@ import html
 from pathlib import Path
 
 from proofgraph.review.models import Banner, Card, Doc, Page, Part, Review
+from proofgraph.review.evidence import evidence_lines_on
+from proofgraph.review.qualifiers import qualifier_phrase
 from proofgraph.review.reasons import check_reason
 from proofgraph.review.status import supports_reason
 
@@ -52,6 +54,13 @@ CHECK_LABEL = {
 UNCONFIRMED_TEXT = "The second check did not confirm the supporting quote."
 NOT_DOUBLE_CHECKED_TEXT = "Not double-checked"
 REPLAY_TEXT = "Replayed from a saved run, not a live check"
+ONE_SHOWN_TEXT = "One passage shown: the one the model judged most decisive. Others were not listed here."
+LIMIT_TEXT = "Search reads text only and matches words, so a passage worded differently can be missed."
+EVIDENCE_CSS = (
+    "<style>.ev{margin:4px 0 0;color:var(--mut)}.ev-limit{border-left:3px solid var(--gry);padding-left:8px}"
+    ".ev-mark{font-weight:600;border:1px dashed var(--gry);border-radius:4px;padding:0 6px;margin-right:6px}"
+    ".ev-list{margin:4px 0 0}.ev-list li{margin:4px 0}</style>"
+)
 
 
 def _e(value: object) -> str:
@@ -62,7 +71,44 @@ def _pct(value: int) -> str:
     return f"{value / 10:g}%"
 
 
-def _part(part: Part, reason_kind: str | None = None) -> str:
+def _n(n: int, noun: str) -> str:
+    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
+def _evidence(part: Part, names: dict[str, str]) -> str:
+    """Code-written disclosure under a part (flag on only). Never says anything about absence."""
+    out = []
+    if len(part.card_ids) == 1:
+        out.append(f'<p class="ev ev-shown">{_e(ONE_SHOWN_TEXT)}</p>')
+    r = part.receipt
+    if r is not None and r.matched_passages is not None:
+        counts = (
+            f"Word search matched {_n(r.matched_passages, 'passage')} in {_n(r.matched_docs or 0, 'document')}. "
+            f"{_n(len(r.uncited_passages), 'matched passage')} "
+            f"{'was' if len(r.uncited_passages) == 1 else 'were'} not assessed."
+        )
+        out.append(f'<p class="ev ev-counts">{_e(counts)}</p>')
+        if r.uncited_passages:
+            items = "".join(
+                f'<li><span class="ev-mark">matched, not assessed</span>'
+                f"{_e(names.get(p.doc, p.doc))} p{p.page}: {_e(p.text)}</li>"
+                for p in r.uncited_passages
+            )
+            out.append(
+                '<details class="ev ev-matched"><summary>Matched by word search, not assessed</summary>'
+                f'<ul class="ev-list">{items}</ul></details>'
+            )
+    limit = LIMIT_TEXT
+    if r is not None and r.unsearched:
+        pages = ", ".join(f"{names.get(p.doc, p.doc)} p{p.page}" for p in r.unsearched)
+        limit += f" Pages {pages} are images and were not searched."
+    elif r is not None and r.unread:
+        limit += f" Pages {', '.join(map(str, r.unread))} are images and were not searched."
+    out.append(f'<p class="ev ev-limit">{_e(limit)}</p>')
+    return "".join(out)
+
+
+def _part(part: Part, reason_kind: str | None = None, names: dict[str, str] | None = None) -> str:
     conflict = (
         '<p class="conflict">Sources disagree on this part.</p>' if part.conflict else ""
     )
@@ -81,17 +127,21 @@ def _part(part: Part, reason_kind: str | None = None) -> str:
     return (
         f'<li class="part {_e(part.status)}" data-part-id="{_e(part.id)}">'
         f'<span class="chip {_e(part.status)}">{_e(STATUS_LABEL[part.status])}</span> '
-        f"<span>{_e(part.text)}</span>{unconfirmed}{help_}{reason}{conflict}</li>"
+        f"<span>{_e(part.text)}</span>{unconfirmed}{help_}{reason}{conflict}"
+        f"{_evidence(part, names) if names is not None else ''}</li>"
     )
 
 
-def _card(card: Card, reason_kind: str | None = None, doc_name: str | None = None) -> str:
+def _card(card: Card, reason_kind: str | None = None, doc_name: str | None = None, plain: bool = False) -> str:
     unchecked = (
         f' <span class="not-double-checked">{NOT_DOUBLE_CHECKED_TEXT}</span>'
         if reason_kind == "not_double_checked" and card.relation == "supports" and card.check != "disagrees"
         else ""
     )
     weakener = f" · {_e(card.weakener_type)}" if card.weakener_type else ""
+    phrase = qualifier_phrase(card.weakener_type) if plain else None
+    if phrase:
+        weakener += f" · {_e(phrase)}"
     computed = f'<p class="computed">{_e(card.computed.text)}</p>' if card.computed else ""
     line = check_reason(card.relation, card.check, card.check_answer)
     answer = f'<p class="reason-line check-answer">{_e(line)}</p>' if line else ""
@@ -107,12 +157,12 @@ def _card(card: Card, reason_kind: str | None = None, doc_name: str | None = Non
     )
 
 
-def _cards(cards: list[Card], reasons: dict[str, str | None], names: dict[str, str]) -> str:
+def _cards(cards: list[Card], reasons: dict[str, str | None], names: dict[str, str], plain: bool = False) -> str:
     out = []
     for relation, label in GROUPS:
         group = [c for c in cards if c.relation == relation]
         if group:
-            out.append(f'<section class="group"><h3>{label}</h3>{"".join(_card(c, reasons.get(c.part), names.get(c.doc)) for c in group)}</section>')
+            out.append(f'<section class="group"><h3>{label}</h3>{"".join(_card(c, reasons.get(c.part), names.get(c.doc), plain) for c in group)}</section>')
     return "".join(out)
 
 
@@ -156,6 +206,8 @@ def render(
 ) -> str:
     """The whole review as one self-contained page. replay=True adds the saved-run badge."""
     images = page_images or {}
+    on = evidence_lines_on()
+    names = {d.id: d.name for d in review.docs}
     notes = "".join(f'<p class="docnote">{_e(d.name)}: {_e(d.note)}</p>' for d in review.docs if d.note)
     notes += _unreadable_notes(review)
     banners = "".join(map(_banner, review.banners))
@@ -167,8 +219,8 @@ def render(
     body = (
         f'<header><h1>{_e(STATUS_LABEL[review.status])}</h1><p class="claim">{_e(review.claim.text)}</p>'
         f"{badge}{banners}</header>"
-        f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id]) for p in review.parts)}</ul>{notes}</nav>'
-        f'<section aria-label="Evidence cards">{_cards(review.cards, reasons, {d.id: d.name for d in review.docs})}</section>'
+        f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id], names if on else None) for p in review.parts)}</ul>{notes}{EVIDENCE_CSS if on else ""}</nav>'
+        f'<section aria-label="Evidence cards">{_cards(review.cards, reasons, names, on)}</section>'
         f'<section aria-label="Page">{pages}</section></main>'
         f'<script type="application/json" id="review">{data}</script>'
     )

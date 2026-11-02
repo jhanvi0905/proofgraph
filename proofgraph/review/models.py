@@ -6,7 +6,7 @@ Shape: docs/council/2026-10-31-roadmap-sprint.md section 5, plus
 
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, Field, model_validator
+from pydantic import AfterValidator, BaseModel, Field, model_serializer, model_validator
 
 GRID = 1000
 
@@ -70,11 +70,33 @@ class Doc(BaseModel):
     note: str | None = None
 
 
+class Passage(BaseModel):
+    """A place in a document: a page, with a short snippet when it was matched by word search."""
+
+    doc: str
+    page: int
+    text: str = ""
+
+
 class Receipt(BaseModel):
     pages_read: int
     unread: list[int] = Field(default_factory=list)
     terms: list[str] = Field(default_factory=list)
     uncited_hits: list[str] = Field(default_factory=list)
+    # Display-only disclosure (PROOFGRAPH_EVIDENCE_LINES). None / empty on every older review.
+    matched_passages: int | None = None
+    matched_docs: int | None = None
+    uncited_passages: list[Passage] = Field(default_factory=list)
+    unsearched: list[Passage] = Field(default_factory=list)
+
+    @model_serializer(mode="wrap")
+    def _omit_unused_evidence(self, handler):
+        """Keep saved JSON and the embedded page byte-identical when the disclosure is off."""
+        data = handler(self)
+        if self.matched_passages is None:
+            for key in ("matched_passages", "matched_docs", "uncited_passages", "unsearched"):
+                data.pop(key, None)
+        return data
 
 
 class Part(BaseModel):

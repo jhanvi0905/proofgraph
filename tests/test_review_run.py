@@ -518,3 +518,15 @@ def test_second_identical_run_makes_no_new_transcription_request(tmp_path):
     assert transport.log.count("transcribe") == 1
     _run(CLAIM_SCAN, [PDF, scan], muse)
     assert len(transport.bodies) == first
+
+
+def test_evidence_flag_adds_receipt_fields_and_changes_no_status(tmp_path, monkeypatch):
+    monkeypatch.delenv("PROOFGRAPH_EVIDENCE_LINES", raising=False)
+    off = _run(CLAIM, [PDF], _muse(tmp_path / "a", FakeTransport(SPLIT1, GOOD))).review
+    monkeypatch.setenv("PROOFGRAPH_EVIDENCE_LINES", "1")
+    on = _run(CLAIM, [PDF], _muse(tmp_path / "b", FakeTransport(SPLIT1, GOOD))).review
+    assert off.parts[0].receipt.matched_passages is None
+    assert on.parts[0].receipt.matched_passages is not None
+    assert [(p.status, p.conflict, p.card_ids) for p in on.parts] == [(p.status, p.conflict, p.card_ids) for p in off.parts]
+    assert (on.status, on.driver_part, on.banners) == (off.status, off.driver_part, off.banners)
+    Review.model_validate_json(on.model_dump_json())

@@ -31,6 +31,7 @@ from proofgraph.clients.muse import MuseClient
 from proofgraph.review import ingest as ingest_mod
 from proofgraph.review.absence import AbsencePage, build_receipt
 from proofgraph.review.check import Checker, check_cards
+from proofgraph.review.evidence import evidence_lines_on, receipt_with_evidence
 from proofgraph.review.models import (
     Banner, Card, Claim, Doc, Page, Part, PartStatus, Receipt, Review, Run,
 )
@@ -181,7 +182,10 @@ def _run_part(part: Part, texts: list[PageText], words: dict, scan_lines: dict,
                     page=found.page, boxes=pinned.boxes, box_status=pinned.status,
                     why=found.why, check="not_run")
         cards = check_cards([card], [part], checker=checker)
-    complete = build_receipt(part.text, sweep, cards).complete
+    absence = build_receipt(part.text, sweep, cards)
+    complete = absence.complete
+    if evidence_lines_on() and done.receipt is not None:
+        done.receipt = receipt_with_evidence(done.receipt, absence, sweep)
     done.status, done.conflict = part_status(cards, receipt_complete=complete)
     done.card_ids = [c.id for c in cards]
     return _Outcome(done, cards, banners)
