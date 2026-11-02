@@ -29,6 +29,7 @@ from PIL import Image
 from proofgraph.clients.checker import blind_wording
 from proofgraph.clients.muse import MuseClient
 from proofgraph.review import ingest as ingest_mod
+from proofgraph.review import bounds
 from proofgraph.review.absence import AbsencePage, build_receipt
 from proofgraph.review.check import Checker, check_cards
 from proofgraph.review.models import (
@@ -173,11 +174,17 @@ def _run_part(part: Part, texts: list[PageText], words: dict, scan_lines: dict,
                               text=f"A page contains an instruction aimed at the reviewer: {found.injection_quote}"))
     page_words = words.get((found.doc, found.page))
     transcript = scan_lines.get((found.doc, found.page))
-    if found.relation != "set_aside" and found.quote.strip() and (page_words is not None or transcript is not None):
+    quote = found.quote
+    if bounds.enabled() and quote.strip():
+        text = next((t.text for t in texts if (t.doc, t.page) == (found.doc, found.page)), None)
+        quote = bounds.expand_quote(quote, text) if text is not None else quote
+        if bounds.reject_quote(quote):
+            quote = ""  # same handling as an empty quote: no card
+    if found.relation != "set_aside" and quote.strip() and (page_words is not None or transcript is not None):
         # a text page snaps to its real word boxes; a scan only gets estimated (approximate) boxes
-        pinned = snap(found.quote, page_words) if page_words is not None else locate(found.quote, transcript)
+        pinned = snap(quote, page_words) if page_words is not None else locate(quote, transcript)
         card = Card(id=f"{part.id}-c1", part=part.id, relation=found.relation,
-                    weakener_type=found.weakener_type, quote=found.quote, doc=found.doc,
+                    weakener_type=found.weakener_type, quote=quote, doc=found.doc,
                     page=found.page, boxes=pinned.boxes, box_status=pinned.status,
                     why=found.why, check="not_run")
         cards = check_cards([card], [part], checker=checker)

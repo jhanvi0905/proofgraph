@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -29,10 +30,13 @@ NEAR_BLACK = 30
 NEGATIVE_BLACK_SHARE = 0.5
 MIN_TEXT_WORDS = 5
 CID_SHARE = 0.10
+CID_GUARD_SHARE = 0.2  # PROOFGRAPH_CID_GUARD=1: words holding a (cid:N) token
+CID_GUARD_MIN_WORDS = 10
 
 DOCX_ERROR = "Save as PDF and upload again."
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+_CID = re.compile(r"\(cid:\d+\)")
 
 
 @dataclass(frozen=True)
@@ -132,8 +136,17 @@ def _pdf_pages(data: bytes) -> list[Page]:
 def _pdf_kind(words: list[Word]) -> str:
     if len(words) < MIN_TEXT_WORDS:
         return "image_only"
+    if os.environ.get("PROOFGRAPH_CID_GUARD") == "1" and _broken_text_layer(words):
+        return "image_only"
     cid = sum(w.text.startswith("(cid:") for w in words)
     return "image_only" if cid / len(words) > CID_SHARE else "text"
+
+
+def _broken_text_layer(words: list[Word]) -> bool:
+    """Glyphs the PDF could not map to text: a (cid:N) token anywhere in more than CID_GUARD_SHARE of the words."""
+    if len(words) < CID_GUARD_MIN_WORDS:
+        return False
+    return sum(bool(_CID.search(w.text)) for w in words) / len(words) > CID_GUARD_SHARE
 
 
 def _image_page(data: bytes) -> Page:

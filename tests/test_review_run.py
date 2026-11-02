@@ -518,3 +518,39 @@ def test_second_identical_run_makes_no_new_transcription_request(tmp_path):
     assert transport.log.count("transcribe") == 1
     _run(CLAIM_SCAN, [PDF, scan], muse)
     assert len(transport.bodies) == first
+
+
+# ---- quote bounds (PROOFGRAPH_QUOTE_BOUNDS) ----
+
+def _spy_run(tmp_path, quote):
+    seen = []
+
+    def spy(q, part):
+        seen.append((q, part))
+        return "contradicts"
+
+    relate = {**GOOD, "quote": quote}
+    review = _run(CLAIM, [PDF], _muse(tmp_path, FakeTransport(SPLIT1, relate)), checker=spy).review
+    return review, seen
+
+
+def test_quote_bounds_off_checks_and_snaps_the_raw_quote(tmp_path, monkeypatch):
+    monkeypatch.delenv("PROOFGRAPH_QUOTE_BOUNDS", raising=False)
+    review, seen = _spy_run(tmp_path, "Detention: $75.00/hour after 2 hours")
+    assert seen == [("Detention: $75.00/hour after 2 hours", CLAIM)]
+    assert review.cards[0].quote == "Detention: $75.00/hour after 2 hours"
+
+
+def test_quote_bounds_on_checks_snaps_and_records_the_expanded_quote(tmp_path, monkeypatch):
+    monkeypatch.setenv("PROOFGRAPH_QUOTE_BOUNDS", "1")
+    review, seen = _spy_run(tmp_path, "Detention: $75.00/hour after 2 hours")
+    assert seen == [(QUOTE, CLAIM)]
+    card = review.cards[0]
+    assert card.quote == QUOTE and card.box_status == "pinned" and card.boxes
+
+
+def test_quote_bounds_on_rejects_a_fragment_like_an_empty_quote(tmp_path, monkeypatch):
+    monkeypatch.setenv("PROOFGRAPH_QUOTE_BOUNDS", "1")
+    review, seen = _spy_run(tmp_path, "Linehaul:")
+    assert seen == [] and review.cards == []
+    assert review.parts[0].status != "contradicted"

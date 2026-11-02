@@ -144,3 +144,37 @@ def test_names_are_decoded_and_stripped(tmp_path: Path) -> None:
     assert doc.name == "My Rate Conf.pdf"
     assert doc.original_name == path.name
     assert len(doc.doc_id) == 12
+
+
+# ---- broken text layer (PROOFGRAPH_CID_GUARD) ----
+
+def _words(texts):
+    from proofgraph.review.ingest import Word
+
+    return [Word(t, (0, 0, 10, 10)) for t in texts]
+
+
+def test_cid_guard_off_leaves_kind_unchanged(monkeypatch) -> None:
+    from proofgraph.review.ingest import _pdf_kind
+
+    monkeypatch.delenv("PROOFGRAPH_CID_GUARD", raising=False)
+    words = _words(["word"] * 8 + ["(cid:1)(cid:2)x", "a(cid:3)"] + ["word"] * 2)  # fused tokens: 2 of 12
+    assert _pdf_kind(words) == "text"
+
+
+def test_cid_guard_on_marks_a_mostly_cid_page_image_like(monkeypatch) -> None:
+    from proofgraph.review.ingest import _pdf_kind
+
+    monkeypatch.setenv("PROOFGRAPH_CID_GUARD", "1")
+    broken = _words(["(cid:12)", "x(cid:7)y"] * 3 + ["word"] * 6)  # 6 of 12 = 0.5
+    assert _pdf_kind(broken) == "image_only"
+    clean = _words(["word"] * 11 + ["(cid:5)"])  # 1 of 12
+    assert _pdf_kind(clean) == "text"
+
+
+def test_cid_guard_needs_ten_words_and_more_than_a_fifth(monkeypatch) -> None:
+    from proofgraph.review.ingest import _broken_text_layer
+
+    assert not _broken_text_layer(_words(["(cid:1)"] * 9))  # too few words
+    assert not _broken_text_layer(_words(["(cid:1)"] * 2 + ["w"] * 8))  # exactly 0.2
+    assert _broken_text_layer(_words(["(cid:1)"] * 3 + ["w"] * 7))
