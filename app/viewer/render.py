@@ -64,17 +64,18 @@ CHECK_LABEL = {
     "unavailable": "Second check unavailable",
     "not_run": "Second check not run",
 }
-_SEES = "It sees only the quote and the part, not the rest of the page."
 RULE_TEXT = "One passage that goes against a claim is enough to count against it."
 SECOND_CHECK_TEXT = (
     "A second look at this passage alone. Not sure means it did not reach the same label; the finding still counts."
 )
 _LABELLED = {"supports": "as support", "contradicts": "as contradicting", "weakens": "as weakening"}
-_SAW = {
-    "entails": "found it supports this part",
-    "contradicts": "found it goes against this part",
-    "not_mentioned": "found it does not mention this part",
+_SAW = {"entails": "supports", "contradicts": "goes against", "not_mentioned": "does not mention"}
+_NO_CHECK = {
+    "unavailable": "The second check could not be run this time.",
+    "not_run": "The second check was not run on this one.",
 }
+AI_LABEL = "AI's reading:"
+AI_MAX = 140
 UNCONFIRMED_TEXT = "The second check did not confirm the supporting quote."
 NOT_DOUBLE_CHECKED_TEXT = "Not double-checked"
 REPLAY_TEXT = "Replayed from a saved run, not a live check"
@@ -132,6 +133,7 @@ LEDGER_CSS = (
     ".wrap .panel .card{border:0;padding:0;margin:0;cursor:default}.wrap .panel .card.active{outline:none}"
     ".panel .meta{font-size:14px;color:var(--l-muted);margin:6px 0 0;overflow-wrap:anywhere}"
     ".panel .qualifier,.panel .computed,.panel .reason-line,.panel .poshint{margin:6px 0 0;font-size:14px;overflow-wrap:anywhere}"
+    ".panel .ai{margin:6px 0 0;font-size:14px;color:var(--l-muted);overflow-wrap:anywhere}.panel .ai span{font-weight:600}"
     ".slot{margin-top:8px}.slot .page{max-width:560px;border-radius:4px}.slot .noimg{padding:12px;font-size:14px}"
     ".close{margin-top:8px;background:none;border:1px solid var(--l-line);border-radius:6px;padding:6px 12px;min-height:44px}"
     ".grp{margin-top:6px}.grp:first-child{margin-top:0}"
@@ -257,14 +259,13 @@ def _part_summary(part: Part, cards: dict[str, Card], names: dict[str, str]) -> 
     return out
 
 
-_DATE_SOURCE = {"in passage": "the passage", "document header": "the document header"}
-
-
 class _Names(dict):
     """Short display names by document id; `.full` holds the file names for hover."""
 
     full: dict[str, str]
     scans: set[tuple[str, int]]  # (doc id, page) pairs that are photos or scans, not text pages
+    injected: bool  # the review carries an injection banner, so no model text is shown
+    parts: dict[str, str]  # part id -> part text, to check the AI line against
 
 
 _NAME_MAX = 30
@@ -306,16 +307,6 @@ def _short_names(docs: list[Doc]) -> _Names:
     return out
 
 
-def _when(day: str | None, source: str | None) -> str:
-    try:
-        d = date.fromisoformat(day) if day else None
-    except ValueError:
-        return f"{day} \u00b7 inferred from {_DATE_SOURCE.get(source or '', source or 'the text')}"
-    if not d:
-        return "No date in this passage"
-    return f"{d:%B} {d.day}, {d.year} \u00b7 inferred from {_DATE_SOURCE.get(source or '', source or 'the text')}"
-
-
 _SECOND = {
     "agrees": "confirmed",
     "disagrees": "not sure it fits this part",
@@ -329,6 +320,7 @@ _PART_WORD = {"contradicted": "Goes against", "weakened": "Casts doubt", "suppor
 _COLUMN = {"contradicts": "Goes against it", "weakens": "Casts doubt on it", "supports": "Backs it up", "set_aside": "Not relevant to this part"}
 _ROW_CAP = 4  # rows shown in a document group before "Show all N"
 _QUOTE_MAX = 240
+_AI_BANNED = ("disagree", "failed", "unverified", "wrong", "flagged")
 
 
 def _day_or_none(value: str | None) -> date | None:
@@ -347,17 +339,35 @@ def _glyph(g: str) -> str:
 
 
 def _second_line(card: Card) -> str:
-    """Code-written note on what the second check saw, for a card it did not confirm."""
-    line = check_reason(card.relation, card.check, card.check_answer)
-    if not line:
+    """One short code-written line on what the second check did, for a card it did not confirm."""
+    if card.check in _NO_CHECK:
+        return _NO_CHECK[card.check]
+    if not check_reason(card.relation, card.check, card.check_answer):
         return ""
     saw = _SAW.get(card.check_answer)
     if saw and card.relation in _LABELLED:
-        return (
-            f"The second check read this quote alone and {saw}, but the passage is listed {_LABELLED[card.relation]}, "
-            f"so it was not sure the quote fits. {_SEES}"
-        )
-    return f"The second check could not be run on this quote alone. {_SEES}"
+        return f"Read alone, the quote {saw} this part, but it is listed {_LABELLED[card.relation]}, so the second check was not sure it fits."
+    return "The second check could not be run on this quote alone."
+
+
+_WORD = re.compile(r"[^\W_][\w'\u2019-]*")
+
+
+def _ai_reading(card: Card, names: dict[str, str]) -> str:
+    """The model's one-sentence reason, only where code can vouch for it. Display only: never read by status, counts or order."""
+    if card.check != "agrees" or getattr(names, "injected", False):
+        return ""
+    why = " ".join(card.why.split())
+    if not why or any(b in why.casefold() for b in _AI_BANNED):
+        return ""
+    if len(why) > AI_MAX:
+        why = why[: AI_MAX + 1].rsplit(" ", 1)[0]
+    seen = f"{card.quote} {getattr(names, 'parts', {}).get(card.part, '')}".casefold()
+    if any(d not in seen for d in re.findall(r"\d+", why)):
+        return ""
+    if any(w[0].isupper() and w.casefold() not in seen for w in _WORD.findall(why)[1:]):
+        return ""
+    return f'<p class="ai"><span>{AI_LABEL}</span> {_e(why)}</p>'
 
 
 def _position_note(card: Card, names: dict[str, str]) -> str:
@@ -385,11 +395,13 @@ def _passage(card: Card, entry: MapEntry, names: dict[str, str]) -> str:
     computed = f'<p class="computed">{_e(card.computed.text)}</p>' if card.computed else ""
     note = _second_line(card)
     note = f'<p class="reason-line">{_e(note)}</p>' if note else ""
+    day = _day_or_none(entry.date)
+    when = f" · {_e(_long_day(day))}" if day else ""
     return (
         f'<article class="card {_e(card.relation)}" tabindex="-1" data-card-id="{_e(card.id)}" '
         f'data-part="{_e(card.part)}" data-doc="{_e(card.doc)}" data-page="{card.page}">'
         f"{qualifier}{computed}"
-        f'<p class="meta">{where} · Page {card.page} · {_e(_when(entry.date, entry.date_source))}</p>{note}'
+        f'<p class="meta">{where} · Page {card.page}{when}</p>{note}{_ai_reading(card, names)}'
         f'{_position_note(card, names)}<div class="slot"></div></article>'
     )
 
@@ -778,6 +790,9 @@ def render(
     on = evidence_lines_on()
     mapped = evidence_map_on()
     names = _short_names(review.docs) if mapped else {d.id: d.name for d in review.docs}
+    if mapped:
+        names.injected = any(b.kind == "injection" for b in review.banners)
+        names.parts = {p.id: p.text for p in review.parts}
     cards = {c.id: c for c in review.cards}
     notes = "".join(f'<p class="docnote">{_e(names[d.id])}: {_e(d.note)}</p>' for d in review.docs if d.note)
     notes += _unreadable_notes(review, names)

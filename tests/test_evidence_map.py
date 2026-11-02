@@ -43,7 +43,7 @@ def test_flag_on_renders_grouped_map(review, monkeypatch):
     html = render(_mapped(review))
     assert "Text pages only; 12 passages in 1 documents examined; scans/images not read; may be incomplete." in html
     assert "Dates are inferred from the text, not legal dates." in html
-    assert "May 7, 2026 \u00b7 inferred from the signature block" in html
+    assert "7 May 2026" in html and "inferred from the signature block" not in html
     assert "No date in this passage" in html and "No date found" not in html and ">Undated<" not in html
     assert html.count('class="gap-line"') == 1
     assert "Not uploaded: the &lt;b&gt;2019&lt;/b&gt; master agreement. Cited 1 time." in html
@@ -67,7 +67,7 @@ from html.parser import HTMLParser  # noqa: E402
 import html as _html_mod  # noqa: E402
 
 from app.viewer.render import _map_items, _part_summary  # noqa: E402
-from proofgraph.review.models import Card, Claim, Doc, Part, Review as _Review, Run  # noqa: E402
+from proofgraph.review.models import Banner, Card, Claim, Doc, Part, Review as _Review, Run  # noqa: E402
 
 BANNED = ["disagree", "failed", "unverified", "wrong", "flagged"]
 NAMES = {"d1": "Bylaws.pdf", "d2": "Minutes.pdf", "d3": "Letter.pdf"}
@@ -294,7 +294,7 @@ def test_row_shows_real_quote_name_page_date_and_second_check_in_words(monkeypat
     vis = re.sub(r'<div class="panel".*', "", first, flags=re.S)
     t = _txt(vis)
     assert "SECRETQUOTE c1" in t and "Minutes" in t and "Page 1" in t and "No date in this passage" in t and "Second check: not sure it fits this part" in t
-    assert 'title="2-Minutes.pdf"' in vis and "SECRETWHY" not in _visible(_ui_html(monkeypatch))
+    assert 'title="2-Minutes.pdf"' in vis
     dated = _txt(re.sub(r'<div class="panel".*', "", rows["t1"][4], flags=re.S))
     assert "4 April 2024" in dated and "Second check: confirmed" in dated and "Bylaws" in dated
 
@@ -442,10 +442,11 @@ def test_no_banned_word_or_old_term_anywhere_visible(monkeypatch, check, answer)
         assert t.lower() not in low, t
 
 
-def test_no_model_written_text_only_quotes_and_fixed_labels(monkeypatch):
+def test_model_text_only_in_the_labelled_line_of_a_confirmed_panel(monkeypatch):
     h = re.sub(r"<script.*?</script>", "", _ui_html(monkeypatch), flags=re.S)
-    assert "SECRETWHY" not in h
     assert "SECRETQUOTE" in h
+    outside = re.sub(r'<p class="ai">.*?</p>', "", h)
+    assert "SECRETWHY" not in outside
 
 
 # ---- Boxes and the page image ----
@@ -570,3 +571,155 @@ def test_long_notes_wrap_inside_the_panel():
     from app.viewer.render import LEDGER_CSS
     assert ".panel{" in LEDGER_CSS and "overflow-wrap:anywhere" in LEDGER_CSS.split(".panel{")[1].split("}")[0]
     assert ".panel .reason-line" in LEDGER_CSS and "overflow-wrap:anywhere" in LEDGER_CSS.split(".panel .reason-line")[1].split("}")[0]
+
+
+# ---- Opened panel: tidy source line, one-line check note, labelled AI line (confirmed rows only) ----
+def _panel(r, monkeypatch, cid):
+    row = _row_html(r, monkeypatch, cid)
+    return re.search(r'<div class="panel"[^>]*>(.*?)<button type="button" class="close">', row, re.S).group(1)
+
+
+def _set(r, cid, **kw):
+    c = next(c for c in r.cards if c.id == cid)
+    for k, v in kw.items():
+        setattr(c, k, v)
+    return c
+
+
+def test_panel_keeps_name_and_page_and_drops_undated_and_duplicates(monkeypatch):
+    r = _ui_review()
+    p = _panel(r, monkeypatch, "c1")  # d2, no date
+    t = " ".join(_txt(p).split())
+    assert "Minutes \u00b7 Page 1" in t and "No date in this passage" not in t and "inferred from" not in t
+    assert t.count("Minutes") == 1 and 'title="2-Minutes.pdf"' in p
+    dated = " ".join(_txt(_panel(r, monkeypatch, "s1")).split())
+    assert "Bylaws \u00b7 Page 1 \u00b7 12 March 2024" in dated and "inferred from" not in dated
+    assert "No date in this passage" in _row_html(r, monkeypatch, "c1")  # the closed row keeps it
+
+
+@pytest.mark.parametrize("check,answer,rel,words", [
+    ("disagrees", "not_mentioned", "contradicts", "does not mention"),
+    ("disagrees", "entails", "weakens", "supports this part"),
+    ("disagrees", None, "supports", "could not be run"),
+    ("unavailable", None, "supports", "could not be run"),
+    ("not_run", None, "supports", "not run"),
+])
+def test_check_note_is_one_short_line(monkeypatch, check, answer, rel, words):
+    r = _ui_review()
+    _set(r, "c1", check=check, check_answer=answer, relation=rel)
+    p = _panel(r, monkeypatch, "c1")
+    notes = re.findall(r'<p class="reason-line">(.*?)</p>', p)
+    assert len(notes) == 1 and words in notes[0]
+    assert len(notes[0]) <= 140 and notes[0].count(".") <= 1 and "It sees only" not in notes[0]
+
+
+def test_position_note_is_still_one_line(monkeypatch):
+    r = _ui_review()
+    _set(r, "c1", box_status="approximate", boxes=[[10, 10, 500, 60]])
+    assert len(re.findall(r'class="poshint"', _panel(r, monkeypatch, "c1"))) == 1
+
+
+def _ai(r, monkeypatch, cid="s1"):
+    m = re.search(r'<p class="ai">(.*?)</p>', _panel(r, monkeypatch, cid), re.S)
+    return " ".join(_txt(m.group(1)).split()) if m else None
+
+
+def test_confirmed_row_shows_the_labelled_ai_line_under_the_source_and_above_the_page(monkeypatch):
+    r = _ui_review()
+    _set(r, "s1", why="Matches the quote on part one.")
+    p = _panel(r, monkeypatch, "s1")
+    assert _ai(r, monkeypatch) == "AI's reading: Matches the quote on part one."
+    assert p.index('class="meta"') < p.index('class="ai"') < p.index('class="slot"')
+    assert "<blockquote" not in p and "\u201c" not in p
+
+
+@pytest.mark.parametrize("check", ["disagrees", "unavailable", "not_run"])
+@pytest.mark.parametrize("rel", ["supports", "contradicts", "weakens"])
+def test_unconfirmed_rows_show_no_model_text(monkeypatch, check, rel):
+    r = _ui_review()
+    _set(r, "s1", why="Matches the quote on part one.", check=check, check_answer="not_mentioned", relation=rel)
+    h = _html(r, monkeypatch)
+    assert "Matches the quote" not in re.sub(r"<script.*?</script>", "", h, flags=re.S)
+    assert 'class="reason-line"' in _panel(r, monkeypatch, "s1")
+
+
+def test_injection_banner_hides_the_ai_line(monkeypatch):
+    r = _ui_review()
+    _set(r, "s1", why="Matches the quote on part one.")
+    assert _ai(r, monkeypatch)
+    r.banners.append(Banner(kind="injection", text="A file has instructions."))
+    assert _ai(r, monkeypatch) is None
+
+
+@pytest.mark.parametrize("why", [
+    "Dated 2019 in the quote.",
+    "Signed by Okafor on site.",
+    "Matches the quote, which is wrong.",
+    "",
+])
+def test_ai_line_hidden_when_it_brings_in_facts_the_text_does_not_have(monkeypatch, why):
+    r = _ui_review()
+    _set(r, "s1", why=why)
+    assert _ai(r, monkeypatch) is None
+    assert "Okafor" not in re.sub(r"<script.*?</script>", "", _html(r, monkeypatch), flags=re.S)
+
+
+def test_ai_line_may_use_numbers_and_names_that_are_in_the_quote_or_the_part(monkeypatch):
+    r = _ui_review()
+    _set(r, "s1", quote="Okafor signed on 14 May 2026.", why="Okafor signed on 14 May, part one.")
+    assert _ai(r, monkeypatch).endswith("Okafor signed on 14 May, part one.")
+
+
+def test_ai_line_is_cut_on_a_word_boundary_near_140(monkeypatch):
+    r = _ui_review()
+    _set(r, "s1", why=" ".join(["matches"] * 40))
+    got = _ai(r, monkeypatch).removeprefix("AI's reading:").strip()
+    words = got.split()
+    assert 100 < len(got) <= 140 and set(words) == {"matches"}
+
+
+def test_markup_in_the_ai_line_is_escaped(monkeypatch):
+    r = _ui_review()
+    _set(r, "s1", why="Fits <img src=x onerror=1> and <b>part</b> one.")
+    body = re.sub(r"<script.*?</script>", "", _html(r, monkeypatch), flags=re.S)
+    assert "<img" not in body and "<b>part</b>" not in body and "&lt;img" in body
+
+
+def test_closed_row_and_everything_outside_the_panels_never_show_the_ai_line(monkeypatch):
+    r = _ui_review()
+    _set(r, "s1", why="Matches the quote on part one.")
+    row = _row_html(r, monkeypatch, "s1")
+    assert "Matches the quote" not in re.sub(r'<div class="panel".*', "", row, flags=re.S)
+    assert re.search(r'<div class="panel" id="p-s1" hidden>', row)
+    h = re.sub(r'<div class="panel".*?<button type="button" class="close">', "", _html(r, monkeypatch), flags=re.S)
+    assert "Matches the quote" not in re.sub(r"<script.*?</script>", "", h, flags=re.S)
+
+
+def test_ai_line_does_not_change_verdict_counts_order_or_status(monkeypatch):
+    plain = _ui_review()
+    for c in plain.cards:
+        c.why = ""
+    withy = _ui_review()
+    for c in withy.cards:
+        c.why = "Matches the quote on part one."
+    a = re.sub(r"<script.*?</script>", "", _html(plain, monkeypatch), flags=re.S)
+    b = re.sub(r"<script.*?</script>", "", _html(withy, monkeypatch), flags=re.S)
+    assert b.count('class="ai"') >= 1
+    assert re.sub(r'<p class="ai">.*?</p>', "", b) == a
+
+
+def test_ai_line_is_smaller_and_muted_than_the_quote():
+    from app.viewer.render import LEDGER_CSS
+    rule = LEDGER_CSS.split(".panel .ai{")[1].split("}")[0]
+    size = int(re.search(r"font-size:(\d+)px", rule).group(1))
+    assert 14 <= size < 16 and "var(--l-muted)" in rule and "overflow-wrap:anywhere" in rule
+
+
+@pytest.mark.parametrize("check", ["agrees", "disagrees", "unavailable", "not_run"])
+def test_banned_words_never_show_in_panels_text_aria_or_title(monkeypatch, check):
+    r = _ui_review()
+    for c in r.cards:
+        c.check, c.check_answer, c.why = check, "not_mentioned", "Matches the quote on part one."
+    low = _visible(_html(r, monkeypatch)).lower()
+    for t in ("disagree", "failed", "unverified", "wrong", "flagged"):
+        assert t not in low, t
