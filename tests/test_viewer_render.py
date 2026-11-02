@@ -288,3 +288,42 @@ def test_disagrees_mark_text_meets_4_5_to_1_in_light_and_dark(review):
 
     assert _contrast(tok(light, "red-text"), tok(light, "bg")) >= 4.5
     assert _contrast(tok(dark, "red-text"), tok(dark, "bg")) >= 4.5
+
+
+def _answer_lines(html):
+    return re.findall(r'<p class="reason-line check-answer">(.*?)</p>', html)
+
+
+def test_disagrees_card_shows_raw_answer_line(review):
+    from proofgraph.review.reasons import check_reason
+
+    r = _with(review, check="disagrees")
+    r.cards[0].check_answer = "not_mentioned"
+    html = render(r)
+    expected = check_reason(r.cards[0].relation, "disagrees", "not_mentioned")
+    assert _answer_lines(html) == [expected.replace("'", "&#x27;")]
+    assert "Second check disagrees" in html
+
+
+@pytest.mark.parametrize("check", ["agrees", "unavailable", "not_run"])
+def test_other_checks_show_no_raw_answer_line(review, check):
+    r = _with(review, check=check)
+    r.cards[0].check_answer = "not_mentioned"
+    assert _answer_lines(render(r)) == []
+
+
+def test_raw_answer_line_is_escaped(review, monkeypatch):
+    import app.viewer.render as mod
+
+    monkeypatch.setattr(mod, "check_reason", lambda *a: "<script>x</script>")
+    html = render(_with(review, check="disagrees"))
+    assert "<script>x</script>" not in html
+    assert "&lt;script&gt;x&lt;/script&gt;" in html
+
+def test_card_meta_shows_the_document_name_not_its_id(review):
+    html = render(review)
+    names = {d.id: d.name for d in review.docs}
+    for card in review.cards:
+        meta = re.search(rf'data-card-id="{re.escape(card.id)}".*?<p class="meta">(.*?)</p>', html, re.S).group(1)
+        assert meta.startswith(f"{names[card.doc]} p{card.page}")
+        assert f'data-doc="{card.doc}"' in html

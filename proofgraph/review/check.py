@@ -18,7 +18,7 @@ from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 
 from proofgraph.clients.checker import blind_wording
-from proofgraph.review.models import Card, CheckName, Part
+from proofgraph.review.models import Card, CheckAnswer, CheckName, Part
 
 MAX_WORKERS = 4
 
@@ -32,6 +32,32 @@ _AGREES: dict[str, frozenset[str]] = {
 _ANSWERS = frozenset({"entails", "contradicts", "not_mentioned"})
 
 
+def check_card_detail(
+    card_quote: str,
+    part_text: str,
+    *,
+    relation: str,
+    checker: Checker = blind_wording,
+) -> tuple[CheckName, CheckAnswer | None]:
+    """Check one card. Returns (check, raw answer).
+
+    The checker gets exactly (card_quote, part_text). ``relation`` is used only after
+    the checker answers, to compare. The raw answer is set only when the checker
+    returned entails, contradicts or not_mentioned; otherwise it is ``None``.
+    """
+    if relation not in _AGREES:
+        return "not_run", None
+    if not isinstance(card_quote, str) or card_quote.strip() == "":
+        return "not_run", None
+    try:
+        answer = checker(card_quote, part_text)
+    except Exception:
+        return "unavailable", None
+    if answer not in _ANSWERS:
+        return "unavailable", None
+    return ("agrees" if answer in _AGREES[relation] else "disagrees"), answer
+
+
 def check_card(
     card_quote: str,
     part_text: str,
@@ -39,21 +65,8 @@ def check_card(
     relation: str,
     checker: Checker = blind_wording,
 ) -> CheckName:
-    """Check one card. The checker gets exactly (card_quote, part_text).
-
-    ``relation`` is used only after the checker answers, to compare.
-    """
-    if relation not in _AGREES:
-        return "not_run"
-    if not isinstance(card_quote, str) or card_quote.strip() == "":
-        return "not_run"
-    try:
-        answer = checker(card_quote, part_text)
-    except Exception:
-        return "unavailable"
-    if answer not in _ANSWERS:
-        return "unavailable"
-    return "agrees" if answer in _AGREES[relation] else "disagrees"
+    """Check one card and return only the check name. See ``check_card_detail``."""
+    return check_card_detail(card_quote, part_text, relation=relation, checker=checker)[0]
 
 
 def check_cards(
@@ -62,21 +75,24 @@ def check_cards(
     *,
     checker: Checker = blind_wording,
 ) -> list[Card]:
-    """Return copies of ``cards`` with ``check`` set, in input order.
+    """Return copies of ``cards`` with ``check`` and ``check_answer`` set, in input order.
 
     Runs at most MAX_WORKERS checks at once. One failure never stops the others.
     """
     cards = list(cards)
     texts = {p.id: p.text for p in parts}
 
-    def run(card: Card) -> CheckName:
+    def run(card: Card) -> tuple[CheckName, CheckAnswer | None]:
         text = texts.get(card.part)
         if card.relation == "set_aside":
-            return "not_run"
+            return "not_run", None
         if text is None:
-            return "unavailable"
-        return check_card(card.quote, text, relation=card.relation, checker=checker)
+            return "unavailable", None
+        return check_card_detail(card.quote, text, relation=card.relation, checker=checker)
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-        names = list(pool.map(run, cards))
-    return [c.model_copy(update={"check": n}) for c, n in zip(cards, names)]
+        results = list(pool.map(run, cards))
+    return [
+        c.model_copy(update={"check": name, "check_answer": answer})
+        for c, (name, answer) in zip(cards, results)
+    ]

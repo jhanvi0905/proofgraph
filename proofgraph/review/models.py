@@ -6,7 +6,7 @@ Shape: docs/council/2026-10-31-roadmap-sprint.md section 5, plus
 
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, Field, model_validator
+from pydantic import AfterValidator, BaseModel, Field, model_serializer, model_validator
 
 GRID = 1000
 
@@ -20,6 +20,7 @@ WeakenerType = Literal[
 ]
 BoxStatus = Literal["pinned", "located", "approximate", "unpinned"]
 CheckName = Literal["agrees", "disagrees", "unavailable", "not_run"]
+CheckAnswer = Literal["entails", "contradicts", "not_mentioned"]
 PageKind = Literal["text_layer", "image_only", "image"]
 BannerKind = Literal["injection", "unreadable", "cap", "checker_unavailable"]
 
@@ -69,11 +70,45 @@ class Doc(BaseModel):
     note: str | None = None
 
 
+class Passage(BaseModel):
+    """A place in a document: a page, with a short snippet when it was matched by word search."""
+
+    doc: str
+    page: int
+    text: str = ""
+
+
 class Receipt(BaseModel):
     pages_read: int
     unread: list[int] = Field(default_factory=list)
     terms: list[str] = Field(default_factory=list)
     uncited_hits: list[str] = Field(default_factory=list)
+    # Display-only disclosure (PROOFGRAPH_EVIDENCE_LINES). None / empty on every older review.
+    matched_passages: int | None = None
+    matched_docs: int | None = None
+    uncited_passages: list[Passage] = Field(default_factory=list)
+    unsearched: list[Passage] = Field(default_factory=list)
+
+    @model_serializer(mode="wrap")
+    def _omit_unused_evidence(self, handler):
+        """Keep saved JSON and the embedded page byte-identical when the disclosure is off."""
+        data = handler(self)
+        if self.matched_passages is None:
+            for key in ("matched_passages", "matched_docs", "uncited_passages", "unsearched"):
+                data.pop(key, None)
+        return data
+
+
+class MapItem(BaseModel):
+    """One entry of the evidence map: a card, or a source the documents cite but do not supply."""
+
+    kind: Literal["card", "referenced"]
+    card_id: str | None = None
+    date: str | None = None  # ISO, inferred from the text
+    date_source: str | None = None
+    ref_text: str | None = None
+    ref_doc: str | None = None
+    ref_page: int | None = None
 
 
 class Part(BaseModel):
@@ -85,6 +120,18 @@ class Part(BaseModel):
     card_ids: list[str] = Field(default_factory=list)
     receipt: Receipt | None = None
     conflict: bool = False
+    # Display-only (PROOFGRAPH_EVIDENCE_MAP). None on every older review.
+    evidence_map: list[MapItem] | None = None
+    map_counts: dict | None = None  # examined, relevant, unlabelled, matched, shown
+
+    @model_serializer(mode="wrap")
+    def _omit_unused_map(self, handler):
+        data = handler(self)
+        if self.evidence_map is None:
+            data.pop("evidence_map", None)
+        if self.map_counts is None:
+            data.pop("map_counts", None)
+        return data
 
     @model_validator(mode="after")
     def _conflict_is_contradicted(self) -> "Part":
@@ -112,6 +159,7 @@ class Card(BaseModel):
     why: str
     computed: Computed | None = None
     check: CheckName
+    check_answer: CheckAnswer | None = None
     controls: bool = False
     superseded_by: str | None = None
 

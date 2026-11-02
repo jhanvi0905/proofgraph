@@ -147,5 +147,8 @@ Parentheses mean negative: `( 2,483 )` → −2483. Handle `$`, commas, `%`, `�
 - `checker.blind_wording(quote: str, statement: str)` and `checker.blind_reread(crop: bytes)` accept nothing else, so their signatures make blindness structural.
 - Only `scripts/report.py` reads `Case.answer` and `Case.gold_evidence`. A test asserts that pipeline modules never access those attributes.
 
+### Evidence map (flag `PROOFGRAPH_EVIDENCE_MAP=1`)
+With the flag on, `_run_part` calls `evidence_map.build_map` instead of `relate`. Candidates are found by code and unioned with the one passage the single `relate` read picks (found exactly in its page, unit-sized, outside the cap, labelled like any other), the model only labels them, and part status is still `part_status` over all non-irrelevant cards (status.py is unchanged; the second check never removes a card). The timeline is by code and inferred from the text, and a cited document no header date matches is shown as "referenced, not supplied" by pattern. No new link kinds or edges between cards (D39). With the flag off the run is byte-identical.
+
 ## 10. Reproducibility
 Every model call goes through `cache.py`, keyed by `sha256(model, endpoint, prompt, schema, inputs, sample_idx)`. Runs write `runs/<dataset>-<mode>-<system>-<date>.jsonl`. `make report` reads only `runs/`.

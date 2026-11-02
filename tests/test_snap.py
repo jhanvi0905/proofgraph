@@ -211,3 +211,16 @@ def test_text_layer_gold_quotes_snap_with_iou_at_least_point_seven() -> None:
     rate = hits / len(text_cases)
     print(f"snap rate {hits}/{len(text_cases)} = {rate:.3f}; misses: {misses}")
     assert rate >= MIN_SNAP_RATE, f"{hits}/{len(text_cases)} snapped; misses: {misses}"
+
+
+def test_long_non_matching_quote_returns_quickly_unpinned():
+    import time
+    words = []
+    for row in range(35):
+        words += _line([f"alpha{row}{i}" for i in range(20)], 10 + row * 12)
+    quote = " ".join(f"zeta{i} quartz{i} omega{i}" for i in range(120))
+    assert len(quote) > 1600
+    start = time.perf_counter()
+    result = snap(quote, words)
+    assert time.perf_counter() - start < 1
+    assert result.status == "unpinned"

@@ -9,7 +9,7 @@ import pytest
 
 from proofgraph.clients.checker import CheckerClient, CheckerError
 from proofgraph.config import DEFAULT_CHECKER_MODEL, load_settings
-from proofgraph.review.check import check_card, check_cards
+from proofgraph.review.check import check_card, check_card_detail, check_cards
 from proofgraph.review.models import Card, Part
 from proofgraph.review.status import part_status
 
@@ -192,3 +192,45 @@ def test_input_cards_are_not_mutated():
     cards = [make_card()]
     check_cards(cards, [make_part()], checker=lambda q, s: "entails")
     assert cards[0].check == "not_run"
+
+
+@pytest.mark.parametrize(("relation", "answer", "expected"), TABLE)
+def test_detail_and_cards_record_raw_answer(relation, answer, expected):
+    assert check_card_detail(
+        QUOTE, PART, relation=relation, checker=lambda q, s: answer
+    ) == (expected, answer)
+    (out,) = check_cards(
+        [make_card(relation=relation)], [make_part()], checker=lambda q, s: answer
+    )
+    assert (out.check, out.check_answer) == (expected, answer)
+
+
+def test_raw_answer_is_none_unless_checker_answered():
+    def boom(quote, statement):
+        raise CheckerError("down")
+
+    cards = [
+        make_card("a", "supports"),
+        make_card("b", "set_aside"),
+        make_card("c", "supports", quote="  "),
+        make_card("d", "supports", part="P9"),
+    ]
+    out = check_cards(cards, [make_part()], checker=boom)
+    assert [(c.check, c.check_answer) for c in out] == [
+        ("unavailable", None), ("not_run", None), ("not_run", None), ("unavailable", None),
+    ]
+    out = check_cards(cards, [make_part()], checker=lambda q, s: "maybe")
+    assert [(c.check, c.check_answer) for c in out] == [
+        ("unavailable", None), ("not_run", None), ("not_run", None), ("unavailable", None),
+    ]
+
+
+def test_check_cards_checker_receives_only_quote_and_part_text():
+    seen = []
+
+    def spy(*args, **kwargs):
+        seen.append((args, kwargs))
+        return "entails"
+
+    check_cards([make_card()], [make_part()], checker=spy)
+    assert seen == [((QUOTE, PART), {})]
