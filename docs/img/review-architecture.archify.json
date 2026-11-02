@@ -1,0 +1,452 @@
+{
+ "schema_version": 2,
+ "diagram_type": "workflow",
+ "meta": {
+  "title": "ProofGraph review run",
+  "output": ".archify/workflow-proofgraph-review-20261103/proofgraph-review.html",
+  "quality_profile": "showcase",
+  "locale": "en",
+  "repository": {
+   "url": "https://github.com/jhanvi0905/proofgraph.git",
+   "provider": "github",
+   "link_mode": "web",
+   "revision": "be394ea6e9455ca89316bfd6f42bea834f5a9287"
+  },
+  "legend": {
+   "mode": "auto",
+   "entries": {
+    "frontend": {
+     "label": "Reviewer UI"
+    },
+    "backend": {
+     "label": "Code (no model)"
+    },
+    "security": {
+     "label": "Policy gate"
+    },
+    "cloud": {
+     "label": "Meta model call"
+    }
+   }
+  }
+ },
+ "lanes": [
+  {
+   "id": "ui",
+   "label": "Reviewer and Streamlit"
+  },
+  {
+   "id": "code",
+   "label": "Review runtime: code proves"
+  },
+  {
+   "id": "meta",
+   "label": "Meta models: propose and re-read"
+  }
+ ],
+ "phases": [
+  {
+   "id": "intake",
+   "label": "Intake",
+   "fromCol": 0,
+   "toCol": 1
+  },
+  {
+   "id": "propose",
+   "label": "Model proposes, code proves",
+   "fromCol": 2,
+   "toCol": 3,
+   "variant": "emphasis"
+  },
+  {
+   "id": "reread",
+   "label": "Blind re-read, code decides",
+   "fromCol": 4,
+   "toCol": 5,
+   "variant": "security"
+  }
+ ],
+ "groups": [
+  {
+   "id": "per_part",
+   "label": "Per part, thread pool max 4",
+   "lane": "code",
+   "fromCol": 3,
+   "toCol": 5,
+   "variant": "emphasis"
+  }
+ ],
+ "mainPath": [
+  "submit",
+  "ingest",
+  "cap",
+  "musesplit",
+  "splitcheck",
+  "museread",
+  "pin",
+  "museopen",
+  "status",
+  "viewer"
+ ],
+ "nodes": [
+  {
+   "id": "submit",
+   "lane": "ui",
+   "col": 0,
+   "type": "frontend",
+   "label": "New review",
+   "sublabel": "claim + PDFs / images",
+   "sources": [
+    {
+     "path": "app/streamlit_app.py",
+     "line": 2101,
+     "end_line": 2120
+    }
+   ]
+  },
+  {
+   "id": "packetapp",
+   "lane": "ui",
+   "col": 4,
+   "type": "frontend",
+   "label": "Packet app page",
+   "sublabel": "older claim check",
+   "sources": [
+    {
+     "path": "app/streamlit_app.py",
+     "line": 2160,
+     "end_line": 2163
+    },
+    {
+     "path": "proofgraph/engine/ground.py",
+     "line": 35,
+     "end_line": 45
+    }
+   ]
+  },
+  {
+   "id": "viewer",
+   "lane": "ui",
+   "col": 5,
+   "type": "frontend",
+   "label": "HTML viewer",
+   "sublabel": "boxes + part verdicts",
+   "sources": [
+    {
+     "path": "app/streamlit_app.py",
+     "line": 2138,
+     "end_line": 2150
+    }
+   ]
+  },
+  {
+   "id": "ingest",
+   "lane": "code",
+   "col": 0,
+   "type": "backend",
+   "label": "Ingest pages",
+   "sublabel": "PDF words, page PNGs",
+   "sources": [
+    {
+     "path": "proofgraph/review/ingest.py",
+     "line": 61,
+     "end_line": 62
+    },
+    {
+     "path": "proofgraph/review/ingest.py",
+     "line": 109,
+     "end_line": 129
+    }
+   ]
+  },
+  {
+   "id": "cap",
+   "lane": "code",
+   "col": 1,
+   "type": "security",
+   "label": "Spend cap",
+   "sublabel": "before any model call",
+   "sources": [
+    {
+     "path": "proofgraph/review/run.py",
+     "line": 110,
+     "end_line": 117
+    },
+    {
+     "path": "proofgraph/clients/muse.py",
+     "line": 265,
+     "end_line": 268
+    }
+   ]
+  },
+  {
+   "id": "splitcheck",
+   "lane": "code",
+   "col": 2,
+   "type": "backend",
+   "label": "Check the split",
+   "sublabel": "verbatim, every number",
+   "sources": [
+    {
+     "path": "proofgraph/review/split.py",
+     "line": 58,
+     "end_line": 82
+    }
+   ]
+  },
+  {
+   "id": "pin",
+   "lane": "code",
+   "col": 3,
+   "type": "backend",
+   "label": "Pin quote to page",
+   "sublabel": "solid box or dashed",
+   "sources": [
+    {
+     "path": "proofgraph/review/run.py",
+     "line": 190,
+     "end_line": 199
+    },
+    {
+     "path": "proofgraph/review/snap.py",
+     "line": 53,
+     "end_line": 81
+    },
+    {
+     "path": "proofgraph/review/scan.py",
+     "line": 65,
+     "end_line": 80
+    }
+   ]
+  },
+  {
+   "id": "status",
+   "lane": "code",
+   "col": 5,
+   "type": "backend",
+   "label": "Status rules",
+   "sublabel": "fixed code, word sweep",
+   "sources": [
+    {
+     "path": "proofgraph/review/status.py",
+     "line": 17,
+     "end_line": 42
+    },
+    {
+     "path": "proofgraph/review/run.py",
+     "line": 204,
+     "end_line": 210
+    }
+   ]
+  },
+  {
+   "id": "musescan",
+   "lane": "meta",
+   "col": 1,
+   "type": "cloud",
+   "label": "Muse Spark",
+   "sublabel": "reads scan images",
+   "tag": "Files API",
+   "sources": [
+    {
+     "path": "proofgraph/review/scan.py",
+     "line": 49,
+     "end_line": 58
+    },
+    {
+     "path": "prompts/transcribe.md",
+     "line": 1,
+     "end_line": 9
+    }
+   ]
+  },
+  {
+   "id": "musesplit",
+   "lane": "meta",
+   "col": 2,
+   "type": "cloud",
+   "label": "Muse Spark",
+   "sublabel": "splits the claim",
+   "tag": "JSON schema",
+   "sources": [
+    {
+     "path": "proofgraph/review/split.py",
+     "line": 44,
+     "end_line": 55
+    },
+    {
+     "path": "prompts/split.md",
+     "line": 1,
+     "end_line": 12
+    }
+   ]
+  },
+  {
+   "id": "museread",
+   "lane": "meta",
+   "col": 3,
+   "type": "cloud",
+   "label": "Muse Spark",
+   "sublabel": "reads whole packet",
+   "tag": "no retriever",
+   "sources": [
+    {
+     "path": "proofgraph/review/relate.py",
+     "line": 38,
+     "end_line": 51
+    },
+    {
+     "path": "prompts/relate.md",
+     "line": 1,
+     "end_line": 19
+    }
+   ]
+  },
+  {
+   "id": "museopen",
+   "lane": "meta",
+   "col": 4,
+   "type": "cloud",
+   "label": "Muse Spark Open",
+   "sublabel": "quote + part only",
+   "tag": "open weights, Baseten",
+   "sources": [
+    {
+     "path": "proofgraph/clients/checker.py",
+     "line": 421,
+     "end_line": 428
+    },
+    {
+     "path": "proofgraph/review/check.py",
+     "line": 35,
+     "end_line": 61
+    },
+    {
+     "path": "prompts/blind_wording.md",
+     "line": 1,
+     "end_line": 4
+    }
+   ]
+  },
+  {
+   "id": "sam",
+   "lane": "meta",
+   "col": 5,
+   "type": "cloud",
+   "label": "SAM 3.1",
+   "sublabel": "counts objects in photos",
+   "tag": "built, not on review path",
+   "sources": [
+    {
+     "path": "proofgraph/clients/sam.py",
+     "line": 217,
+     "end_line": 222
+    },
+    {
+     "path": "proofgraph/engine/ground.py",
+     "line": 155,
+     "end_line": 177
+    }
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "id": "e-submit-ingest",
+   "from": "submit",
+   "to": "ingest",
+   "label": "files",
+   "variant": "emphasis"
+  },
+  {
+   "id": "e-ingest-cap",
+   "from": "ingest",
+   "to": "cap"
+  },
+  {
+   "id": "e-cap-scan",
+   "from": "cap",
+   "to": "musescan",
+   "label": "scan pages",
+   "variant": "dashed",
+   "role": "branch",
+   "fromSide": "bottom",
+   "toSide": "top",
+   "route": "straight"
+  },
+  {
+   "id": "e-cap-split",
+   "from": "cap",
+   "to": "musesplit",
+   "label": "claim",
+   "variant": "emphasis"
+  },
+  {
+   "id": "e-split-check",
+   "from": "musesplit",
+   "to": "splitcheck",
+   "label": "parts"
+  },
+  {
+   "id": "e-check-read",
+   "from": "splitcheck",
+   "to": "museread",
+   "label": "each part",
+   "variant": "emphasis"
+  },
+  {
+   "id": "e-read-pin",
+   "from": "museread",
+   "to": "pin",
+   "label": "quote"
+  },
+  {
+   "id": "e-pin-open",
+   "from": "pin",
+   "to": "museopen",
+   "label": "blind",
+   "variant": "security"
+  },
+  {
+   "id": "e-open-status",
+   "from": "museopen",
+   "to": "status",
+   "label": "agrees?"
+  },
+  {
+   "id": "e-status-viewer",
+   "from": "status",
+   "to": "viewer",
+   "label": "review",
+   "variant": "emphasis"
+  },
+  {
+   "id": "e-packet-sam",
+   "from": "packetapp",
+   "to": "sam",
+   "label": "photo counts",
+   "variant": "dashed",
+   "role": "branch"
+  }
+ ],
+ "cards": [
+  {
+   "dot": "amber",
+   "title": "Meta models",
+   "items": [
+    "Muse Spark reads every page per part, scans from the image",
+    "Muse Spark Open re-reads one quote against one part",
+    "SAM 3.1 counts objects in a photo, older page only"
+   ]
+  },
+  {
+   "dot": "emerald",
+   "title": "Code proves",
+   "items": [
+    "A solid box needs the quote in the PDF's own words",
+    "Scan boxes stay dashed and cannot turn a part red",
+    "Fixed rules, not a model, set each part's status"
+   ]
+  }
+ ]
+}
