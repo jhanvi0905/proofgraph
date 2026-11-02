@@ -159,3 +159,43 @@ def test_long_list_item_is_cut_at_sentence_ends_and_pieces_cover_it():
     assert r.candidates[0].text.startswith("5. The tenant")
     assert " ".join(c.text for c in r.candidates) == item
     assert r.rule_version == "candidates-2"
+
+
+# ---- scan pages: one unit per transcript line (map mode passes line_pages)
+
+_POD = ["LANTERN HAUL", "7713", "DELIVERY RECEIPT / PROOF OF DELIVERY", "Unload complete 10:51",
+        "Seal # 8812075 intact: Y", "OS&D NONE", "Late? N",
+        "Received in good order except as noted: (no exceptions noted)",
+        "Receiver signature, print name, date and time:", "R. Okafor R. OKAFOR 10/14/2025 10:58",
+        "Driver signature:", "J. Pruitt"]
+_CLAIM = "Load 7713 was late for delivery. Late? Seal signature"
+
+
+class _P:
+    def __init__(self, doc, page, text):
+        self.doc, self.page, self.text = doc, page, text
+
+
+def test_scan_page_units_are_lines_that_locate_can_pin():
+    from proofgraph.review.scan import Line, Transcription, locate
+    tr = Transcription(lines=[Line(text=t, box=[10, 10 + 20 * i, 500, 25 + 20 * i]) for i, t in enumerate(_POD)])
+    page = _P("pod", 1, "\n".join(_POD))
+    plain = build_candidates(_CLAIM, [page]).candidates
+    assert any(c.text.count("\n") > 3 for c in plain) or not all(locate(c.text, tr).status == "approximate" for c in plain)
+    cs = build_candidates(_CLAIM, [page], line_pages=frozenset({("pod", 1)}))
+    assert cs.candidates and all(c.text.count("\n") < 3 for c in cs.candidates)
+    for c in cs.candidates:
+        assert page.text[c.offset:c.offset + len(c.text)] == c.text
+        assert locate(c.text, tr).status == "approximate"
+    late = [c for c in cs.candidates if c.text == "Late? N"]
+    assert late and len(locate("Late? N", tr).boxes) == 1
+    # a label line rides with its value line
+    assert any(c.text == "Driver signature:\nJ. Pruitt" for c in cs.candidates)
+
+
+def test_text_page_and_default_candidates_are_unchanged_by_line_pages():
+    text = "Delivery was late. The seal was intact.\nSecond line mentions late again."
+    page = _P("a", 1, text)
+    base = build_candidates("late seal", [page])
+    assert build_candidates("late seal", [page], line_pages=frozenset({("other", 9)})) == base
+    assert build_candidates("late seal", [page], line_pages=frozenset()) == base
