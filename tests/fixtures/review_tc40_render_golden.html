@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review</title>
+<style>
+  :root { --bg:#fff; --fg:#1a1a1a; --mut:#666; --line:#ddd; --red:#c62828; --red-text:#c62828; --amb:#b26a00; --grn:#2e7d32; --gry:#757575; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161616; --fg:#eee; --mut:#aaa; --line:#333; --red-text:#ef5350; } }
+  body { margin:0; font:14px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); }
+  h1 { margin:0; font-size:18px; } .claim { margin:4px 0 0; color:var(--mut); }
+  main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,1.4fr); gap:12px; padding:12px 16px; }
+  @media (max-width:900px) { main { grid-template-columns:1fr; } }
+  ul { list-style:none; margin:0; padding:0; } .part { padding:8px 0; border-bottom:1px solid var(--line); }
+  .chip { display:inline-block; padding:1px 8px; border-radius:10px; color:#fff; font-size:12px; background:var(--gry); }
+  .chip.contradicted { background:var(--red); } .chip.weakened { background:var(--amb); } .chip.supported { background:var(--grn); }
+  .conflict { margin:4px 0 0; color:var(--red); font-weight:600; } .reason, .docnote, .meta { color:var(--mut); margin:4px 0 0; }
+  h3 { margin:12px 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); }
+  .card { border:1px solid var(--line); border-left:4px solid var(--gry); border-radius:6px; padding:8px 10px; margin-bottom:8px; cursor:pointer; }
+  .card.contradicts { border-left-color:var(--red); } .card.weakens { border-left-color:var(--amb); } .card.supports { border-left-color:var(--grn); }
+  .card:focus-visible, .card.active { outline:2px solid currentColor; outline-offset:1px; }
+  .card:focus-visible { outline-width:3px; }
+  .card.flash, .part.flash { outline:2px solid var(--amb); outline-offset:1px; }
+  @keyframes flash { 0% { box-shadow:0 0 0 0 var(--amb); } 100% { box-shadow:0 0 0 8px transparent; } }
+  .box.flash, .part.flash { animation:flash .8s ease-out; }
+  .box.flash { outline:2px solid var(--amb); outline-offset:2px; cursor:pointer; }
+  @media (prefers-reduced-motion: reduce) { .box.flash, .part.flash { animation:none; } }
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  blockquote { margin:0; font-style:italic; } .why, .computed { margin:6px 0 0; }
+  .page { position:relative; width:100%; border:1px solid var(--line); } .page img { display:block; width:100%; height:100%; }
+  .noimg { padding:24px; color:var(--mut); }
+  .box { position:absolute; box-sizing:border-box; border:2px solid var(--red); background:rgba(198,40,40,.18); pointer-events:auto; display:none; }
+  .box.active { display:block; } .box.approximate, .box.unpinned { border-style:dashed; }
+  .chip.not_found { background:#37474f; } .chip.cannot_tell { background:#6a1b9a; } .chip.error { background:var(--red); }
+  .state-help { margin:4px 0 0; padding-left:8px; border-left:3px solid var(--gry); }
+  .state-help.not_found { border-left-color:#37474f; } .state-help.cannot_tell { border-left-color:#6a1b9a; }
+  .state-help.error { border-left-color:var(--red); } .state-help.checking { border-left-style:dashed; }
+  .pagenote.unreadable { margin:6px 0 0; padding:6px 8px; border:1px dashed var(--gry); border-radius:4px; }
+  .mark { font-weight:600; } .mark.disagrees { font-weight:700; color:var(--red-text); text-decoration:underline; }
+  .reason-line { margin:4px 0 0; padding-left:8px; border-left:3px solid var(--gry); font-weight:600; }
+  .not-double-checked { margin-left:6px; padding:0 6px; border:1px dashed var(--gry); border-radius:4px; font-weight:600; }
+  .replay-badge { display:inline-block; margin:6px 0 0; padding:3px 10px; border:2px solid var(--amb); border-radius:4px; font-weight:700; }
+  .banner.cap { border-color:var(--red); } .banner.checker_unavailable { border-style:dashed; }
+  .banner { margin:6px 0 0; padding:6px 8px; border:1px solid var(--amb); border-radius:4px; }
+</style>
+</head>
+<body>
+<div id="live" class="sr" role="status" aria-live="polite"></div>
+<header><h1>Contradicted</h1><p class="claim">The Bosch NDA allows the recipient to share confidential information with outside consultants without written authorization.</p></header><main><nav aria-label="Claim parts"><ul><li class="part contradicted" data-part-id="P1"><span class="chip contradicted">Contradicted</span> <span>The Bosch NDA allows the recipient to share confidential information with outside consultants without written authorization.</span><p class="reason">Sources disagree: one clause lets employees see the information, another bars consultants unless authorized in writing.</p><p class="conflict">Sources disagree on this part.</p></li></ul><p class="docnote">Bosch_NDA.pdf: Public contract from ContractNLI; results describe its wording only.</p></nav><section aria-label="Evidence cards"><section class="group"><h3>Contradicts</h3><article class="card contradicts" tabindex="0" data-card-id="c1" data-part="P1" data-doc="d1" data-page="1"><blockquote>Recipient will not disclose or permit access to Confidential Information to contract workers, consultants or contractors unless authorized by Disclosing Party in writing</blockquote><p class="why">Consultants may be given access only if the Disclosing Party authorizes it in writing.</p><p class="meta">Bosch_NDA.pdf p1 · condition · box pinned · <span class="mark agrees">Second check agrees</span></p></article></section><section class="group"><h3>Supports</h3><article class="card supports" tabindex="0" data-card-id="c2" data-part="P1" data-doc="d1" data-page="1"><blockquote>Recipient may disclose Confidential Information to those of its employees who have a need to know it for the Purpose</blockquote><p class="why">Permits sharing with employees who need to know; it does not mention consultants.</p><p class="meta">Bosch_NDA.pdf p1 · box pinned · <span class="mark agrees">Second check agrees</span></p></article></section></section><section aria-label="Page"><div class="page" hidden data-doc="d1" data-page="1" style="aspect-ratio:1224/1584"><div class="noimg">Bosch_NDA.pdf p1: image not available</div><div class="box pinned" data-box-for="c1" style="left:11.2%;top:39.8%;width:77.6%;height:1.7%"></div><div class="box pinned" data-box-for="c1" style="left:11.2%;top:41.5%;width:52.8%;height:1.8%"></div><div class="box pinned" data-box-for="c2" style="left:11.2%;top:35.2%;width:74.8%;height:1.7%"></div><div class="box pinned" data-box-for="c2" style="left:11.2%;top:36.9%;width:40.8%;height:1.7%"></div></div><div class="page" hidden data-doc="d1" data-page="2" style="aspect-ratio:1224/1584"><div class="noimg">Bosch_NDA.pdf p2: image not available</div></div><div class="page" hidden data-doc="d1" data-page="3" style="aspect-ratio:1224/1584"><div class="noimg">Bosch_NDA.pdf p3: image not available</div></div><div class="page" hidden data-doc="d1" data-page="4" style="aspect-ratio:1224/1584"><div class="noimg">Bosch_NDA.pdf p4: image not available</div></div></section></main><script type="application/json" id="review">{"version":"review-1","review_id":"fixture-tc40-0001","claim":{"text":"The Bosch NDA allows the recipient to share confidential information with outside consultants without written authorization.","origin":"pasted"},"status":"contradicted","driver_part":"P1","run":{"mode":"replayed","recorded_at":"2026-10-31T20:00:00+05:30","models":{"proposer":"muse-spark-1.3","checker":"meta-models/muse-spark-open-1026"},"cost_usd":0.04,"flags":[]},"docs":[{"id":"d1","name":"Bosch_NDA.pdf","pages":[{"n":1,"kind":"text_layer","png":"pages/d1-1.png","w":1224,"h":1584,"readable":true,"note":null},{"n":2,"kind":"text_layer","png":"pages/d1-2.png","w":1224,"h":1584,"readable":true,"note":null},{"n":3,"kind":"text_layer","png":"pages/d1-3.png","w":1224,"h":1584,"readable":true,"note":null},{"n":4,"kind":"text_layer","png":"pages/d1-4.png","w":1224,"h":1584,"readable":true,"note":null}],"note":"Public contract from ContractNLI; results describe its wording only."}],"parts":[{"id":"P1","text":"The Bosch NDA allows the recipient to share confidential information with outside consultants without written authorization.","span":[0,124],"status":"contradicted","reason":"Sources disagree: one clause lets employees see the information, another bars consultants unless authorized in writing.","card_ids":["c1","c2"],"receipt":{"pages_read":4,"unread":[],"terms":["consultants","authorized","writing"],"uncited_hits":[]},"conflict":true}],"cards":[{"id":"c1","part":"P1","relation":"contradicts","weakener_type":"condition","quote":"Recipient will not disclose or permit access to Confidential Information to contract workers, consultants or contractors unless authorized by Disclosing Party in writing","cue_words":["not","unless","in writing"],"doc":"d1","page":1,"boxes":[[112,398,888,415],[112,415,640,433]],"box_status":"pinned","why":"Consultants may be given access only if the Disclosing Party authorizes it in writing.","computed":null,"check":"agrees","check_answer":null,"controls":true,"superseded_by":null},{"id":"c2","part":"P1","relation":"supports","weakener_type":null,"quote":"Recipient may disclose Confidential Information to those of its employees who have a need to know it for the Purpose","cue_words":["may disclose","need to know"],"doc":"d1","page":1,"boxes":[[112,352,860,369],[112,369,520,386]],"box_status":"pinned","why":"Permits sharing with employees who need to know; it does not mention consultants.","computed":null,"check":"agrees","check_answer":null,"controls":false,"superseded_by":null}],"banners":[]}</script>
+<script>
+(function () {
+  var cards = Array.prototype.slice.call(document.querySelectorAll("[data-card-id]"));
+  var live = document.getElementById("live");
+  function byId(id) { return document.querySelector('[data-card-id="' + id + '"]'); }
+  function related(card) {
+    var out = Array.prototype.slice.call(document.querySelectorAll('[data-box-for="' + card.dataset.cardId + '"]'));
+    var part = document.querySelector('[data-part-id="' + card.dataset.part + '"]');
+    if (part) out.push(part);
+    out.push(card);
+    return out;
+  }
+  function flash(card, on) {
+    related(card).forEach(function (n) { n.classList.toggle("flash", on); });
+  }
+  function show(card) {
+    document.querySelectorAll(".card.active, .box.active").forEach(function (n) { n.classList.remove("active"); });
+    document.querySelectorAll(".page").forEach(function (p) {
+      p.hidden = !(p.dataset.doc === card.dataset.doc && p.dataset.page === card.dataset.page);
+    });
+    card.classList.add("active");
+    document.querySelectorAll('[data-box-for="' + card.dataset.cardId + '"]').forEach(function (b) { b.classList.add("active"); });
+  }
+  function announce(card) {
+    var i = cards.indexOf(card) + 1;
+    var q = card.querySelector("blockquote");
+    live.textContent = "Card " + i + " of " + cards.length + ", " + card.className.replace(/card|active|flash/g, "").trim() +
+      ", " + (q ? q.textContent : "") + ", " + (card.querySelector(".meta") || {}).textContent;
+  }
+  function current() {
+    var a = document.activeElement && document.activeElement.closest && document.activeElement.closest("[data-card-id]");
+    return a || document.querySelector(".card.active");
+  }
+  function go(step, only) {
+    var list = only ? cards.filter(function (c) { return c.classList.contains(only); }) : cards;
+    if (!list.length) return;
+    var cur = current(), at = list.indexOf(cur);
+    if (at < 0) {
+      var from = cards.indexOf(cur), ahead = list.filter(function (c) { return step > 0 ? cards.indexOf(c) > from : cards.indexOf(c) < from; });
+      (ahead.length ? ahead[step > 0 ? 0 : ahead.length - 1] : list[step > 0 ? 0 : list.length - 1]).focus();
+      return;
+    }
+    list[(at + step + list.length) % list.length].focus();
+  }
+  function typing(t) {
+    var n = t && t.tagName;
+    return n === "INPUT" || n === "TEXTAREA" || n === "SELECT" || (t && t.isContentEditable);
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return;
+    var k = e.key;
+    if (k === "j" || k === "k") go(k === "j" ? 1 : -1);
+    else if (k === "]" || k === "[") go(k === "]" ? 1 : -1, "contradicts");
+    else if ((k === "Enter" || k === " ") && e.target.closest && e.target.closest("[data-card-id]")) {
+      var c = e.target.closest("[data-card-id]");
+      show(c);
+      var b = document.querySelector('[data-box-for="' + c.dataset.cardId + '"]');
+      (b || c).scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    } else return;
+    e.preventDefault();
+  });
+  function cardOf(e) { return e.target.closest && e.target.closest("[data-card-id]"); }
+  document.addEventListener("focusin", function (e) {
+    var c = cardOf(e);
+    if (c) { show(c); flash(c, true); announce(c); }
+  });
+  document.addEventListener("focusout", function (e) { var c = cardOf(e); if (c) flash(c, false); });
+  document.addEventListener("mouseover", function (e) { var c = cardOf(e); if (c) flash(c, true); });
+  document.addEventListener("mouseout", function (e) {
+    var c = cardOf(e);
+    if (c && c !== document.activeElement) flash(c, false);
+  });
+  document.addEventListener("click", function (e) {
+    var box = e.target.closest && e.target.closest("[data-box-for]");
+    var c = box ? byId(box.dataset.boxFor) : cardOf(e);
+    if (c) { show(c); if (box) c.focus(); }
+  });
+  if (cards.length) show(cards[0]);
+})();
+</script>
+</body>
+</html>
