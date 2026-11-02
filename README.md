@@ -33,12 +33,24 @@ The planned demo cases are a governance memo checked against bylaws and a board 
 ## How it works: model proposes, code proves, a second model re-reads blind
 
 <p align="center">
-  <img src="docs/img/review-architecture.svg" width="100%" alt="ProofGraph review run. The reviewer submits a claim and files. Code ingests pages and checks the spend cap. Muse Spark reads scan images, splits the claim, and reads the whole packet once per part. Code checks the split and pins each quote to the page. Muse Spark Open re-reads each quote against its part, blind. Code applies fixed status rules and the HTML viewer shows boxes and part verdicts. SAM 3.1 counts objects in photos from the older Packet app page only.">
+  <img src="docs/img/review-architecture.svg" width="100%" alt="ProofGraph review run. The reviewer submits a claim and files. Code ingests pages and checks the spend cap. Muse Spark reads scan images, splits the claim, and reads the whole packet once per part. Code checks the split and pins each quote to the page. Muse Spark Open re-reads each quote against its part, blind. Code applies fixed status rules and the HTML viewer shows boxes and part verdicts.">
 </p>
 
 <sub>In text: claim + files → ingest (code) → spend cap (code) → Muse Spark splits the claim → code checks the split → Muse Spark reads the whole packet per part → code pins the quote to the page → Muse Spark Open re-reads quote + part blind → code sets the status → viewer. The diagram follows light or dark mode. Its source is [docs/img/review-architecture.archify.json](docs/img/review-architecture.archify.json), with every node citing its code; [docs/img/review-architecture.html](docs/img/review-architecture.html) is the interactive version (open it locally).</sub>
 
 Parts run in parallel (four at a time), so the app shows each part as a grey "Checking" row that turns into a verdict as it finishes. A whole review downloads as one self-contained HTML file.
+
+## "You're checking AI with more AI. Why trust it?"
+
+Because ProofGraph never asks you to believe a model. It hands you the one sentence that decides each part, boxed on the page, and leaves the deciding to fixed code and your own eyes. **AI finds, code proves, you decide.**
+
+1. **Finding is hard; checking is easy.** The model does the hard part: finding the one sentence in a long packet that breaks the claim. Checking it takes you seconds. Click the card, the page jumps to the box, read the sentence.
+2. **No quote on the page, no box.** A solid box is drawn only when code finds the model's quote in the PDF's own words ([snap.py](proofgraph/review/snap.py)). If it can't, there is no box, the card says so in plain words, and that card can never turn a part red ([status.py](proofgraph/review/status.py)).
+3. **No model picks the verdict.** Fixed rules in [status.py](proofgraph/review/status.py) turn the evidence into a status, and every review runs the same steps in the same order ([run.py](proofgraph/review/run.py)). A line in a document telling the AI to "approve this" is shown to you as a banner, and it cannot set the verdict, because no model sets the verdict.
+4. **The second read is narrow, and it can only make things more cautious.** Muse Spark Open sees one quote and one sentence, never the first model's answer, its reasoning or the page ([check.py](proofgraph/review/check.py)). If it disagrees with all of a part's support, the part drops to **Can't tell**; a disagreement never upgrades anything. Its weights are open, so you can run this check on your own servers.
+5. **It says "I can't tell".** **Not found** needs every page read and a plain word sweep that finds no mention the model skipped; otherwise the answer is **Can't tell** ([absence.py](proofgraph/review/absence.py)). A tool that admits when it can't tell is one you can rely on when it does answer.
+
+Every card is on the record: the quote, its document and page, its box, and the second check's answer, all in the one-file HTML export. Tests keep the blind check from importing the reading model's code or seeing the card's reasoning, document or page ([tests/test_boundaries.py](tests/test_boundaries.py)). The one limit to know: a model can still pick the wrong passage, which is exactly why each finding is a sentence you can read on the page, not a score.
 
 ## Why this needs Meta's models
 

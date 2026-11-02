@@ -105,26 +105,6 @@
    ]
   },
   {
-   "id": "packetapp",
-   "lane": "ui",
-   "col": 4,
-   "type": "frontend",
-   "label": "Packet app page",
-   "sublabel": "older claim check",
-   "sources": [
-    {
-     "path": "app/streamlit_app.py",
-     "line": 2160,
-     "end_line": 2163
-    },
-    {
-     "path": "proofgraph/engine/ground.py",
-     "line": 35,
-     "end_line": 45
-    }
-   ]
-  },
-  {
    "id": "viewer",
    "lane": "ui",
    "col": 5,
@@ -327,27 +307,6 @@
      "end_line": 4
     }
    ]
-  },
-  {
-   "id": "sam",
-   "lane": "meta",
-   "col": 5,
-   "type": "cloud",
-   "label": "SAM 3.1",
-   "sublabel": "counts objects in photos",
-   "tag": "built, not on review path",
-   "sources": [
-    {
-     "path": "proofgraph/clients/sam.py",
-     "line": 217,
-     "end_line": 222
-    },
-    {
-     "path": "proofgraph/engine/ground.py",
-     "line": 155,
-     "end_line": 177
-    }
-   ]
   }
  ],
  "edges": [
@@ -419,14 +378,6 @@
    "to": "viewer",
    "label": "review",
    "variant": "emphasis"
-  },
-  {
-   "id": "e-packet-sam",
-   "from": "packetapp",
-   "to": "sam",
-   "label": "photo counts",
-   "variant": "dashed",
-   "role": "branch"
   }
  ],
  "cards": [
@@ -435,8 +386,7 @@
    "title": "Meta models",
    "items": [
     "Muse Spark reads every page per part, scans from the image",
-    "Muse Spark Open re-reads one quote against one part",
-    "SAM 3.1 counts objects in a photo, older page only"
+    "Muse Spark Open re-reads one quote against one part"
    ]
   },
   {
