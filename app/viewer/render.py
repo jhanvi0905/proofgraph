@@ -84,7 +84,7 @@ def _part(part: Part, reason_kind: str | None = None) -> str:
     )
 
 
-def _card(card: Card, reason_kind: str | None = None) -> str:
+def _card(card: Card, reason_kind: str | None = None, doc_name: str | None = None) -> str:
     unchecked = (
         f' <span class="not-double-checked">{NOT_DOUBLE_CHECKED_TEXT}</span>'
         if reason_kind == "not_double_checked" and card.relation == "supports" and card.check != "disagrees"
@@ -98,18 +98,18 @@ def _card(card: Card, reason_kind: str | None = None) -> str:
         f'data-doc="{_e(card.doc)}" data-page="{card.page}">'
         f'<blockquote>{_e(card.quote)}</blockquote>'
         f'<p class="why">{_e(card.why)}</p>{computed}'
-        f'<p class="meta">{_e(card.doc)} p{card.page}{weakener} · '
+        f'<p class="meta">{_e(doc_name or card.doc)} p{card.page}{weakener} · '
         f"box {_e(card.box_status)} · "
         f'<span class="mark {_e(card.check)}">{_e(CHECK_LABEL[card.check])}</span>{unchecked}</p></article>'
     )
 
 
-def _cards(cards: list[Card], reasons: dict[str, str | None]) -> str:
+def _cards(cards: list[Card], reasons: dict[str, str | None], names: dict[str, str]) -> str:
     out = []
     for relation, label in GROUPS:
         group = [c for c in cards if c.relation == relation]
         if group:
-            out.append(f'<section class="group"><h3>{label}</h3>{"".join(_card(c, reasons.get(c.part)) for c in group)}</section>')
+            out.append(f'<section class="group"><h3>{label}</h3>{"".join(_card(c, reasons.get(c.part), names.get(c.doc)) for c in group)}</section>')
     return "".join(out)
 
 
@@ -165,7 +165,7 @@ def render(
         f'<header><h1>{_e(STATUS_LABEL[review.status])}</h1><p class="claim">{_e(review.claim.text)}</p>'
         f"{badge}{banners}</header>"
         f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id]) for p in review.parts)}</ul>{notes}</nav>'
-        f'<section aria-label="Evidence cards">{_cards(review.cards, reasons)}</section>'
+        f'<section aria-label="Evidence cards">{_cards(review.cards, reasons, {d.id: d.name for d in review.docs})}</section>'
         f'<section aria-label="Page">{pages}</section></main>'
         f'<script type="application/json" id="review">{data}</script>'
     )

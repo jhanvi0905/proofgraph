@@ -288,3 +288,12 @@ def test_disagrees_mark_text_meets_4_5_to_1_in_light_and_dark(review):
 
     assert _contrast(tok(light, "red-text"), tok(light, "bg")) >= 4.5
     assert _contrast(tok(dark, "red-text"), tok(dark, "bg")) >= 4.5
+
+
+def test_card_meta_shows_the_document_name_not_its_id(review):
+    html = render(review)
+    names = {d.id: d.name for d in review.docs}
+    for card in review.cards:
+        meta = re.search(rf'data-card-id="{re.escape(card.id)}".*?<p class="meta">(.*?)</p>', html, re.S).group(1)
+        assert meta.startswith(f"{names[card.doc]} p{card.page}")
+        assert f'data-doc="{card.doc}"' in html
