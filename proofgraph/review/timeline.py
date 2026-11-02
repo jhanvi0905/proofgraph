@@ -1,8 +1,9 @@
 """Date inference and ordering for candidate passages. Pure, stdlib only, deterministic.
 
 A passage's date is the first full date in its own text (after removing phrases that cite another
-document, such as "letter dated <date>"); else its document's header date; else the earliest date on the
-document's first page; else undated. Numeric d/m/y dates are ambiguous and are never read.
+document, such as "letter dated <date>"); else its document's header date, a full date right after an
+explicit label ("Dated", "Effective Date:", "As of", ...) near the top of page 1; else undated. A bare date
+with no label is never a header date. Numeric d/m/y dates are ambiguous and are never read.
 """
 
 from __future__ import annotations
@@ -24,14 +25,17 @@ _DATE_RE = re.compile(rf"\b{_DATE}\b", re.IGNORECASE)
 _DOC_NOUN = "letter|notice|email|memo|memorandum|agreement|order|amendment|announcement"
 _REF_RE = re.compile(rf"\b(?P<phrase>(?:{_DOC_NOUN})\b[^\n]{{0,40}}?\bdated\s+(?P<date>{_DATE}))",
                      re.IGNORECASE)
-_HEADER_RE = re.compile(rf"\b(?:adopted|dated|effective|date)\s*:\s*{_DATE}", re.IGNORECASE)
-HEADER_SPAN = 600
+_HEADER_RE = re.compile(
+    rf"\b(?:(?:adopted|dated?|effective(?:\s+date)?|issued)\s*:"
+    rf"|(?:dated|effective|made|executed)\s+(?:as\s+of|on)|dated|effective\s+date|as\s+of)\s*{_DATE}",
+    re.IGNORECASE)
+HEADER_SPAN = 800
 
 
 @dataclass(frozen=True)
 class Dated:
     date: str | None  # ISO yyyy-mm-dd
-    source: str  # "in passage", "document header", "first page" or "undated"
+    source: str  # "in passage", "document header" or "undated"
 
 
 @dataclass(frozen=True)
@@ -65,10 +69,6 @@ def _first_date(text: str) -> str | None:
     return next((d for m in _DATE_RE.finditer(text) if (d := _iso(m))), None)
 
 
-def _earliest_date(text: str) -> str | None:
-    return min((d for m in _DATE_RE.finditer(text) if (d := _iso(m))), default=None)
-
-
 def _header_date(text: str) -> str | None:
     m = _HEADER_RE.search(text[:HEADER_SPAN])
     return _iso(m) if m else None
@@ -81,7 +81,6 @@ def infer_dates(cands: Iterable[Candidate], page_text: Mapping[tuple[str, int], 
         for iso, source in (
             (_first_date(_REF_RE.sub(" ", c.text)), "in passage"),
             (_header_date(first_page), "document header"),
-            (_earliest_date(first_page), "first page"),
         ):
             if iso:
                 out[c.id] = Dated(iso, source)

@@ -35,19 +35,28 @@ def test_header_fallback():
 
 def test_header_must_be_early_on_page_one():
     c = _c("k1", "d1", 3, "No date here.")
-    pages = _pages(d1="x" * 700 + " Dated: March 3, 2021")
-    assert infer_dates([c], pages)["k1"].source == "first page"
+    pages = _pages(d1="x" * 900 + " Dated: March 3, 2021")
+    assert infer_dates([c], pages)["k1"] == Dated(None, "undated")
 
 
-def test_first_page_earliest():
+def test_unlabelled_date_in_prose_is_undated():
     c = _c("k1", "d1", 3, "Nothing.")
-    pages = _pages(d1="Reported 9 July 2022 and 1 February 2022.")
-    assert infer_dates([c], pages)["k1"] == Dated("2022-02-01", "first page")
+    pages = _pages(d1="Reported 9 July 2002 and 1 February 2002 in the earlier matter.")
+    assert infer_dates([c], pages)["k1"] == Dated(None, "undated")
+
+
+def test_header_labels():
+    for label in ("Date:", "Dated", "Dated as of", "Adopted:", "Effective Date:", "Effective Date",
+                  "Effective as of", "Effective:", "Made as of", "Executed on", "As of", "Issued:",
+                  "DATED:"):
+        for when in ("March 3, 2021", "2021-03-03", "3 March 2021"):
+            pages = _pages(d1=f"Agreement\n{label} {when}\nSee also June 1, 2019.")
+            assert infer_dates([_c("k", "d1", 2, "x")], pages)["k"] == Dated("2021-03-03", "document header"), label
 
 
 def test_undated_and_ambiguous_numeric_skipped():
     c = _c("k1", "d1", 1, "Due 03/04/2021.")
-    assert infer_dates([c], _pages(d1="Signed 05/06/2020"))["k1"] == Dated(None, "undated")
+    assert infer_dates([c], _pages(d1="Dated: 05/06/2020"))["k1"] == Dated(None, "undated")
     assert infer_dates([_c("k", "d1", 1, "Due 2021-02-30.")], {})["k"].date is None
 
 
