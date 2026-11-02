@@ -1,5 +1,21 @@
 # Evidence map UI: strip, groups, progressive cards (frontend tasks)
 
+## Handoff for the UI session (read this first)
+
+**Branch.** Start from `feat/evidence-map` (it holds the whole stack: reason line, document names, candidate generator, evidence map, date fix, this note). Make your own branch: `git switch -c feat/evidence-map-ui feat/evidence-map`. Open PRs against `feat/evidence-map`, **not `main`**. Nothing here is merged to `main`; the recorded demo path stays the single-card path.
+
+**Read first.** This file; `docs/council/2026-11-02-evidence-map-unseen-prereg.md` (what was tested and what was not); D39 in `docs/11-decision-log.md`; the 'Evidence map' paragraph in `docs/03-architecture.md`.
+
+**Flag and the hard rule.** Everything is behind `PROOFGRAPH_EVIDENCE_MAP=1`, off by default. With the flag off the output must stay byte-identical: keep `tests/fixtures/review_tc40_render_golden.html` and `viewer_single_card_golden.html` passing and `scripts/replay_compare.py` at 0 differences.
+
+**What you own / do not touch.** Own: `app/viewer/render.py` (`_map`, `_part`, `_card`, `EVIDENCE_CSS`), `app/viewer/viewer.html` (JS), viewer tests. Data already on each part: `Part.evidence_map` (ordered `MapItem`s: card or referenced) and `Part.map_counts` (examined, relevant, suggested, shown). Do not edit `status.py`, `check.py`, `label.py`, `candidates.py`, `timeline.py` or prompts; the status is computed by code and a UI must never change it.
+
+**Run it.** Tests: `uv run pytest -q` (move `.streamlit/secrets.toml` aside while running; one test expects no passcode) and `uv run python scripts/replay_compare.py`. App: `PROOFGRAPH_EVIDENCE_MAP=1 CACHE_DIR=/Users/jhanviarora/proofgraph/cache SPEND_LIMIT_USD=<current ledger + a small cap> uv run streamlit run app/streamlit_app.py --server.port 8502`, keys from `/Users/jhanviarora/proofgraph/.env` (never print them), your own gitignored `.streamlit/secrets.toml` with `APP_PASSCODE`. Spend ledger was about $2.71; a live TC17 review costs about $0.04 and TC40 about $0.03; repeats hit the cache. Test inputs: the PDFs in `~/Downloads/Dataset/Test Cases/Test Case 17/Evidence Packet` and `Test Case 40` (PDF files only; never open `Solutions/` or `_Evaluation/`). Build UI fixtures from the hand-built ones in `tests/test_evidence_map.py` first so most work costs $0.
+
+**Order.** Tasks 1, 2, 9, 10, 3, 4, 5, 7 first (pure display, no backend change). Tasks 6 and 11 (cards appearing as they arrive, 'Pending' chip) need a new pipeline event in `run_review`; do them last and keep the 'pending' value out of the saved review JSON.
+
+**Known facts to design around.** A live review takes about 20 s; a document with no explicit header date is Undated (the earlier 'first page' date guess was removed on purpose); the same unsupplied letter can be cited several times (one marker per distinct reference); about half of the cards show 'not settled' from the second check, which is why the product copy below replaces the old wording. Open questions are at the end of this file.
+
 ## Goal
 
 Replace the one long ordered list per part (19 and 12 cards on TC17, 13 of 19 carrying "Second check disagrees") with a compact view that reads without scrolling: a timeline strip per part, one collapsible group per relation with a code-built summary, the first two cards open, near-duplicates merged, unconfirmed cards folded away, and one marker per distinct unsupplied reference. Flag stays `PROOFGRAPH_EVIDENCE_MAP` (off by default); flag-off output stays byte-identical. Plain HTML/CSS/JS inside `render.py` and `viewer.html`, no dependency, no model text in any summary.
