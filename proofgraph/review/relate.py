@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from proofgraph.clients.muse import MuseClient
 from proofgraph.review.models import Relation, WeakenerType
@@ -40,6 +40,8 @@ class Relate(BaseModel):
 
 
 class RelateItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     relation: Relation
     weakener_type: WeakenerType | None = None
     quote: str
@@ -49,6 +51,8 @@ class RelateItem(BaseModel):
 
 
 class RelateSet(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     items: list[RelateItem]
     injection_quote: str | None = None
 
@@ -71,14 +75,15 @@ def _norm(quote: str) -> str:
 
 def shape(items: list[RelateItem], injection_quote: str | None = None,
           cap: int = 3, per_relation: int = 2) -> list[RelateItem]:
-    """Pick the evidence set in code: dedupe, drop injection, cap, worst first. Pure."""
+    """Pick the evidence set in code: dedupe, drop injection, cap, worst relation first.
+
+    Within a relation the model's own order is kept (it lists the most decisive first). Pure."""
     inj = _norm(injection_quote) if injection_quote else ""
     kept = [i for i in items if not (inj and inj in _norm(i.quote))]
     real = [i for i in kept if i.relation != "set_aside" and _norm(i.quote)]
     if not real:
         aside = [i for i in kept if i.relation == "set_aside"]
         return aside[:1]
-    real.sort(key=lambda i: (_WORST_FIRST[i.relation], i.doc, i.page))
     unique: list[RelateItem] = []
     seen: set[tuple[str, int, str]] = set()
     for i in real:
@@ -97,7 +102,7 @@ def shape(items: list[RelateItem], injection_quote: str | None = None,
         for relation in _WORST_FIRST:
             if len(chosen) < cap and len(by_relation[relation]) > slot:
                 chosen.append(by_relation[relation][slot])
-    return sorted(chosen, key=candidates.index)
+    return sorted(chosen, key=lambda i: _WORST_FIRST[i.relation])  # stable: model order inside a relation
 
 
 def _build_prompt(part: str, pages: list[PageText], prompt: Path = _PROMPT) -> str:

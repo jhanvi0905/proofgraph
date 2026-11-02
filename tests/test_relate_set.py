@@ -80,11 +80,30 @@ def test_every_relation_gets_a_slot_before_a_second():
     assert sorted(rels(out)) == ["contradicts", "supports", "weakens"]
 
 
-def test_worst_first_order_then_doc_page():
+def test_worst_first_across_relations_model_order_within():
     items = [item("supports", "s unique", doc="a"), item("weakens", "w2 unique", doc="b"),
              item("weakens", "w1 unique", doc="a", page=2), item("contradicts", "c unique", doc="z")]
     out = shape(items, cap=4)
-    assert [(i.relation, i.doc) for i in out] == [("contradicts", "z"), ("weakens", "a"), ("weakens", "b"), ("supports", "a")]
+    assert [(i.relation, i.doc) for i in out] == [("contradicts", "z"), ("weakens", "b"), ("weakens", "a"), ("supports", "a")]
+
+
+def test_model_first_supports_kept_over_earlier_sorting_passage():
+    items = [item("supports", "decisive passage x", doc="d2", page=5),
+             item("supports", "later passage y", doc="d1", page=1),
+             item("supports", "third passage z", doc="d1", page=2)]
+    out = shape(items, per_relation=1)
+    assert [i.quote for i in out] == ["decisive passage x"]
+    assert [i.quote for i in shape(items)] == ["decisive passage x", "later passage y"]
+
+
+def test_unknown_keys_rejected_and_schema_forbids_extras():
+    from pydantic import ValidationError
+    from proofgraph.review.relate import RelateSet
+    with pytest.raises(ValidationError):
+        RelateSet.model_validate({"items": [], "junk": 1})
+    schema = RelateSet.model_json_schema()
+    assert schema["additionalProperties"] is False
+    assert schema["$defs"]["RelateItem"]["additionalProperties"] is False
 
 
 # ---- run ----
@@ -185,7 +204,7 @@ def test_flag_off_is_todays_single_card_and_prompt(tmp_path, monkeypatch):
 def test_flag_on_uses_the_set_prompt(tmp_path, monkeypatch):
     _, transport = _go(tmp_path, [_entry("contradicts", Q_DET)], _agree, monkeypatch)
     assert "Pick the one passage" not in json.dumps(transport.bodies[1])
-    assert "at most 4" in json.dumps(transport.bodies[1])
+    assert "at most 3" in json.dumps(transport.bodies[1])
 
 
 def test_one_item_set_equals_todays_output(tmp_path, monkeypatch):
