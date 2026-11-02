@@ -27,7 +27,7 @@ from pathlib import Path
 from PIL import Image
 
 from proofgraph.clients.checker import blind_wording
-from proofgraph.clients.muse import MuseClient
+from proofgraph.clients.muse import ExtractionFailed, MuseClient, MuseTimeoutError
 from proofgraph.review import ingest as ingest_mod
 from proofgraph.review.absence import AbsencePage, build_receipt
 from proofgraph.review.check import Checker, check_cards
@@ -154,6 +154,22 @@ def run_review(
                  [b for o in ordered for b in o.banners])
 
 
+_FALLBACK_NOTE = ("The evidence-set search failed twice (timeout or unreadable output); "
+                  "this part used the single-passage check instead.")
+
+
+def _relate_set_with_retry(part: str, texts: list[PageText], muse: MuseClient):
+    """relate_set, retried once on a timeout or invalid structure. None means use plain relate.
+
+    SpendCapReached (and any other error) is not caught here, so it still stops the part."""
+    for _ in range(2):
+        try:
+            return relate_set(part, texts, muse)
+        except (MuseTimeoutError, ExtractionFailed):
+            continue
+    return None
+
+
 def _run_part(part: Part, texts: list[PageText], words: dict, scan_lines: dict,
               sweep: list[AbsencePage], muse: MuseClient, checker: Checker) -> _Outcome:
     """Worker: relate, snap, blind check, status for ONE part. Returns plain data; never raises."""
@@ -163,14 +179,19 @@ def _run_part(part: Part, texts: list[PageText], words: dict, scan_lines: dict,
     use_set = evidence_set_enabled()
     try:
         if use_set:
-            found_set = relate_set(part.text, texts, muse)
-            founds = shape(found_set.items, found_set.injection_quote)
-            injection = found_set.injection_quote
+            found_set = _relate_set_with_retry(part.text, texts, muse)
+            if found_set is None:  # relate_set failed twice: today's single-passage call, said plainly
+                banners.append(Banner(kind="checker_unavailable", text=_FALLBACK_NOTE))
+                one = relate(part.text, texts, muse)
+                founds, injection = [one], one.injection_quote
+            else:
+                founds = shape(found_set.items, found_set.injection_quote)
+                injection = found_set.injection_quote
         else:
             one = relate(part.text, texts, muse)
             founds, injection = [one], one.injection_quote
     except Exception as exc:
-        banners.append(_failure_banner(exc))
+        banners.append(_failure_banner(exc, "The evidence search (not the second check)" if use_set else "The model call"))
         done.status = "error"
         done.reason = ("Stopped at the spend cap; nothing was checked." if isinstance(exc, SpendCapReached)
                        else "The model call failed; nothing was checked.")
@@ -267,11 +288,11 @@ def _collect(ingested: list, transcribed: dict[tuple[str, int], Transcription]) 
     return pack
 
 
-def _failure_banner(exc: Exception) -> Banner:
+def _failure_banner(exc: Exception, what: str = "The model call") -> Banner:
     if isinstance(exc, SpendCapReached):
         return Banner(kind="cap", text=str(exc))
     note = str(exc) if isinstance(exc, MuseError) else f"{type(exc).__name__}: {exc}"
-    return Banner(kind="checker_unavailable", text=f"The model call failed: {note}")
+    return Banner(kind="checker_unavailable", text=f"{what} failed: {note}")
 
 
 def _assemble(claim: str, muse: MuseClient, docs: list[Doc], images: dict, parts: list[Part],
