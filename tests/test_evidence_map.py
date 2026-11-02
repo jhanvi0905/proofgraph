@@ -340,6 +340,9 @@ def test_file_prefix_stripped_in_map_mode_only(monkeypatch):
     assert "0-Bylaws.pdf" in re.sub(r"<script.*?</script>", "", render(_ui_review()), flags=re.S)
 
 
-def test_viewer_js_has_reveal():
-    t = (Path(__file__).parents[1] / "app/viewer/viewer.html").read_text()
-    assert "function reveal(" in t and "[data-reveal]" in t
+def test_viewer_js_reveal_only_in_map_mode(review, monkeypatch):
+    monkeypatch.delenv(FLAG, raising=False)
+    assert "function reveal(" not in render(review) and "MAP_JS" not in render(review)
+    monkeypatch.setenv(FLAG, "1")
+    h = render(_ui_review())
+    assert "function reveal(" in h and "[data-reveal]" in h and "MAP_JS" not in h

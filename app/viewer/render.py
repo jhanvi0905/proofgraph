@@ -14,6 +14,7 @@ from proofgraph.review.reasons import check_reason
 from proofgraph.review.status import supports_reason
 
 TEMPLATE = Path(__file__).with_name("viewer.html")
+MAP_JS = Path(__file__).with_name("map.js")
 
 GROUPS = [
     ("contradicts", "Contradicts"),
@@ -557,4 +558,5 @@ def render(
         f'<section aria-label="Page">{pages}</section></main>'
         f'<script type="application/json" id="review">{data}</script>'
     )
-    return TEMPLATE.read_text().replace("<!--BODY-->", body)
+    page = TEMPLATE.read_text().replace("<!--BODY-->", body)
+    return page.replace("/*MAP_JS*/", "\n" + MAP_JS.read_text() if mapped else "")
