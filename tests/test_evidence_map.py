@@ -44,7 +44,7 @@ def test_flag_on_renders_grouped_map(review, monkeypatch):
     assert "Text pages only; 12 passages in 1 documents examined; scans/images not read; may be incomplete." in html
     assert "Dates are inferred from the text, not legal dates." in html
     assert "May 7, 2026 \u00b7 inferred from the signature block" in html
-    assert "No date found in this passage" in html and ">Undated<" not in html
+    assert "No date in this passage" in html and "No date found" not in html and ">Undated<" not in html
     assert html.count('class="gap-line"') == 1
     assert "Not uploaded: the &lt;b&gt;2019&lt;/b&gt; master agreement. Cited 1 time." in html
     assert "<b>2019</b>" not in html
@@ -293,14 +293,14 @@ def test_row_shows_real_quote_name_page_date_and_second_check_in_words(monkeypat
     first = rows["c1"][4]
     vis = re.sub(r'<div class="panel".*', "", first, flags=re.S)
     t = _txt(vis)
-    assert "SECRETQUOTE c1" in t and "Minutes" in t and "p1" in t and "No date" in t and "Second check: not sure" in t
+    assert "SECRETQUOTE c1" in t and "Minutes" in t and "Page 1" in t and "No date in this passage" in t and "Second check: not sure it fits this part" in t
     assert 'title="2-Minutes.pdf"' in vis and "SECRETWHY" not in _visible(_ui_html(monkeypatch))
     dated = _txt(re.sub(r'<div class="panel".*', "", rows["t1"][4], flags=re.S))
     assert "4 April 2024" in dated and "Second check: confirmed" in dated and "Bylaws" in dated
 
 
 def test_second_check_words_for_every_check_value_and_row_class(monkeypatch):
-    words = {"agrees": "confirmed", "disagrees": "not sure", "unavailable": "not available", "not_run": "not done"}
+    words = {"agrees": "confirmed", "disagrees": "not sure it fits this part", "unavailable": "could not be run this time", "not_run": "not run on this one"}
     for check, w in words.items():
         r = _ui_review()
         for c in r.cards:
@@ -319,7 +319,7 @@ def test_row_button_is_keyboard_ready_and_points_at_its_hidden_panel(monkeypatch
             assert re.search(rf'<div class="panel" id="p-{cid}" hidden>', body)
             art = re.search(r"<article [^>]*>", body).group(0)
             assert f'data-card-id="{cid}"' in art and "data-doc=" in art and "data-page=" in art and "tabindex" in art
-            assert "<blockquote>SECRETQUOTE" in body and 'class="close"' in body and 'class="slot"' in body
+            assert 'class="q">“SECRETQUOTE' in body and "<blockquote" not in body and 'class="close"' in body and 'class="slot"' in body
 
 
 def test_confirmed_and_dated_rows_come_first_in_a_list(monkeypatch):
@@ -348,9 +348,9 @@ def test_why_line_is_the_code_chosen_deciding_passage(monkeypatch):
     why = re.search(r'<p class="why-line">(.*?)</p>', h, re.S).group(1)
     c1 = next(c for c in r.cards if c.id == "c1")
     assert 'data-reveal="c1"' in why and c1.quote in why
-    assert "Minutes" in why and "p1" in why and "no date found" in why and "second check: not sure" in why and "Part 2" in why
+    assert "Minutes" in why and "Page 1" in why and "no date in this passage" in why and "second check: not sure it fits this part" in why and "Part 2" in why
     assert 'title="2-Minutes.pdf"' in why
-    assert "Only one passage goes against it, and the second check was not sure." in h.split("<main>")[0]
+    assert "Only one passage goes against it, and the second check was not sure it fits this part." in h.split("<main>")[0]
 
 
 def test_why_line_for_backs_up_takes_first_confirmed_passage(monkeypatch):
@@ -494,3 +494,79 @@ def test_ledger_css_contract():
     assert "legend" not in css.lower() and ".disagrees" not in css and ".agrees" not in css
     dark = css.split("prefers-color-scheme:dark")[1].split("}")[0]
     assert "--l-ink" in dark and "--l-against" in dark
+
+
+# ---- Journey copy: no false-error impressions, one quote per row, honest when no box can be drawn ----
+def _row_html(r, monkeypatch, cid="c1"):
+    return next(x[4] for _, (_, c) in _sections(_html(r, monkeypatch)).items() for x in _rows(c) if x[1] == cid)
+
+
+def test_each_quote_appears_once_per_row(monkeypatch):
+    h = _html(_ui_review(), monkeypatch)
+    for _, (_, c) in _sections(h).items():
+        for x in _rows(c):
+            assert _txt(x[4]).count(f"SECRETQUOTE {x[1]}") == 1, x[1]
+            assert "<blockquote" not in x[4]
+
+
+def test_long_quote_is_whole_in_its_row_and_only_clamped_by_style(monkeypatch):
+    r = _ui_review()
+    long = "word " * 120
+    next(c for c in r.cards if c.id == "c1").quote = long.strip()
+    row = _row_html(r, monkeypatch)
+    assert _txt(row).count("word word word") >= 1 and "\u2026" not in re.sub(r'<div class="panel".*', "", row, flags=re.S)
+    assert _txt(row).count("word") == 120
+
+
+def test_no_jargon_or_error_looking_words_in_the_ledger(monkeypatch):
+    r = _ui_review()
+    c1 = next(c for c in r.cards if c.id == "c1")
+    c1.box_status = "unpinned"
+    vis = _visible(_html(r, monkeypatch))
+    assert not re.search(r"\bp\d+\b", vis), re.search(r"\bp\d+\b", vis)
+    for gone in ("position not found", "No date found", "no date found", "Set aside", "not sure.", "position approximate"):
+        assert gone not in vis, gone
+    assert "Page 1" in vis and "Not relevant to this part" not in vis  # no aside cards here
+
+
+def test_set_aside_group_has_a_plain_label(monkeypatch):
+    r = _ui_review()
+    c = _card("z1", "set_aside")
+    c.part = "p1"
+    r.cards.append(c)
+    r.parts[0].evidence_map.append(MapItem(kind="card", card_id="z1"))
+    vis = _visible(_html(r, monkeypatch))
+    assert "Not relevant to this part" in vis and "Set aside" not in vis
+
+
+def test_unpinned_scan_says_so_in_plain_words_and_keeps_the_page_slot(monkeypatch):
+    r = _ui_review()
+    c1 = next(c for c in r.cards if c.id == "c1")
+    c1.box_status, c1.boxes = "unpinned", []
+    r.docs[1].pages[0].kind = "image"
+    row = _row_html(r, monkeypatch)
+    t = _txt(row)
+    assert "This page is a photo or scan, so we can\u2019t mark the exact spot." in t and "Page 1" in t
+    assert 'class="slot"' in row and "data-box-for" not in row
+
+
+def test_unpinned_text_page_does_not_claim_to_be_a_scan(monkeypatch):
+    r = _ui_review()
+    c1 = next(c for c in r.cards if c.id == "c1")
+    c1.box_status, c1.boxes = "unpinned", []
+    t = _txt(_row_html(r, monkeypatch))
+    assert "We couldn\u2019t mark the exact spot on this page." in t and "photo or scan" not in t
+
+
+def test_approximate_box_is_called_an_estimate_on_a_scan(monkeypatch):
+    r = _ui_review()
+    c1 = next(c for c in r.cards if c.id == "c1")
+    c1.box_status, c1.boxes = "approximate", [[10, 10, 500, 60]]
+    r.docs[1].pages[0].kind = "image"
+    assert "The box is an estimate because this page is a photo or scan." in _txt(_row_html(r, monkeypatch))
+
+
+def test_long_notes_wrap_inside_the_panel():
+    from app.viewer.render import LEDGER_CSS
+    assert ".panel{" in LEDGER_CSS and "overflow-wrap:anywhere" in LEDGER_CSS.split(".panel{")[1].split("}")[0]
+    assert ".panel .reason-line" in LEDGER_CSS and "overflow-wrap:anywhere" in LEDGER_CSS.split(".panel .reason-line")[1].split("}")[0]

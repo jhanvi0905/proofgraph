@@ -64,7 +64,7 @@ CHECK_LABEL = {
     "unavailable": "Second check unavailable",
     "not_run": "Second check not run",
 }
-_SEES = "It sees only the quote and the part."
+_SEES = "It sees only the quote and the part, not the rest of the page."
 RULE_TEXT = "One passage that goes against a claim is enough to count against it."
 SECOND_CHECK_TEXT = (
     "A second look at this passage alone. Not sure means it did not reach the same label; the finding still counts."
@@ -128,10 +128,10 @@ LEDGER_CSS = (
     "min-height:44px;border-radius:6px}.rowbtn:hover{background:var(--l-bg)}.row .gl{color:var(--c)}"
     ".rt{flex:1;min-width:0}.q{display:block;overflow-wrap:anywhere}.m{display:block;font-size:14px;color:var(--l-muted);margin-top:2px;overflow-wrap:anywhere}"
     ".act{flex:none;font-size:14px;font-weight:600;color:var(--l-focus);text-decoration:underline;padding-top:2px}"
-    ".rowbtn[aria-expanded=true] .act{color:var(--l-muted)}.panel{padding:4px 4px 14px 38px}"
+    ".rowbtn[aria-expanded=false] .q{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.rowbtn[aria-expanded=true] .act{color:var(--l-muted)}.panel{padding:4px 4px 14px 38px;min-width:0;overflow-wrap:anywhere}"
     ".wrap .panel .card{border:0;padding:0;margin:0;cursor:default}.wrap .panel .card.active{outline:none}"
     ".panel .meta{font-size:14px;color:var(--l-muted);margin:6px 0 0;overflow-wrap:anywhere}"
-    ".panel .qualifier,.panel .computed,.panel .reason-line{margin:6px 0 0;font-size:14px}"
+    ".panel .qualifier,.panel .computed,.panel .reason-line,.panel .poshint{margin:6px 0 0;font-size:14px;overflow-wrap:anywhere}"
     ".slot{margin-top:8px}.slot .page{max-width:560px;border-radius:4px}.slot .noimg{padding:12px;font-size:14px}"
     ".close{margin-top:8px;background:none;border:1px solid var(--l-line);border-radius:6px;padding:6px 12px;min-height:44px}"
     ".grp{margin-top:6px}.grp:first-child{margin-top:0}"
@@ -264,6 +264,7 @@ class _Names(dict):
     """Short display names by document id; `.full` holds the file names for hover."""
 
     full: dict[str, str]
+    scans: set[tuple[str, int]]  # (doc id, page) pairs that are photos or scans, not text pages
 
 
 _NAME_MAX = 30
@@ -301,6 +302,7 @@ def _short_names(docs: list[Doc]) -> _Names:
     if len(set(out.values())) != len(out):
         out = _Names({d.id: d.name for d in docs})
     out.full = {d.id: d.name for d in docs}
+    out.scans = {(d.id, p.n) for d in docs for p in d.pages if p.kind != "text_layer"}
     return out
 
 
@@ -310,16 +312,21 @@ def _when(day: str | None, source: str | None) -> str:
     except ValueError:
         return f"{day} \u00b7 inferred from {_DATE_SOURCE.get(source or '', source or 'the text')}"
     if not d:
-        return "No date found in this passage"
+        return "No date in this passage"
     return f"{d:%B} {d.day}, {d.year} \u00b7 inferred from {_DATE_SOURCE.get(source or '', source or 'the text')}"
 
 
-_SECOND = {"agrees": "confirmed", "disagrees": "not sure", "unavailable": "not available", "not_run": "not done"}
+_SECOND = {
+    "agrees": "confirmed",
+    "disagrees": "not sure it fits this part",
+    "unavailable": "could not be run this time",
+    "not_run": "not run on this one",
+}
 _SEVERITY = {"contradicted": 0, "weakened": 1, "error": 2, "checking": 3, "cannot_tell": 4, "not_found": 5, "supported": 6}
 _REL_GLYPH = {"contradicts": "✕", "weakens": "!", "supports": "✓", "set_aside": "–"}
 _STATUS_GLYPH = {"contradicted": "✕", "weakened": "!", "supported": "✓"}
 _PART_WORD = {"contradicted": "Goes against", "weakened": "Casts doubt", "supported": "Backs it up"}
-_COLUMN = {"contradicts": "Goes against it", "weakens": "Casts doubt on it", "supports": "Backs it up", "set_aside": "Set aside"}
+_COLUMN = {"contradicts": "Goes against it", "weakens": "Casts doubt on it", "supports": "Backs it up", "set_aside": "Not relevant to this part"}
 _ROW_CAP = 4  # rows shown in a document group before "Show all N"
 _QUOTE_MAX = 240
 
@@ -346,8 +353,27 @@ def _second_line(card: Card) -> str:
         return ""
     saw = _SAW.get(card.check_answer)
     if saw and card.relation in _LABELLED:
-        return f"The second check of this quote alone {saw}, while this card is labelled {_LABELLED[card.relation]}. {_SEES}"
-    return f"The second check of this quote alone is not available here. {_SEES}"
+        return (
+            f"The second check read this quote alone and {saw}, but the passage is listed {_LABELLED[card.relation]}, "
+            f"so it was not sure the quote fits. {_SEES}"
+        )
+    return f"The second check could not be run on this quote alone. {_SEES}"
+
+
+def _position_note(card: Card, names: dict[str, str]) -> str:
+    """Plain words for a box we could not draw exactly. The quote is the row title just above, so it is not repeated."""
+    scan = (card.doc, card.page) in getattr(names, "scans", set())
+    if card.box_status == "unpinned":
+        text = (
+            "This page is a photo or scan, so we can\u2019t mark the exact spot. Look for the quoted passage on it."
+            if scan
+            else "We couldn\u2019t mark the exact spot on this page. Look for the quoted passage on it."
+        )
+    elif card.box_status == "approximate":
+        text = "The box is an estimate because this page is a photo or scan." if scan else "The box is an estimate."
+    else:
+        return ""
+    return f'<p class="poshint">{_e(text)}</p>'
 
 
 def _passage(card: Card, entry: MapEntry, names: dict[str, str]) -> str:
@@ -359,14 +385,12 @@ def _passage(card: Card, entry: MapEntry, names: dict[str, str]) -> str:
     computed = f'<p class="computed">{_e(card.computed.text)}</p>' if card.computed else ""
     note = _second_line(card)
     note = f'<p class="reason-line">{_e(note)}</p>' if note else ""
-    position = {"pinned": "", "approximate": "position approximate · ", "unpinned": "position not found · "}
     return (
         f'<article class="card {_e(card.relation)}" tabindex="-1" data-card-id="{_e(card.id)}" '
         f'data-part="{_e(card.part)}" data-doc="{_e(card.doc)}" data-page="{card.page}">'
-        f"<blockquote>{_e(card.quote)}</blockquote>{qualifier}{computed}"
-        f'<p class="meta">{where} p{card.page} · {_e(_when(entry.date, entry.date_source))} · '
-        f"{position[card.box_status]}Second check: {_SECOND[card.check]}</p>{note}"
-        f'<div class="slot"></div></article>'
+        f"{qualifier}{computed}"
+        f'<p class="meta">{where} · Page {card.page} · {_e(_when(entry.date, entry.date_source))}</p>{note}'
+        f'{_position_note(card, names)}<div class="slot"></div></article>'
     )
 
 
@@ -375,14 +399,13 @@ def _row(entry: MapEntry, names: dict[str, str]) -> str:
     c = entry.card
     full = getattr(names, "full", {}).get(c.doc, c.doc)
     day = _day_or_none(entry.date)
-    cut = c.quote if len(c.quote) <= _QUOTE_MAX else c.quote[:_QUOTE_MAX].rsplit(" ", 1)[0] + "…"
     nc = "" if c.check == "agrees" else " nc"
     return (
         f'<li class="row {_e(c.relation)}{nc}">'
         f'<button type="button" class="rowbtn" aria-expanded="false" aria-controls="p-{_e(c.id)}">'
-        f'{_glyph(_REL_GLYPH[c.relation])}<span class="rt"><span class="q">“{_e(cut)}”</span>'
-        f'<span class="m"><span title="{_e(full)}">{_e(names.get(c.doc, c.doc))}</span> · p{c.page} · '
-        f'{_e(_long_day(day) if day else "No date")} · Second check: {_SECOND[c.check]}</span></span>'
+        f'{_glyph(_REL_GLYPH[c.relation])}<span class="rt"><span class="q">“{_e(c.quote)}”</span>'
+        f'<span class="m"><span title="{_e(full)}">{_e(names.get(c.doc, c.doc))}</span> · Page {c.page} · '
+        f'{_e(_long_day(day) if day else "No date in this passage")} · Second check: {_SECOND[c.check]}</span></span>'
         f'<span class="act" aria-hidden="true">Open</span></button>'
         f'<div class="panel" id="p-{_e(c.id)}" hidden>{_passage(c, entry, names)}'
         f'<button type="button" class="close">Close</button></div></li>'
@@ -589,9 +612,9 @@ def _why(review: Review, card: Card | None, names: dict[str, str], cards: dict[s
     cut = quote if len(quote) <= _QUOTE_MAX else quote[:_QUOTE_MAX].rsplit(" ", 1)[0]
     day = next((_day_or_none(i.date) for p in review.parts for i in p.evidence_map or [] if i.card_id == card.id), None)
     full = getattr(names, "full", {}).get(card.doc, card.doc)
-    when = _long_day(day) if day else "no date found"
+    when = _long_day(day) if day else "no date in this passage"
     src = (
-        f'<span class="why-src" title="{_e(full)}">{_e(names.get(card.doc, card.doc))}, p{card.page}{_e(part_no)} '
+        f'<span class="why-src" title="{_e(full)}">{_e(names.get(card.doc, card.doc))}, Page {card.page}{_e(part_no)} '
         f"({_e(when)}, second check: {_SECOND[card.check]})</span>"
     )
     more = "\u2026" if cut != quote else ""
@@ -599,7 +622,7 @@ def _why(review: Review, card: Card | None, names: dict[str, str], cards: dict[s
     out = f'<p class="why-line"><strong>Why</strong> {link} {src}</p>'
     opposing = [c for c in cards.values() if c.relation == "contradicts"]
     if card.relation == "contradicts" and len(opposing) == 1 and card.check == "disagrees":
-        out += '<p class="why-note">Only one passage goes against it, and the second check was not sure.</p>'
+        out += '<p class="why-note">Only one passage goes against it, and the second check was not sure it fits this part.</p>'
     return out
 
 
@@ -684,7 +707,7 @@ def _page(
     name = name or doc.name
     data = images.get((doc.id, page.n))
     if data is None:
-        img = f'<div class="noimg">{_e(name)} p{page.n}: image not available</div>'
+        img = f'<div class="noimg">{_e(name)} {"Page " if merge else "p"}{page.n}: image not available</div>'
     else:
         encoded = base64.b64encode(data).decode("ascii")
         img = f'<img alt="{_e(name)} page {page.n}" src="data:image/png;base64,{encoded}">'
