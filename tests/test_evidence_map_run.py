@@ -157,7 +157,7 @@ def test_render_no_duplicate_cards_and_irrelevant_never_shown():
     ids = re.findall(r'data-card-id="([^"]+)"', body)
     assert len(ids) == len(set(ids)) == 3
     assert "catalogue" not in body
-    assert "1 matched passages were judged not to bear on this part by the labelling step." in html
+    assert "labelling step" not in html and "not about this part" in html.split("<footer")[1]  # said once, in the footer
     assert all(i.card_id in {c.id for c in review.cards} for i in review.parts[0].evidence_map if i.kind == "card")
 
 

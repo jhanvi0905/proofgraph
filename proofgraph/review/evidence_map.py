@@ -34,8 +34,9 @@ class MapResult:
 
 def build_map(part: Part, texts: list[PageText], words: dict, scan_lines: dict, muse: MuseClient,
               checker: Checker, names: dict[str, str] | None = None) -> MapResult:
-    cs = build_candidates(part.text, texts, CAP)
-    extra = _suggested(part.text, texts, muse, {(c.doc, c.page, c.offset) for c in cs.candidates})
+    cs = build_candidates(part.text, texts, CAP, frozenset(scan_lines))
+    extra = _suggested(part.text, texts, muse, {(c.doc, c.page, c.offset) for c in cs.candidates},
+                       frozenset(scan_lines))
     cands = cs.candidates + tuple(replace(c, id=f"k{len(cs.candidates) + n}") for n, c in enumerate(extra, 1))
     res = label_candidates(part.text, cands, muse, names)
     banners = []
@@ -77,7 +78,8 @@ def build_map(part: Part, texts: list[PageText], words: dict, scan_lines: dict, 
     return MapResult(cards, items, counts, banners)
 
 
-def _suggested(part_text: str, texts: list[PageText], muse: MuseClient, have: set) -> list:
+def _suggested(part_text: str, texts: list[PageText], muse: MuseClient, have: set,
+               scan_pages: frozenset = frozenset()) -> list:
     """The unit holding the model's own pick, found by reading the packet; it is labelled like any other."""
     try:
         found = relate(part_text, texts, muse)
@@ -88,7 +90,7 @@ def _suggested(part_text: str, texts: list[PageText], muse: MuseClient, have: se
     page = next((t.text for t in texts if (t.doc, t.page) == (found.doc, found.page)), None)
     if found.relation == "set_aside" or not found.quote.strip() or page is None:
         return []
-    unit = unit_for(page, found.quote, found.doc, found.page)
+    unit = unit_for(page, found.quote, found.doc, found.page, (found.doc, found.page) in scan_pages)
     if unit is None or (unit.doc, unit.page, unit.offset) in have:
         return []
     return [unit]

@@ -183,9 +183,33 @@ def _units(text: str) -> list[_Unit]:
     return units
 
 
+def _line_units(text: str) -> list[_Unit]:
+    """Units for a scanned page (map mode): one per transcript line, so each can be located.
+    A bare label line (ends in ':' or '#', or under 4 letters and digits) joins the line after it,
+    at most MAX_RUN lines in all, which is the longest run ``scan.locate`` can pin."""
+    lines, pos = [], 0
+    for line in text.split("\n"):
+        if line.strip():
+            lines.append(_trim(text, pos, pos + len(line)))
+        pos += len(line) + 1
+    units, i = [], 0
+    while i < len(lines):
+        j = i
+        while j + 1 < len(lines) and j - i + 1 < 3 and _is_label(text[lines[j][0]:lines[j][1]]):
+            j += 1
+        units.append(_Unit(lines[i][0], lines[j][1], "sentence"))
+        i = j + 1
+    return units
+
+
+def _is_label(line: str) -> bool:
+    return line.endswith((":", "#")) or sum(c.isalnum() for c in line) < 4
+
+
 # ----------------------------------------------------------------------------- build
 
-def build_candidates(part_text: str, pages: Sequence[PageLike], cap: int = DEFAULT_CAP) -> CandidateSet:
+def build_candidates(part_text: str, pages: Sequence[PageLike], cap: int = DEFAULT_CAP,
+                     line_pages: frozenset[tuple[str, int]] = frozenset()) -> CandidateSet:
     wanted = {k: t for t, keys in _term_tokens(part_text) for k in keys}
     doc_order: dict[str, int] = {}
     for p in pages:
@@ -197,7 +221,7 @@ def build_candidates(part_text: str, pages: Sequence[PageLike], cap: int = DEFAU
         if not p.text or not wanted:
             continue
         toks, extras, _ = _tokenise(p.text)
-        units = _units(p.text)
+        units = _line_units(p.text) if (p.doc, p.page) in line_pages else _units(p.text)
         starts = [u.start for u in units]
         by_unit: dict[int, list[str]] = {}
         for t in sorted(toks + extras, key=lambda t: (t.start, t.lo, t.hi, t.keys)):
@@ -226,7 +250,7 @@ def build_candidates(part_text: str, pages: Sequence[PageLike], cap: int = DEFAU
     return CandidateSet(CANDIDATE_RULE_VERSION, tuple(out), len(found), len(out), len(out) < len(found), cap)
 
 
-def unit_for(page_text: str, quote: str, doc: str, page: int) -> Candidate | None:
+def unit_for(page_text: str, quote: str, doc: str, page: int, by_line: bool = False) -> Candidate | None:
     """The unit holding an exact (letters and digits only, case-folded) occurrence of ``quote``, else None."""
     keep = [(i, ch) for i, c in enumerate(page_text) for ch in unicodedata.normalize("NFKC", c).casefold()
             if ch.isalnum()]
@@ -235,7 +259,7 @@ def unit_for(page_text: str, quote: str, doc: str, page: int) -> Candidate | Non
     at = hay.find(target) if target else -1
     if at < 0:
         return None
-    units = _units(page_text)
+    units = _line_units(page_text) if by_line else _units(page_text)
     i = _unit_index([u.start for u in units], units, keep[at][0])
     if i is None:
         return None
