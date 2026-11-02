@@ -74,6 +74,17 @@ NAMES = {"d1": "Bylaws.pdf", "d2": "Minutes.pdf", "d3": "Letter.pdf"}
 RULE = "One passage that goes against a claim is enough to count against it."
 OLD_TERMS = ["Second read", "referenced, not supplied", "Undated", "Contradicts (", "weakens", "second read", "not settled",
              "Weakened", "Contradicted", "Supported", "box pinned", "labelling step", "not to scale"]
+# Owner-approved product wording (docs/sprint/journey/product-fear-second-check.md). Only these exact strings may carry
+# the otherwise banned terms "second read" and "not settled"; everything else is still banned.
+ALLOWED = ["Quote alone: not settled", "Second read did not run on this one", "Second read could not run this time",
+           "The second read did not run on this one.", "The second read could not run this time.",
+           "Not settled means the quote alone was not enough."]
+
+
+def _without_allowed(text):
+    for a in sorted(ALLOWED, key=len, reverse=True):
+        text = re.sub(re.escape(a), " ", text, flags=re.I)
+    return text
 
 
 def _card(cid, rel="supports", doc="d1", page=1, check="agrees", answer=None):
@@ -182,10 +193,11 @@ def test_regions_in_order_and_nothing_from_the_old_page(monkeypatch):
 def test_verdict_word_once_outside_part_headers_and_old_vocabulary_gone(monkeypatch):
     h = _html(_tc17_review(), monkeypatch)
     vis = _visible(h)
-    assert vis.count("Goes against the claim") == 1
-    assert "Casts doubt on the claim" not in vis  # that verdict is not this review's verdict
+    shown = _visible(re.sub(r' aria-label="[^"]*"', "", h))  # a row's spoken label starts with its own state, so it may repeat the word
+    assert shown.count("Goes against the claim") == 1
+    assert "Casts doubt on the claim" not in shown  # that verdict is not this review's verdict
     for t in OLD_TERMS:
-        assert t.lower() not in vis.lower(), t
+        assert t.lower() not in _without_allowed(vis).lower(), t
     assert h.split("<h1")[1].split(">", 1)[1].lstrip().startswith('<span class="gl" aria-hidden="true">')
 
 
@@ -293,21 +305,22 @@ def test_row_shows_real_quote_name_page_date_and_second_check_in_words(monkeypat
     first = rows["c1"][4]
     vis = re.sub(r'<div class="panel".*', "", first, flags=re.S)
     t = _txt(vis)
-    assert "SECRETQUOTE c1" in t and "Minutes" in t and "Page 1" in t and "No date in this passage" in t and "Second check: not sure it fits this part" in t
+    assert "SECRETQUOTE c1" in t and "Minutes" in t and "Page 1" in t and "No date in this passage" in t and "Quote alone: not settled" in t
     assert 'title="2-Minutes.pdf"' in vis
     dated = _txt(re.sub(r'<div class="panel".*', "", rows["t1"][4], flags=re.S))
-    assert "4 April 2024" in dated and "Second check: confirmed" in dated and "Bylaws" in dated
+    assert "4 April 2024" in dated and "Quote alone: confirmed" in dated and "Bylaws" in dated
 
 
 def test_second_check_words_for_every_check_value_and_row_class(monkeypatch):
-    words = {"agrees": "confirmed", "disagrees": "not sure it fits this part", "unavailable": "could not be run this time", "not_run": "not run on this one"}
+    words = {"agrees": "Quote alone: confirmed", "disagrees": "Quote alone: not settled",
+             "unavailable": "Second read could not run this time", "not_run": "Second read did not run on this one"}
     for check, w in words.items():
         r = _ui_review()
         for c in r.cards:
             c.check, c.check_answer = check, ("not_mentioned" if check == "disagrees" else None)
         h = _html(r, monkeypatch)
         rows = [x for _, (_, c) in _sections(h).items() for x in _rows(c)]
-        assert rows and all(f"Second check: {w}" in _txt(re.sub(r'<div class="panel".*', "", x[4], flags=re.S)) for x in rows)
+        assert rows and all(w in _txt(re.sub(r'<div class="panel".*', "", x[4], flags=re.S)) for x in rows)
         assert all(("nc" in x[0].split()) == (check != "agrees") for x in rows)
 
 
@@ -348,9 +361,9 @@ def test_why_line_is_the_code_chosen_deciding_passage(monkeypatch):
     why = re.search(r'<p class="why-line">(.*?)</p>', h, re.S).group(1)
     c1 = next(c for c in r.cards if c.id == "c1")
     assert 'data-reveal="c1"' in why and c1.quote in why
-    assert "Minutes" in why and "Page 1" in why and "no date in this passage" in why and "second check: not sure it fits this part" in why and "Part 2" in why
+    assert "Minutes" in why and "Page 1" in why and "no date in this passage" in why and "quote alone: not settled" in why and "Part 2" in why
     assert 'title="2-Minutes.pdf"' in why
-    assert "Only one passage goes against it, and the second check was not sure it fits this part." in h.split("<main>")[0]
+    assert "Only one passage goes against it, and read on its own the quote did not settle this part." in h.split("<main>")[0]
 
 
 def test_why_line_for_backs_up_takes_first_confirmed_passage(monkeypatch):
@@ -412,7 +425,7 @@ def test_footer_holds_counts_caveats_second_check_and_nothing_numeric_is_above(m
     foot = h.split("<footer")[1].split("</footer>")[0]
     assert "documents read" in foot and "not about this part" in foot and "Text pages only" in foot
     assert "Dates are inferred from the text, not legal dates." in foot
-    assert "Not sure means it did not reach the same label; the finding still counts." in foot
+    assert "Not settled means the quote alone was not enough. Open the page to read it in context." in foot
     assert "not about this part" not in h.split("<footer")[0]
     assert not re.search(r"\d+ (passages|documents)", _txt(h.split("<main>")[0]))
 
@@ -437,7 +450,7 @@ def test_no_banned_word_or_old_term_anywhere_visible(monkeypatch, check, answer)
     r = _tc17_review()
     for c in r.cards:
         c.check, c.check_answer = check, answer
-    low = _visible(_html(r, monkeypatch)).lower().replace("claim part", "")
+    low = _without_allowed(_visible(_html(r, monkeypatch))).lower().replace("claim part", "")
     for t in OLD_TERMS + BANNED:
         assert t.lower() not in low, t
 
@@ -600,17 +613,17 @@ def test_panel_keeps_name_and_page_and_drops_undated_and_duplicates(monkeypatch)
 @pytest.mark.parametrize("check,answer,rel,words", [
     ("disagrees", "not_mentioned", "contradicts", "does not mention"),
     ("disagrees", "entails", "weakens", "supports this part"),
-    ("disagrees", None, "supports", "could not be run"),
-    ("unavailable", None, "supports", "could not be run"),
-    ("not_run", None, "supports", "not run"),
+    ("disagrees", None, "supports", "did not settle this part"),
+    ("unavailable", None, "supports", "could not run this time"),
+    ("not_run", None, "supports", "did not run on this one"),
 ])
-def test_check_note_is_one_short_line(monkeypatch, check, answer, rel, words):
+def test_check_note_is_one_short_paragraph(monkeypatch, check, answer, rel, words):
     r = _ui_review()
     _set(r, "c1", check=check, check_answer=answer, relation=rel)
     p = _panel(r, monkeypatch, "c1")
     notes = re.findall(r'<p class="reason-line">(.*?)</p>', p)
     assert len(notes) == 1 and words in notes[0]
-    assert len(notes[0]) <= 140 and notes[0].count(".") <= 1 and "It sees only" not in notes[0]
+    assert len(notes[0]) <= 200 and notes[0].count(". ") <= 3 and notes[0].endswith("in context.") and "It sees only" not in notes[0]
 
 
 def test_position_note_is_still_one_line(monkeypatch):
@@ -761,3 +774,103 @@ def test_default_open_runs_quietly_without_focus_or_scroll():
     assert re.search(r"if \(quiet\) return;\s*\n\s*\(stayOnRow", body)
     assert body.index("if (quiet) return;") < body.index(".focus(") < body.index("scrollIntoView")
     assert "reveal(" in tail and ", true, true)" in tail
+
+
+# ---- Second-read wording: panel line, one counts line, aria-labels ----
+CTX = "Open the page to see it in context."
+
+
+def _note(r, monkeypatch, cid):
+    m = re.search(r'<p class="reason-line">(.*?)</p>', _panel(r, monkeypatch, cid))
+    return _html_mod.unescape(m.group(1)) if m else None
+
+
+def test_not_settled_panel_line_says_what_the_quote_alone_shows_what_the_first_read_did_and_that_it_counts(monkeypatch):
+    r = _ui_review()
+    assert _note(r, monkeypatch, "c1") == (
+        "Read on its own, the quote does not mention this part. The first read counted it as going against the claim, "
+        f"and it still counts. {CTX}")
+    _set(r, "c1", relation="weakens")
+    assert "counted it as doubt, and it still counts." in _note(r, monkeypatch, "c1")
+
+
+def test_a_not_settled_backing_passage_does_not_claim_it_still_counts(monkeypatch):
+    note = _note(_ui_review(), monkeypatch, "s3")
+    assert note == ("Read on its own, the quote does not mention this part. The first read counted it as support. "
+                    f"On its own it cannot make this part “Backs it up”. {CTX}")
+    assert "still counts" not in note
+
+
+@pytest.mark.parametrize("check,first", [("unavailable", "The second read could not run this time."),
+                                         ("not_run", "The second read did not run on this one.")])
+def test_a_check_that_did_not_run_has_its_own_wording_not_the_not_settled_wording(monkeypatch, check, first):
+    r = _ui_review()
+    _set(r, "c1", check=check, check_answer=None)
+    note = _note(r, monkeypatch, "c1")
+    assert note == f"{first} The first read counted it as going against the claim, and it still counts. {CTX}"
+    assert "did not settle" not in note and "Read on its own" not in note
+
+
+def _line(r, monkeypatch):
+    m = re.search(r'<p class="counts-line">(.*?)</p>', _html(r, monkeypatch), re.S)
+    return _html_mod.unescape(m.group(1)) if m else None
+
+
+def test_counts_line_is_built_from_real_counts_and_sits_between_verdict_and_parts(monkeypatch):
+    h = _html(_tc17_review(), monkeypatch)
+    assert h.index("</section>", h.index('class="verdict-band')) < h.index('class="counts-line"') < h.index('data-part-id="p2"')
+    assert _line(_tc17_review(), monkeypatch) == (
+        "Every passage was re-read on its own. 6 confirmed. 3 did not settle, because a quote read alone often needs "
+        "the page around it. Of these, 1 backs up the claim and cannot make a part “Backs it up” on its own. "
+        "The other 8 still count.")
+
+
+def test_counts_line_says_all_still_count_when_no_unsettled_passage_is_a_backing_one(monkeypatch):
+    r = _tc17_review()
+    _set(r, "s3", check="agrees")
+    assert _line(r, monkeypatch) == (
+        "Every passage was re-read on its own. 7 confirmed. 2 did not settle, because a quote read alone often needs "
+        "the page around it. All 9 still count.")
+
+
+def test_counts_line_with_everything_confirmed_has_no_unsettled_or_still_count_sentence(monkeypatch):
+    r = _tc17_review()
+    for c in r.cards:
+        c.check, c.check_answer = "agrees", None
+    assert _line(r, monkeypatch) == "Every passage was re-read on its own. 9 confirmed."
+
+
+def test_counts_line_drops_the_every_claim_when_some_checks_did_not_run(monkeypatch):
+    r = _tc17_review()
+    _set(r, "w1", check="unavailable", check_answer=None)
+    _set(r, "w2", check="not_run", check_answer=None)
+    _set(r, "w3", check="not_run", check_answer=None)
+    line = _line(r, monkeypatch)
+    assert line.startswith("6 of 9 passages were re-read on their own. 1 could not be re-read this time. 2 were not re-read.")
+    assert "Every passage" not in line and "3 confirmed." in line
+
+
+def test_counts_line_absent_without_cards_and_never_has_banned_words(monkeypatch):
+    r = _tc17_review()
+    r.cards, r.parts[0].evidence_map, r.parts[1].evidence_map = [], [], []
+    assert _line(r, monkeypatch) is None
+    low = (_line(_tc17_review(), monkeypatch) or "").lower()
+    assert not [b for b in BANNED + ["%", "confidence"] if b in low]
+
+
+def test_counts_line_not_in_the_flag_off_page(review, monkeypatch):
+    monkeypatch.delenv(FLAG, raising=False)
+    assert "counts-line" not in render(review)
+
+
+def test_row_aria_label_gives_state_first_then_part_then_the_check_then_the_quote(monkeypatch):
+    h = _html(_tc17_review(), monkeypatch)
+    lab = _html_mod.unescape(re.search(r'class="rowbtn"[^>]*aria-controls="p-c1"[^>]*aria-label="([^"]*)"', h).group(1))
+    assert lab == ("Goes against the claim. Part 2 of 2. Quote alone: not settled. The finding still counts. "
+                   "“SECRETQUOTE c1”. Minutes, Page 1. No date in this passage.")
+    sup = _html_mod.unescape(re.search(r'aria-controls="p-s3"[^>]*aria-label="([^"]*)"', h).group(1))
+    assert sup.startswith("Backs up the claim. Part 1 of 2. Quote alone: not settled. ") and "still counts" not in sup
+    ok = _html_mod.unescape(re.search(r'aria-controls="p-s1"[^>]*aria-label="([^"]*)"', h).group(1))
+    assert ok == "Backs up the claim. Part 1 of 2. Quote alone: confirmed. “SECRETQUOTE s1”. Bylaws, Page 1. 12 March 2024."
+    for lab_ in (lab, sup, ok):
+        assert all(sentence.strip() for sentence in lab_.split(". "))

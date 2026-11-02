@@ -67,14 +67,14 @@ CHECK_LABEL = {
 OPEN_THIS_TEXT = "Open this passage"
 RULE_TEXT = "One passage that goes against a claim is enough to count against it."
 SECOND_CHECK_TEXT = (
-    "A second look at this passage alone. Not sure means it did not reach the same label; the finding still counts."
+    "Each passage was re-read on its own, without the rest of the page. "
+    "Not settled means the quote alone was not enough. Open the page to read it in context."
 )
-_LABELLED = {"supports": "as support", "contradicts": "as contradicting", "weakens": "as weakening"}
-_SAW = {"entails": "supports", "contradicts": "goes against", "not_mentioned": "does not mention"}
 _NO_CHECK = {
-    "unavailable": "The second check could not be run this time.",
-    "not_run": "The second check was not run on this one.",
+    "unavailable": "The second read could not run this time.",
+    "not_run": "The second read did not run on this one.",
 }
+CONTEXT_TEXT = "Open the page to see it in context."
 AI_LABEL = "AI's reading:"
 AI_MAX = 140
 UNCONFIRMED_TEXT = "The second check did not confirm the supporting quote."
@@ -113,6 +113,7 @@ LEDGER_CSS = (
     ".why-line a{color:inherit;border-bottom:1px solid currentColor;text-decoration:none}.why-src{display:block;font-size:14px;color:var(--l-muted)}"
     ".why-open{display:inline-block;margin-top:4px;font-size:14px;font-weight:600}"
     ".why-note{margin:6px 0 0;font-size:14px;color:var(--l-muted)}"
+    ".counts-line{margin:12px 0 0;font-size:14px;color:var(--l-muted);overflow-wrap:anywhere}"
     ".gap-line{border:2px dashed var(--l-muted);border-radius:8px;padding:10px 14px;margin:12px 0 0;background:var(--l-surface);overflow-wrap:anywhere}"
     ".replay-badge{color:var(--l-ink)}.wrap .banner,.wrap .pagenote,.wrap .docnote{font-size:14px;overflow-wrap:anywhere}"
     ".wrap .part{padding:0;border:0;margin:0}.wrap .part.flash{outline:none;animation:none}"
@@ -309,12 +310,17 @@ def _short_names(docs: list[Doc]) -> _Names:
     return out
 
 
+# Owner-approved wording (docs/sprint/journey/product-fear-second-check.md). A check that did not run never reads as "not settled".
 _SECOND = {
-    "agrees": "confirmed",
-    "disagrees": "not sure it fits this part",
-    "unavailable": "could not be run this time",
-    "not_run": "not run on this one",
+    "agrees": "Quote alone: confirmed",
+    "disagrees": "Quote alone: not settled",
+    "unavailable": "Second read could not run this time",
+    "not_run": "Second read did not run on this one",
 }
+_STATE = {"contradicts": "Goes against the claim", "weakens": "Casts doubt on the claim", "supports": "Backs up the claim",
+          "set_aside": "Not relevant to this part"}
+_FIRST = {"supports": "support", "weakens": "doubt", "contradicts": "going against the claim"}
+_ALONE = {"entails": "supports", "contradicts": "goes against", "not_mentioned": "does not mention"}
 _SEVERITY = {"contradicted": 0, "weakened": 1, "error": 2, "checking": 3, "cannot_tell": 4, "not_found": 5, "supported": 6}
 _REL_GLYPH = {"contradicts": "✕", "weakens": "!", "supports": "✓", "set_aside": "–"}
 _STATUS_GLYPH = {"contradicted": "✕", "weakened": "!", "supported": "✓"}
@@ -340,16 +346,29 @@ def _glyph(g: str) -> str:
     return f'<span class="gl" aria-hidden="true">{g}</span>'
 
 
+def _counts(card: Card) -> bool:
+    """False only where the second read changes the status: a backing quote it did not settle cannot, alone, make a part supported."""
+    return not (card.relation == "supports" and card.check == "disagrees")
+
+
 def _second_line(card: Card) -> str:
-    """One short code-written line on what the second check did, for a card it did not confirm."""
+    """One short code-written paragraph on what the second read did, for a card it did not confirm."""
+    first = _FIRST.get(card.relation)
+    tail = f"The first read counted it as {first}" if first else ""
     if card.check in _NO_CHECK:
-        return _NO_CHECK[card.check]
-    if not check_reason(card.relation, card.check, card.check_answer):
+        head = _NO_CHECK[card.check]
+    elif check_reason(card.relation, card.check, card.check_answer):
+        saw = _ALONE.get(card.check_answer)
+        head = f"Read on its own, the quote {saw} this part." if saw else "Read on its own, the quote did not settle this part."
+    else:
         return ""
-    saw = _SAW.get(card.check_answer)
-    if saw and card.relation in _LABELLED:
-        return f"Read alone, the quote {saw} this part, but it is listed {_LABELLED[card.relation]}, so the second check was not sure it fits."
-    return "The second check could not be run on this quote alone."
+    if not tail:
+        return head
+    if _counts(card):
+        tail += ", and it still counts."
+    else:
+        tail += f". On its own it cannot make this part \u201c{_PART_WORD['supported']}\u201d."
+    return f"{head} {tail} {CONTEXT_TEXT}"
 
 
 _WORD = re.compile(r"[^\W_][\w'\u2019-]*")
@@ -408,21 +427,29 @@ def _passage(card: Card, entry: MapEntry, names: dict[str, str]) -> str:
     )
 
 
-def _row(entry: MapEntry, names: dict[str, str], decide: str | None = None) -> str:
+def _row(entry: MapEntry, names: dict[str, str], decide: str | None = None, plabel: str = "") -> str:
     """One passage as one text row. Everything the reader needs is words: quote, document, page, date, second check."""
     c = entry.card
     full = getattr(names, "full", {}).get(c.doc, c.doc)
     day = _day_or_none(entry.date)
     nc = "" if c.check == "agrees" else " nc"
+    label = " ".join(
+        x for x in (
+            f"{_STATE[c.relation]}.", f"{plabel}." if plabel else "", f"{_SECOND[c.check]}.",
+            "The finding still counts." if c.check == "disagrees" and _counts(c) else "",
+            f"\u201c{c.quote}\u201d.", f"{names.get(c.doc, c.doc)}, Page {c.page}.",
+            f"{_long_day(day) if day else 'No date in this passage'}.",
+        ) if x
+    )
     deciding = c.id == decide
     default = ' data-default-open="true"' if deciding else ""
     act = f' data-shut-act="{OPEN_THIS_TEXT}"' if deciding else ""
     return (
         f'<li class="row {_e(c.relation)}{nc}">'
-        f'<button type="button" class="rowbtn" aria-expanded="false" aria-controls="p-{_e(c.id)}"{default}{act}>'
+        f'<button type="button" class="rowbtn" aria-expanded="false" aria-controls="p-{_e(c.id)}"{default}{act} aria-label="{_e(label)}">'
         f'{_glyph(_REL_GLYPH[c.relation])}<span class="rt"><span class="q">“{_e(c.quote)}”</span>'
         f'<span class="m"><span title="{_e(full)}">{_e(names.get(c.doc, c.doc))}</span> · Page {c.page} · '
-        f'{_e(_long_day(day) if day else "No date in this passage")} · Second check: {_SECOND[c.check]}</span></span>'
+        f'{_e(_long_day(day) if day else "No date in this passage")} · {_e(_SECOND[c.check])}</span></span>'
         f'<span class="act" aria-hidden="true">{OPEN_THIS_TEXT if deciding else "Open"}</span></button>'
         f'<div class="panel" id="p-{_e(c.id)}" hidden>{_passage(c, entry, names)}'
         f'<button type="button" class="close">Close</button></div></li>'
@@ -435,15 +462,16 @@ def _order(entries: list[MapEntry], decide: str | None) -> list[MapEntry]:
 
 
 def _group(
-    gid: str, label: str, title: str | None, entries: list[MapEntry], opened: bool, names: dict[str, str], decide: str | None = None
+    gid: str, label: str, title: str | None, entries: list[MapEntry], opened: bool, names: dict[str, str], decide: str | None = None,
+    plabel: str = "",
 ) -> str:
     """A folded list: a button, then the first rows, then the rest behind 'Show all N'."""
     shown, rest = entries[:_ROW_CAP], entries[_ROW_CAP:]
-    body = f'<ul>{"".join(_row(e, names, decide) for e in shown)}</ul>'
+    body = f'<ul>{"".join(_row(e, names, decide, plabel) for e in shown)}</ul>'
     if rest:
         total = f"Show all {len(entries)}"
         body += (
-            f'<ul class="rest" id="{gid}-x" hidden>{"".join(_row(e, names, decide) for e in rest)}</ul>'
+            f'<ul class="rest" id="{gid}-x" hidden>{"".join(_row(e, names, decide, plabel) for e in rest)}</ul>'
             f'<button type="button" class="more" aria-expanded="false" aria-controls="{gid}-x" '
             f'data-shut="{total}" data-open="Show fewer">{total}</button>'
         )
@@ -455,15 +483,15 @@ def _group(
     )
 
 
-def _open_list(rel: str, entries: list[MapEntry], names: dict[str, str], decide: str | None) -> str:
+def _open_list(rel: str, entries: list[MapEntry], names: dict[str, str], decide: str | None, plabel: str = "") -> str:
     label = f"{_COLUMN[rel]} ({len(entries)})"
-    rows = "".join(_row(e, names, decide) for e in _order(entries, decide))
+    rows = "".join(_row(e, names, decide, plabel) for e in _order(entries, decide))
     return f'<div class="sub {"against" if rel == "contradicts" else "doubt"}"><h3>{_glyph(_REL_GLYPH[rel])}{_e(label)}</h3><ul>{rows}</ul></div>'
 
 
-def _columns(part: Part, view: MapView, names: dict[str, str], decide: str | None) -> str:
+def _columns(part: Part, view: MapView, names: dict[str, str], decide: str | None, plabel: str = "") -> str:
     by = {rel: [e for e in view.entries if e.card.relation == rel] for rel in _REL_GLYPH}
-    left = "".join(_open_list(rel, by[rel], names, decide) for rel in ("contradicts", "weakens") if by[rel])
+    left = "".join(_open_list(rel, by[rel], names, decide, plabel) for rel in ("contradicts", "weakens") if by[rel])
     backs = _order(by["supports"], decide)
     right = ""
     if backs:
@@ -472,7 +500,7 @@ def _columns(part: Part, view: MapView, names: dict[str, str], decide: str | Non
             docs.setdefault(e.card.doc, []).append(e)
         full = getattr(names, "full", {})
         groups = "".join(
-            _group(f"g-{part.id}-{n}", names.get(d, d), full.get(d, d), es, n == 0, names, decide) for n, (d, es) in enumerate(docs.items())
+            _group(f"g-{part.id}-{n}", names.get(d, d), full.get(d, d), es, n == 0, names, decide, plabel) for n, (d, es) in enumerate(docs.items())
         )
         right = f'<div class="col back"><h3>{_glyph(_REL_GLYPH["supports"])}{_e(_COLUMN["supports"])} ({len(backs)})</h3>{groups}</div>'
     if left and right:
@@ -484,7 +512,7 @@ def _columns(part: Part, view: MapView, names: dict[str, str], decide: str | Non
     else:
         out = '<p class="none">No passages to show for this part.</p>'
     if by["set_aside"]:
-        out += f'<div class="aside">{_group(f"g-{part.id}-aside", _COLUMN["set_aside"], None, by["set_aside"], False, names, decide)}</div>'
+        out += f'<div class="aside">{_group(f"g-{part.id}-aside", _COLUMN["set_aside"], None, by["set_aside"], False, names, decide, plabel)}</div>'
     return out
 
 
@@ -517,7 +545,7 @@ def _ledger_part(
         notes += '<p class="conflict">Sources point different ways on this part.</p>'
     if show_evidence:
         notes += _evidence(part, names)
-    body = _columns(part, _map_items(part, cards), names, decide) if part.evidence_map is not None else ""
+    body = _columns(part, _map_items(part, cards), names, decide, number) if part.evidence_map is not None else ""
     return (
         f'<section class="part s-{_e(part.status)}" data-part-id="{_e(part.id)}" aria-labelledby="h-{_e(part.id)}">'
         f'<h2 id="h-{_e(part.id)}">{pn}<span class="ph">{ph}</span>'
@@ -537,7 +565,7 @@ def _footer(review: Review, cards: dict[str, Card], names: dict[str, str]) -> st
         limit = MAP_LIMIT_TEXT.format(n=(p.map_counts or {}).get("examined", 0), m=len(names))
         out.append(f'<p class="ev ev-summary">{_e(pre + _part_summary(p, cards, names))}</p>')
         out.append(f'<p class="ev ev-limit">{_e(limit)} {_e(MAP_DATE_TEXT)}</p>')
-    out.append(f'<p class="ev ev-second"><strong>Second check</strong> {_e(SECOND_CHECK_TEXT)}</p>')
+    out.append(f'<p class="ev ev-second"><strong>Quote alone</strong> {_e(SECOND_CHECK_TEXT)}</p>')
     return f'<footer class="foot">{"".join(out)}</footer>'
 
 
@@ -607,6 +635,38 @@ def _gap_line(review: Review) -> str:
     return f'<p class="gap-line">{_e(" ".join(out))}</p>' if out else ""
 
 
+def _counts_line(review: Review, cards: dict[str, Card]) -> str:
+    """One line from real counts. It says every passage was re-read only when no check was left out."""
+    seen = [e.card for p in review.parts for e in _map_items(p, cards).entries if e.card.relation != "set_aside"]
+    if not seen:
+        return ""
+    k = len(seen)
+    by = {c: sum(x.check == c for x in seen) for c in ("agrees", "disagrees", "unavailable", "not_run")}
+    n, m, u, r = by["agrees"], by["disagrees"], by["unavailable"], by["not_run"]
+    ran = n + m
+    if u + r == 0:
+        out = ["Every passage was re-read on its own."]
+    else:
+        out = [f"{ran} of {k} passages {'was' if ran == 1 else 'were'} re-read on {'its' if ran == 1 else 'their'} own."]
+        if u:
+            out.append(f"{u} could not be re-read this time.")
+        if r:
+            out.append(f"{r} {'was' if r == 1 else 'were'} not re-read.")
+    out.append(f"{n} confirmed.")
+    if m:
+        out.append(f"{m} did not settle, because a quote read alone often needs the page around it.")
+        held = sum(not _counts(c) for c in seen)
+        if held:
+            out.append(
+                f"Of these, {held} {'backs' if held == 1 else 'back'} up the claim and cannot make a part "
+                f"\u201c{_PART_WORD['supported']}\u201d on {'its' if held == 1 else 'their'} own."
+            )
+            out.append(f"The other {k - held} still count.")
+        else:
+            out.append(f"All {k} still count.")
+    return f'<p class="counts-line">{_e(" ".join(out))}</p>'
+
+
 _DECIDES = {"contradicted": "contradicts", "weakened": "weakens", "supported": "supports"}
 
 
@@ -634,7 +694,7 @@ def _why(review: Review, card: Card | None, names: dict[str, str], cards: dict[s
     when = _long_day(day) if day else "no date in this passage"
     src = (
         f'<span class="why-src" title="{_e(full)}">{_e(names.get(card.doc, card.doc))}, Page {card.page}{_e(part_no)} '
-        f"({_e(when)}, second check: {_SECOND[card.check]})</span>"
+        f"({_e(when)}, {_e(_SECOND[card.check][0].lower() + _SECOND[card.check][1:])})</span>"
     )
     more = "\u2026" if cut != quote else ""
     link = f'<a href="#" data-reveal="{_e(card.id)}">\u201c{_e(cut)}\u201d</a>{more}'
@@ -642,7 +702,7 @@ def _why(review: Review, card: Card | None, names: dict[str, str], cards: dict[s
     out = f'<p class="why-line"><strong>Why</strong> {link} {src} {go}</p>'
     opposing = [c for c in cards.values() if c.relation == "contradicts"]
     if card.relation == "contradicts" and len(opposing) == 1 and card.check == "disagrees":
-        out += '<p class="why-note">Only one passage goes against it, and the second check was not sure it fits this part.</p>'
+        out += '<p class="why-note">Only one passage goes against it, and read on its own the quote did not settle this part.</p>'
     return out
 
 
@@ -783,7 +843,7 @@ def _ledger_body(review: Review, cards: dict[str, Card], names: dict[str, str], 
     )
     claim = f'<p class="claim"><small>Your claim</small><q>{_e(review.claim.text)}</q></p>'
     return (
-        f'{EVIDENCE_CSS}{LEDGER_CSS}<div class="wrap"><header class="top">{claim}{band}{extras}</header>'
+        f'{EVIDENCE_CSS}{LEDGER_CSS}<div class="wrap"><header class="top">{claim}{band}{_counts_line(review, cards)}{extras}</header>'
         f'<main>{parts}<section class="store" aria-hidden="true">{pages}</section></main>'
         f"{_footer(review, cards, names)}</div>"
         f'<script type="application/json" id="review">{data}</script>'
