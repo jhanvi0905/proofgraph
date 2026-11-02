@@ -1,7 +1,7 @@
 """Label candidate passages against one claim part with a single Muse call.
 
 The model only labels; it never selects. Everything after the call is pure code: unknown ids are dropped,
-the first of a duplicated id wins, a missing id counts as irrelevant (``unlabelled``).
+the first of a duplicated id wins, an unlisted (or explicitly irrelevant) id is irrelevant and yields no pair.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from proofgraph.review.models import WeakenerType
 from proofgraph.review.relate import _MARK, _safe
 
 _PROMPT = Path(__file__).resolve().parents[2] / "prompts" / "label.md"
-WHY_MAX = 200
+WHY_MAX = 120
 _RELEVANT = ("supports", "contradicts", "weakens")
 
 
@@ -39,29 +39,27 @@ class Labels(BaseModel):
 
 @dataclass(frozen=True)
 class LabelResult:
-    pairs: tuple[tuple[Candidate, Label], ...]  # candidate order, every candidate that got a label
+    pairs: tuple[tuple[Candidate, Label], ...]  # candidate order, relevant candidates only
     examined: int
     relevant: int
-    unlabelled: int
+    unlabelled: int = 0  # kept for evidence_map/viewer; unlisted candidates are irrelevant, never unlabelled
     injection_quote: str | None = None
 
 
 def label_candidates(part_text: str, candidates: Sequence[Candidate], muse: MuseClient,
                      names: dict[str, str] | None = None) -> LabelResult:
-    labels = muse.structured(_build_prompt(part_text, candidates, names or {}), Labels)
+    labels = muse.structured(_build_prompt(part_text, candidates, names or {}), Labels, reasoning_effort="low")
     first: dict[str, Label] = {}
     for lab in labels.labels:
         first.setdefault(lab.id, lab)
     pairs = []
     for c in candidates:
         lab = first.get(c.id)
-        if lab is None:
+        if lab is None or lab.relation not in _RELEVANT:
             continue
         keep = lab.weakener_type if lab.relation in ("contradicts", "weakens") else None
         pairs.append((c, lab.model_copy(update={"weakener_type": keep, "why": lab.why[:WHY_MAX]})))
-    relevant = sum(lab.relation in _RELEVANT for _, lab in pairs)
-    return LabelResult(tuple(pairs), len(candidates), relevant, len(candidates) - len(pairs),
-                       labels.injection_quote)
+    return LabelResult(tuple(pairs), len(candidates), len(pairs), 0, labels.injection_quote)
 
 
 def _build_prompt(part_text: str, candidates: Sequence[Candidate], names: dict[str, str]) -> str:

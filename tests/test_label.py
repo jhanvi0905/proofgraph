@@ -7,8 +7,8 @@ class FakeMuse:
         self.out = Labels(labels=labels, injection_quote=injection)
         self.prompt = None
 
-    def structured(self, prompt, model):
-        self.prompt = prompt
+    def structured(self, prompt, model, **kw):
+        self.prompt, self.kw = prompt, kw
         assert model is Labels
         return self.out
 
@@ -25,8 +25,15 @@ def test_unknown_duplicate_and_missing_ids():
     muse = FakeMuse([_l("k9", "supports"), _l("k2", "supports"), _l("k2", "contradicts", "scope"),
                      _l("k1", "irrelevant")])
     r = label_candidates("part", _cands(), muse)
-    assert [(c.id, lab.relation) for c, lab in r.pairs] == [("k1", "irrelevant"), ("k2", "supports")]
-    assert (r.examined, r.relevant, r.unlabelled) == (3, 1, 1)
+    assert [(c.id, lab.relation) for c, lab in r.pairs] == [("k2", "supports")]
+    assert (r.examined, r.relevant, r.unlabelled) == (3, 1, 0)
+
+
+def test_only_relevant_listed_and_low_effort():
+    muse = FakeMuse([_l("k3", "weakens", "scope")])
+    r = label_candidates("p", _cands(), muse)
+    assert [c.id for c, _ in r.pairs] == ["k3"] and (r.examined, r.relevant) == (3, 1)
+    assert muse.kw == {"reasoning_effort": "low"}
 
 
 def test_all_irrelevant():
@@ -39,8 +46,8 @@ def test_why_truncated_and_weakener_forced():
                      _l("k3", "irrelevant", "scope")])
     r = label_candidates("p", _cands(), muse)
     labs = [lab for _, lab in r.pairs]
-    assert len(labs[0].why) == 200
-    assert [lab.weakener_type for lab in labs] == [None, "time", None]
+    assert len(labs[0].why) == 120
+    assert [lab.weakener_type for lab in labs] == [None, "time"]
 
 
 def test_prompt_marks_and_escapes_text():

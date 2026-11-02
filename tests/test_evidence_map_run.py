@@ -39,7 +39,7 @@ class Muse:
     def __init__(self, labels=None, exc=None):
         self.labels, self.exc = labels, exc
 
-    def structured(self, prompt, model):
+    def structured(self, prompt, model, **kw):
         if self.exc:
             raise self.exc
         return model.model_validate({"labels": self.labels(prompt)})
@@ -54,6 +54,8 @@ def _label(rule):
         out = []
         for kid, doc, text in _ids(prompt):
             rel = rule(doc, text)
+            if rel == "irrelevant":
+                continue  # the model lists only relevant candidates
             out.append({"id": kid, "relation": rel, "why": "w",
                         "weakener_type": "time" if rel in ("contradicts", "weakens") else None})
         return out
@@ -90,6 +92,16 @@ def test_map_orders_cards_by_date_and_drops_irrelevant():
     assert out.part.map_counts["examined"] - out.part.map_counts["relevant"] == 1
 
 
+def test_old_style_explicit_irrelevant_still_parses():
+    def labels(prompt):
+        return [{"id": k, "relation": "irrelevant" if "catalogue" in t else "supports", "why": "w"}
+                for k, d, t in _ids(prompt)]
+
+    out = _run(Muse(labels))
+    assert all("catalogue" not in c.quote for c in out.cards)
+    assert out.part.map_counts["examined"] - out.part.map_counts["relevant"] >= 1
+
+
 def test_referenced_not_supplied_node():
     items = _run(Muse(_label(_by_text))).part.evidence_map
     ref = [i for i in items if i.kind == "referenced"]
@@ -116,7 +128,7 @@ def test_bad_and_missing_ids_are_handled():
 
     out = _run(Muse(labels))
     assert len(out.cards) <= 1 and out.part.status != "error"
-    assert out.part.map_counts["unlabelled"] >= 1
+    assert out.part.map_counts["unlabelled"] == 0
 
 
 def test_failure_is_error_part():
@@ -159,7 +171,7 @@ class SuggestMuse(Muse):
         super().__init__(labels)
         self.pick, self.rexc = pick, exc
 
-    def structured(self, prompt, model):
+    def structured(self, prompt, model, **kw):
         if model.__name__ == "Relate":
             if self.rexc:
                 raise self.rexc
