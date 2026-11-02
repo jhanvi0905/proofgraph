@@ -53,7 +53,10 @@ def _build_prompt(part: str, pages: list[PageText]) -> str:
 
 
 def _page_block(page: PageText) -> str:
-    # Page text cannot forge a page tag or close the packet fence.
-    safe = page.text.replace("[doc ", "(doc ").replace("PACKET>>>", "PACKET> >>")
-    lines = [f"{_MARK}{line}" for line in safe.splitlines() or [""]]
+    lines = [f"{_MARK}{line}" for line in _safe(page.text).splitlines() or [""]]
     return f"[doc {page.doc} p{page.page}]\n" + "\n".join(lines)
+
+
+def _safe(text: str) -> str:
+    # Page text cannot forge a page tag or close the packet fence.
+    return text.replace("[doc ", "(doc ").replace("PACKET>>>", "PACKET> >>")

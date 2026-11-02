@@ -2,10 +2,11 @@
 
 import base64
 import html
+from datetime import date
 from pathlib import Path
 
 from proofgraph.review.models import Banner, Card, Doc, Page, Part, Review
-from proofgraph.review.evidence import evidence_lines_on
+from proofgraph.review.evidence import evidence_lines_on, evidence_map_on
 from proofgraph.review.qualifiers import qualifier_phrase
 from proofgraph.review.reasons import check_reason
 from proofgraph.review.status import supports_reason
@@ -59,7 +60,10 @@ LIMIT_TEXT = "Search reads text only and matches words, so a passage worded diff
 EVIDENCE_CSS = (
     "<style>.ev{margin:4px 0 0;color:var(--mut)}.ev-limit{border-left:3px solid var(--gry);padding-left:8px}"
     ".ev-mark{font-weight:600;border:1px dashed var(--gry);border-radius:4px;padding:0 6px;margin-right:6px}"
-    ".ev-list{margin:4px 0 0}.ev-list li{margin:4px 0}</style>"
+    ".ev-list{margin:4px 0 0}.ev-list li{margin:4px 0}"
+    ".map{list-style:none;padding:0}.map>li{margin:6px 0}.map-date,.map-rel{font-size:.85em;color:var(--mut)}"
+    ".map-rel{font-weight:600;margin-right:6px}.map-undated{font-weight:600;border-top:1px solid var(--gry);padding-top:4px}"
+    ".map-ref{border:1px dashed var(--gry);border-radius:4px;padding:4px 8px}</style>"
 )
 
 
@@ -108,7 +112,44 @@ def _evidence(part: Part, names: dict[str, str]) -> str:
     return "".join(out)
 
 
-def _part(part: Part, reason_kind: str | None = None, names: dict[str, str] | None = None) -> str:
+MAP_LIMIT_TEXT = "Text pages only; {n} passages in {m} documents examined; scans/images not read; may be incomplete."
+MAP_DATE_TEXT = "Dates are inferred from the text, not legal dates."
+
+
+def _map(part: Part, cards: dict[str, Card], names: dict[str, str], reasons: dict[str, str | None]) -> str:
+    """Ordered evidence map under a part (flag on only): one list, dates inferred, relation as a word."""
+    n = (part.map_counts or {}).get("examined", 0)
+    items, seen_dated = [], False
+    for it in part.evidence_map or []:
+        if it.kind == "card" and it.card_id not in cards:
+            continue
+        if it.kind == "referenced":
+            cite = f" (cited in {_e(names.get(it.ref_doc, it.ref_doc))} p{it.ref_page})" if it.ref_doc else ""
+            items.append(f'<li class="map-ref">Referenced, not supplied: {_e(it.ref_text)}{cite}</li>')
+            continue
+        if it.date is None and seen_dated:
+            items.append('<li class="map-undated">Undated</li>')
+            seen_dated = False
+        c = cards[it.card_id]
+        try:
+            d = date.fromisoformat(it.date) if it.date else None
+            when = f"{d:%B} {d.day}, {d.year}" if d else None
+        except ValueError:
+            when = it.date
+        label = f"{when} · inferred from {it.date_source or 'the text'}" if when else "Undated"
+        seen_dated = seen_dated or bool(when)
+        items.append(
+            f'<li><span class="map-rel">{_e(dict(GROUPS)[c.relation])}</span><span class="map-date">{_e(label)}</span>'
+            f"{_card(c, reasons.get(c.part), names.get(c.doc), True)}</li>"
+        )
+    limit = MAP_LIMIT_TEXT.format(n=n, m=len(names))
+    skipped = n - (part.map_counts or {}).get("relevant", 0)
+    if skipped > 0:
+        limit += f" {skipped} matched passages were judged not to bear on this part by the labelling step."
+    return f'<p class="ev ev-limit">{_e(limit)} {_e(MAP_DATE_TEXT)}</p><ol class="map">{"".join(items)}</ol>'
+
+
+def _part(part: Part, reason_kind: str | None = None, names: dict[str, str] | None = None, extra: str = "") -> str:
     conflict = (
         '<p class="conflict">Sources disagree on this part.</p>' if part.conflict else ""
     )
@@ -128,7 +169,7 @@ def _part(part: Part, reason_kind: str | None = None, names: dict[str, str] | No
         f'<li class="part {_e(part.status)}" data-part-id="{_e(part.id)}">'
         f'<span class="chip {_e(part.status)}">{_e(STATUS_LABEL[part.status])}</span> '
         f"<span>{_e(part.text)}</span>{unconfirmed}{help_}{reason}{conflict}"
-        f"{_evidence(part, names) if names is not None else ''}</li>"
+        f"{_evidence(part, names) if names is not None else ''}{extra}</li>"
     )
 
 
@@ -208,19 +249,22 @@ def render(
     images = page_images or {}
     on = evidence_lines_on()
     names = {d.id: d.name for d in review.docs}
+    cards = {c.id: c for c in review.cards}
+    mapped = evidence_map_on()
     notes = "".join(f'<p class="docnote">{_e(d.name)}: {_e(d.note)}</p>' for d in review.docs if d.note)
     notes += _unreadable_notes(review)
     banners = "".join(map(_banner, review.banners))
     badge = f'<p class="replay-badge" role="note">{REPLAY_TEXT}</p>' if replay else ""
     reasons = {p.id: supports_reason(c for c in review.cards if c.part == p.id) for p in review.parts}
     pages = "".join(_page(d, p, review.cards, images) for d in review.docs for p in d.pages)
+    maps = {p.id: _map(p, cards, names, reasons) if mapped and p.evidence_map is not None else "" for p in review.parts}
     # "<" escaped so the JSON can never close its script tag.
     data = review.model_dump_json().replace("<", "\\u003c")
     body = (
         f'<header><h1>{_e(STATUS_LABEL[review.status])}</h1><p class="claim">{_e(review.claim.text)}</p>'
         f"{badge}{banners}</header>"
-        f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id], names if on else None) for p in review.parts)}</ul>{notes}{EVIDENCE_CSS if on else ""}</nav>'
-        f'<section aria-label="Evidence cards">{_cards(review.cards, reasons, names, on)}</section>'
+        f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id], names if on else None, maps[p.id]) for p in review.parts)}</ul>{notes}{EVIDENCE_CSS if on or mapped else ""}</nav>'
+        f'<section aria-label="Evidence cards">{"" if mapped and any(p.evidence_map is not None for p in review.parts) else _cards(review.cards, reasons, names, on)}</section>'
         f'<section aria-label="Page">{pages}</section></main>'
         f'<script type="application/json" id="review">{data}</script>'
     )

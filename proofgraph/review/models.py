@@ -99,6 +99,18 @@ class Receipt(BaseModel):
         return data
 
 
+class MapItem(BaseModel):
+    """One entry of the evidence map: a card, or a source the documents cite but do not supply."""
+
+    kind: Literal["card", "referenced"]
+    card_id: str | None = None
+    date: str | None = None  # ISO, inferred from the text
+    date_source: str | None = None
+    ref_text: str | None = None
+    ref_doc: str | None = None
+    ref_page: int | None = None
+
+
 class Part(BaseModel):
     id: str
     text: str
@@ -108,6 +120,18 @@ class Part(BaseModel):
     card_ids: list[str] = Field(default_factory=list)
     receipt: Receipt | None = None
     conflict: bool = False
+    # Display-only (PROOFGRAPH_EVIDENCE_MAP). None on every older review.
+    evidence_map: list[MapItem] | None = None
+    map_counts: dict | None = None  # examined, relevant, unlabelled, matched, shown
+
+    @model_serializer(mode="wrap")
+    def _omit_unused_map(self, handler):
+        data = handler(self)
+        if self.evidence_map is None:
+            data.pop("evidence_map", None)
+        if self.map_counts is None:
+            data.pop("map_counts", None)
+        return data
 
     @model_validator(mode="after")
     def _conflict_is_contradicted(self) -> "Part":

@@ -20,6 +20,10 @@ def evidence_lines_on() -> bool:
     return os.environ.get("PROOFGRAPH_EVIDENCE_LINES") == "1"
 
 
+def evidence_map_on() -> bool:
+    return os.environ.get("PROOFGRAPH_EVIDENCE_MAP") == "1"
+
+
 def snippet(text: str, limit: int = SNIPPET_CHARS) -> str:
     text = " ".join(text.split())
     return text if len(text) <= limit else text[:limit].rstrip() + "..."

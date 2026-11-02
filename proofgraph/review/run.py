@@ -31,7 +31,8 @@ from proofgraph.clients.muse import MuseClient
 from proofgraph.review import ingest as ingest_mod
 from proofgraph.review.absence import AbsencePage, build_receipt
 from proofgraph.review.check import Checker, check_cards
-from proofgraph.review.evidence import evidence_lines_on, receipt_with_evidence
+from proofgraph.review.evidence import evidence_lines_on, evidence_map_on, receipt_with_evidence
+from proofgraph.review.evidence_map import build_map
 from proofgraph.review.models import (
     Banner, Card, Claim, Doc, Page, Part, PartStatus, Receipt, Review, Run,
 )
@@ -141,7 +142,8 @@ def run_review(
 
     pool = ThreadPoolExecutor(max_workers=max(1, min(max_workers, MAX_WORKERS)))
     try:
-        futures = {pool.submit(_run_part, p, texts, words, scan_lines, sweep, muse, checker): p for p in parts}
+        futures = {pool.submit(_run_part, p, texts, words, scan_lines, sweep, muse, checker,
+                                {d.id: d.name for d in docs}): p for p in parts}
         outcomes: dict[str, _Outcome] = {}
         for future in as_completed(futures):
             outcome = future.result()
@@ -156,11 +158,24 @@ def run_review(
 
 
 def _run_part(part: Part, texts: list[PageText], words: dict, scan_lines: dict,
-              sweep: list[AbsencePage], muse: MuseClient, checker: Checker) -> _Outcome:
+              sweep: list[AbsencePage], muse: MuseClient, checker: Checker,
+              names: dict[str, str] | None = None) -> _Outcome:
     """Worker: relate, snap, blind check, status for ONE part. Returns plain data; never raises."""
     banners: list[Banner] = []
     cards: list[Card] = []
     done = part.model_copy()
+    if evidence_map_on():
+        try:
+            built = build_map(part, texts, words, scan_lines, muse, checker, names)
+        except Exception as exc:
+            banners.append(_failure_banner(exc))
+            done.status = "error"
+            done.reason = ("Stopped at the spend cap; nothing was checked." if isinstance(exc, SpendCapReached)
+                           else "The evidence search (not the second check) failed; nothing was checked.")
+            return _Outcome(done, cards, banners)
+        cards, banners = built.cards, built.banners
+        done.evidence_map, done.map_counts = built.items, built.counts
+        return _finish(done, cards, banners, sweep)
     try:
         found = relate(part.text, texts, muse)
     except Exception as exc:
@@ -182,7 +197,11 @@ def _run_part(part: Part, texts: list[PageText], words: dict, scan_lines: dict,
                     page=found.page, boxes=pinned.boxes, box_status=pinned.status,
                     why=found.why, check="not_run")
         cards = check_cards([card], [part], checker=checker)
-    absence = build_receipt(part.text, sweep, cards)
+    return _finish(done, cards, banners, sweep)
+
+
+def _finish(done: Part, cards: list[Card], banners: list[Banner], sweep: list[AbsencePage]) -> _Outcome:
+    absence = build_receipt(done.text, sweep, cards)
     complete = absence.complete
     if evidence_lines_on() and done.receipt is not None:
         done.receipt = receipt_with_evidence(done.receipt, absence, sweep)
@@ -278,6 +297,9 @@ def _assemble(claim: str, muse: MuseClient, docs: list[Doc], images: dict, parts
         final_cards.append(card.model_copy(update={"id": f"c{n}"}))
     for part in parts:
         part.card_ids = [renamed[i] for i in part.card_ids]
+        for item in part.evidence_map or []:
+            if item.card_id:
+                item.card_id = renamed[item.card_id]
     done = [p.status for p in parts if p.status != "error"]
     status: PartStatus = overall_status(done) if done else "error"
     if len(done) < len(parts) and status not in ("contradicted", "weakened"):
