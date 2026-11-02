@@ -45,8 +45,8 @@ def test_flag_on_renders_grouped_map(review, monkeypatch):
     assert "Dates are inferred from the text, not legal dates." in html
     assert "May 7, 2026 \u00b7 inferred from the signature block" in html
     assert "No date found in this passage" in html and ">Undated<" not in html
-    assert html.count("Referenced, not supplied:") == 1
-    assert "Referenced, not supplied: the &lt;b&gt;2019&lt;/b&gt; master agreement (cited in 1 place: Bosch_NDA.pdf p2)" in html
+    assert html.count('class="map-ref"') == 1
+    assert "Mentioned but not uploaded: the &lt;b&gt;2019&lt;/b&gt; master agreement (cited in 1 place: Bosch_NDA.pdf p2)" in html
     assert "<b>2019</b>" not in html
     assert len(re.findall(r"<article ", html)) == 2  # unknown card id skipped
     assert not re.search(r"resolved|score", html.split('<div class="map">')[1].split("</nav>")[0], re.I)
@@ -132,13 +132,13 @@ def test_summary_singular_and_single_date():
 def test_class_header_template():
     cs = [_card("a", "contradicts"), _card("b", "contradicts", check="disagrees"), _card("c", "contradicts", check="disagrees")]
     assert _class_header("Contradicts", cs) == (
-        "Contradicts (3): 1 confirmed by a second read of its quote alone, 2 need other passages to settle."
+        "Contradicts (3): 1 confirmed by the second check, 2 not sure."
     )
     assert _class_header("Contradicts", [_card("a", "contradicts")] * 3) == (
-        "Contradicts (3): 3 confirmed by a second read of its quote alone."
+        "Contradicts (3): 3 confirmed by the second check."
     )
     assert _class_header("Contradicts", [_card("a", "contradicts", check="disagrees"), _card("b", "contradicts", check="not_run")]) == (
-        "Contradicts (2): 1 need other passages to settle, 1 without a second read."
+        "Contradicts (2): 1 not sure, 1 not checked."
     )
 
 
@@ -148,8 +148,8 @@ def test_second_read_badges_in_map_mode(review, monkeypatch):
     ids = [c.id for c in r.cards]
     r.cards[0].check, r.cards[1].check = "agrees", "disagrees"
     html = render(r)
-    assert html.count("Second read of this quote alone: not settled.") == 2  # text + aria-label
-    assert html.count("Second read of this quote alone: confirmed.") == 2
+    assert html.count("Second check: not sure.") == 2  # text + aria-label
+    assert html.count("Second check: confirmed.") == 2
     badges = re.findall(r'<span class="(mark[^"]*)" aria-label', html)
     assert len(badges) == 2 and len(set(badges)) == 1 and "disagrees" not in badges[0]
 
@@ -178,17 +178,17 @@ def test_part_summary_worked_example_and_clause_drop():
     # make counts match the worked example: 4 supports, 2 contradicts, 1 weakens
     cards = dict(cards)
     assert _part_summary(part, cards, NAMES) == (
-        "4 supports, 2 contradicts, 1 weakens, 6 irrelevant (hidden), from 2 of 3 documents; 1 document referenced, not supplied"
+        "4 back it up, 2 go against it, 1 casts doubt. 6 passages not about this part are hidden. From 2 of 3 uploaded documents. Mentioned but not uploaded: 1 document."
     )
     part.evidence_map = [m for m in part.evidence_map if m.kind == "card"]
-    assert _part_summary(part, cards, NAMES).endswith("from 2 of 3 documents")
+    assert _part_summary(part, cards, NAMES).endswith("From 2 of 3 uploaded documents.")
 
 
 def test_part_summary_in_map_render_and_irrelevant_not_rendered(review, monkeypatch):
     monkeypatch.setenv(FLAG, "1")
     r = _mapped(review)
     h = render(r)
-    assert 'class="ev ev-summary"' in h and "irrelevant (hidden)" in h
+    assert 'class="ev ev-summary"' in h and "not about this part are hidden" in h
     assert h.count("data-card-id=") >= 1
 
 
@@ -290,9 +290,9 @@ def test_sole_unsettled_contradiction_is_not_hidden(monkeypatch):
 def test_group_header_counts_equal_cards(monkeypatch):
     h = _ui_html(monkeypatch)
     sec = h.split('data-rel="weakens"')[1].split('data-rel="supports"')[0]
-    assert "Weakens (4): 3 confirmed by a second read of its quote alone, 1 need other passages to settle." in sec
+    assert "Casts doubt (4): 3 confirmed by the second check, 1 not sure." in sec
     assert len(re.findall(r"<article ", sec)) == 4
-    assert "Show all 3 supporting passages" in h and ">Show all 3<" in h
+    assert "Show all 3 passages that back it up" in h and ">Show all 3<" in h
 
 
 def test_one_class_note_and_short_badges_in_map_mode(monkeypatch):
@@ -313,14 +313,14 @@ def test_verdict_line_facts_only_with_reveal_links(monkeypatch):
     h = _ui_html(monkeypatch)
     line = h.split('class="ev verdict-parts"')[1].split("</ul>")[0]
     assert 'data-reveal="c1"' in line and 'data-reveal="k0"' in line and 'data-reveal="w1"' in line
-    assert "1 passage, second read not settled" in line
+    assert "1 passage, second check not sure" in line
     assert "worst" not in line.lower() and "strongest" not in line.lower()
     assert "Bylaws.pdf, p1" in line and "0-Bylaws" not in line
 
 
 def test_reference_marker_once_per_packet(monkeypatch):
     h = _ui_html(monkeypatch)
-    assert h.count("Referenced, not supplied:") == 1
+    assert h.count('class="map-ref"') == 1
     assert "cited in 2 places" in h
 
 
@@ -454,7 +454,7 @@ def test_undated_column_and_dates_inferred(monkeypatch):
     assert c1["cell"]["undated"] and "no date found" in c1["aria-label"].lower()
     t1 = next(m for m in s.figs["p2"]["lanes"]["supports"]["marks"] if m["data-reveal"] == "t1")
     assert not t1["cell"]["undated"] and t1["cell"]["date"] == "2024-04-04"
-    assert "4 April 2024" in t1["aria-label"] and "inferred from the text" in t1["aria-label"]
+    assert "4 April 2024" in t1["aria-label"]
 
 
 def test_aria_label_has_relation_document_page_state_and_no_banned_words(monkeypatch):
@@ -462,10 +462,10 @@ def test_aria_label_has_relation_document_page_state_and_no_banned_words(monkeyp
     labels = [m["aria-label"] for f in s.figs.values() for ln in f["lanes"].values() for m in ln["marks"]]
     assert labels
     for lab in labels:
-        assert lab.split(",")[0] in {"Contradicts", "Weakens", "Supports"}
-        assert re.search(r"\.pdf p\d", lab) and ("second read" in lab)
+        assert lab.split(",")[0] in {"Goes against it", "Casts doubt", "Backs it up"}
+        assert re.search(r"\.pdf, page \d", lab) and ("second check" in lab)
         assert not [b for b in BANNED if b in lab.lower()]
-    assert any(lab.startswith("Contradicts, Minutes.pdf p1, no date found, second read not settled") for lab in labels)
+    assert any(lab.startswith("Goes against it, Minutes.pdf, page 1, no date found, second check not sure") for lab in labels)
 
 
 def test_merged_cards_show_a_count(monkeypatch):
@@ -500,7 +500,7 @@ def test_referenced_row_one_per_distinct_reference(monkeypatch):
     s = _stance(h)
     assert len(s.figs["p1"]["refs"]) == 1 and len(s.figs["p2"]["refs"]) == 1 and not s.figs["p3"]["refs"]
     assert "cited in 2 places" in h.split('class="stance')[1]
-    assert h.count("Referenced, not supplied:") == 1  # the packet-level marker is untouched
+    assert h.count('class="map-ref"') == 1  # the packet-level marker is untouched
 
 
 def test_stance_css_is_themed_and_not_colour_only():
@@ -517,3 +517,154 @@ def test_stance_map_survives_an_empty_part(monkeypatch):
     h = render(r)
     fig = _stance(h).figs["p1"]
     assert all(ln["none"] for ln in fig["lanes"].values())
+
+
+# ---- Wave 3B: plain-language copy, answer-first sentence, legend ----
+LEGEND = "We split your claim into parts and checked each one against your documents. Each mark is one passage; click it to read it."
+OLD_TERMS = ["Second read", "referenced, not supplied", "Undated", "Part 2 of", "Contradicts (", "weakens", "second read", "not settled"]
+_ANS = re.compile(r'<p class="answer">(.*?)</p>', re.S)
+
+
+def _answer(h):
+    import html as _h
+    m = _ANS.search(h)
+    return _h.unescape(m.group(1)) if m else ""
+
+
+def _visible_and_attrs(h):
+    import html as _h
+    body = re.sub(r"<script.*?</script>|<style.*?</style>", "", h, flags=re.S)
+    attrs = re.findall(r'(?:aria-label|title)="([^"]*)"', body)
+    return _h.unescape(re.sub(r"<[^>]+>", " ", body) + " " + " ".join(attrs))
+
+
+def test_answer_sentence_counts_equal_cards_per_relation(monkeypatch):
+    h = _ui_html(monkeypatch)
+    ans = _answer(h)
+    rv = _ui_review()
+    assert h.index('class="answer"') < h.index("<h1>")
+    for i, p in enumerate(rv.parts, 1):
+        by = {r: sum(c.relation == r and c.part == p.id for c in rv.cards) for r in ("supports", "contradicts", "weakens")}
+        part = ans.split(f"Claim part {i}: ")[1].split(" Claim part ")[0]
+        assert re.search(rf"\b{by['supports']} passages? back", part)
+        if by["contradicts"]:
+            assert re.search(rf"\b{by['contradicts']} (goes|go) against it", part)
+        if by["weakens"]:
+            assert re.search(rf"\b{by['weakens']} (casts|cast) doubt", part)
+
+
+def test_answer_sentence_exact_and_none_go_against(monkeypatch):
+    ans = _answer(_ui_html(monkeypatch))
+    assert ("Claim part 2: 1 passage backs it up and 1 goes against it "
+            "(Minutes.pdf, p1, no date found, second check not sure).") in ans
+    monkeypatch.setenv(FLAG, "1")
+    r = _ui_review()
+    r.cards = [c for c in r.cards if c.relation == "supports" or c.part != "p2"]
+    assert "Claim part 2: 1 passage backs it up; none go against it." in _answer(render(r))
+
+
+def test_sole_opposing_unconfirmed_card_is_named_in_the_sentence(monkeypatch):
+    ans = _answer(_ui_html(monkeypatch))
+    part2 = ans.split("Claim part 2: ")[1].split(" Claim part ")[0]
+    assert "second check not sure" in part2 and "no date found" in part2
+
+
+def test_answer_sentence_has_only_template_words(monkeypatch):
+    ans = _answer(_ui_html(monkeypatch))
+    s = re.sub(r"Bylaws\.pdf|Minutes\.pdf|Letter\.pdf|January|February|March|April|May|June|July|August|September|October|November|December", "", ans)
+    s = re.sub(r"\d+|\bp\d+", "", s)
+    assert "SECRET" not in ans
+    words = set(re.findall(r"[a-z]+", s.lower())) - {"claim", "part", "passage", "passages", "back", "backs", "it", "up", "and", "go", "goes",
+        "against", "cast", "casts", "doubt", "no", "date", "found", "second", "check", "confirmed", "not", "sure", "more", "none"}
+    assert not words, words
+
+
+def test_answer_caps_at_three_parts(monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    r = _ui_review()
+    r.parts.append(r.parts[0].model_copy(update={"id": "p4"}))
+    ans = _answer(render(r))
+    assert "Claim part 3:" in ans and "Claim part 4:" not in ans and ans.endswith("and 1 more part below.")
+
+
+def test_no_old_terms_or_banned_words_for_every_check_value(monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    for check in ("agrees", "disagrees", "unavailable", "not_run"):
+        r = _ui_review()
+        for c in r.cards:
+            c.check, c.check_answer = check, ("not_mentioned" if check == "disagrees" else None)
+        vis = _visible_and_attrs(render(r))
+        low = vis.lower().replace("claim part", "")
+        for t in OLD_TERMS + BANNED:
+            assert t.lower() not in low, (check, t)
+
+
+def test_legend_once_before_the_first_part_and_caption_once_per_map(monkeypatch):
+    h = _ui_html(monkeypatch)
+    assert h.count(LEGEND) == 1 and h.index(LEGEND) < h.index('data-part-id="p1"')
+    cap = ("Circle = backs it up, triangle = casts doubt, diamond = goes against it. Solid = second check confirmed, "
+           "hollow = second check not sure. Dashed row = documents mentioned but not uploaded. "
+           "One passage that goes against a claim is enough to count against it.")
+    assert h.count(cap) == 3 and "Days run in order, not to scale." in h
+
+
+def test_plain_labels_in_chip_groups_and_lanes(monkeypatch):
+    h = _ui_html(monkeypatch)
+    for t in ("Goes against the claim", "Casts doubt on the claim", "Goes against it (", "Casts doubt (", "Backs it up (",
+              "Claim part 2 of 3", "Mentioned but not uploaded", "No date found", "Second check: not sure.", "Second check: confirmed."):
+        assert t in h, t
+    assert "Show all 3 passages that back it up" in h and ">Show all 3<" in h
+    assert "1 backs it up, 0 go against it, 0 cast doubt" not in h  # sanity: only counts that exist
+    assert "Mentioned but not uploaded: 1 document" in h
+
+
+def test_mark_aria_label_equals_template_and_state(monkeypatch):
+    h = _ui_html(monkeypatch)
+    s = _stance(h)
+    rv = _ui_review()
+    cards = {c.id: c for c in rv.cards}
+    names = {"d1": "Bylaws.pdf", "d2": "Minutes.pdf", "d3": "Letter.pdf"}
+    rel = {"contradicts": "Goes against it", "weakens": "Casts doubt", "supports": "Backs it up"}
+    said = {"agrees": "confirmed", "disagrees": "not sure"}
+    n = 0
+    for fig in s.figs.values():
+        for r, lane in fig["lanes"].items():
+            for m in lane["marks"]:
+                if _count(m) > 1:
+                    continue
+                c = cards[m["data-reveal"]]
+                day = {"x": None}
+                when = m["cell"]["date"]
+                if when:
+                    y, mo, d = map(int, when.split("-"))
+                    import calendar
+                    when = f"{d} {calendar.month_name[mo]} {y}"
+                want = f"{rel[r]}, {names[c.doc]}, page {c.page}, {when or 'no date found'}, second check {said[c.check]}"
+                assert m["aria-label"] == want
+                assert ("filled" in m["class"].split()) == (c.check == "agrees")
+                n += 1
+    assert n >= 8
+
+
+def test_not_available_and_not_done_stay_hollow_with_their_own_words(monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    for check, words in (("unavailable", "second check not available"), ("not_run", "second check not done")):
+        r = _ui_review()
+        for c in r.cards:
+            c.check, c.check_answer = check, None
+        s = _stance(render(r))
+        marks = [m for f in s.figs.values() for ln in f["lanes"].values() for m in ln["marks"] if _count(m) == 1]
+        assert marks and all("hollow" in m["class"].split() and words in m["aria-label"] for m in marks)
+
+
+def test_undated_cards_only_in_the_no_date_column_and_one_dashed_mark_per_reference(monkeypatch):
+    h = _ui_html(monkeypatch)
+    s = _stance(h)
+    dated = {it.card_id: it.date for p in _ui_review().parts for it in p.evidence_map if it.kind == "card"}
+    for fig in s.figs.values():
+        for ln in fig["lanes"].values():
+            for m in ln["marks"]:
+                if _count(m) == 1:
+                    assert m["cell"]["undated"] == (dated[m["data-reveal"]] is None)
+    assert len(s.figs["p1"]["refs"]) == 1
+    assert s.figs["p1"]["refs"][0]["aria-label"] == "Mentioned but not uploaded: The Master Agreement., cited 2 times"

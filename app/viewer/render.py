@@ -49,6 +49,15 @@ BANNER_HELP = {
     "unreadable": ("A file or page could not be read.", "Upload a text PDF or retype the passage."),
     "injection": ("A file contains instructions aimed at the checker.", "They were ignored. Read that file yourself."),
 }
+MAP_STATUS_LABEL = {
+    "contradicted": "Goes against the claim",
+    "weakened": "Casts doubt on the claim",
+    "supported": "Backs up the claim",
+    "not_found": "Nothing found about this",
+    "cannot_tell": "Not enough to decide",
+    "checking": "Still checking",
+    "error": "Could not check",
+}
 CHECK_LABEL = {
     "agrees": "Second check agrees",
     "disagrees": "Second check disagrees",
@@ -56,12 +65,21 @@ CHECK_LABEL = {
     "not_run": "Second check not run",
 }
 SECOND_READ = {
-    "agrees": "Second read of this quote alone: confirmed.",
-    "disagrees": "Second read of this quote alone: not settled.",
-    "unavailable": CHECK_LABEL["unavailable"],
-    "not_run": CHECK_LABEL["not_run"],
+    "agrees": "Second check: confirmed.",
+    "disagrees": "Second check: not sure.",
+    "unavailable": "Second check: not available.",
+    "not_run": "Second check: not done.",
 }
 _SEES = "It sees only the quote and the part."
+LEGEND_TEXT = (
+    "We split your claim into parts and checked each one against your documents. "
+    "Each mark is one passage; click it to read it."
+)
+CAPTION_TEXT = (
+    "Circle = backs it up, triangle = casts doubt, diamond = goes against it. Solid = second check confirmed, "
+    "hollow = second check not sure. Dashed row = documents mentioned but not uploaded. "
+    "One passage that goes against a claim is enough to count against it."
+)
 _LABELLED = {"supports": "as support", "contradicts": "as contradicting", "weakens": "as weakening"}
 _SAW = {
     "entails": "found it supports this part",
@@ -117,6 +135,7 @@ EVIDENCE_CSS = (
     "@container (min-width:34rem){.stance.wide .st-row,.stance.wide .st-axis{display:grid;grid-template-columns:7rem repeat(var(--cols),minmax(0,1fr)) 6.5rem;gap:0 4px;align-items:start}"
     ".stance.wide .st-name{flex:none;align-self:center}.stance.wide .st-cd{display:none}.stance.wide .st-cell.undated{padding-left:8px}"
     ".stance.wide .st-none{grid-column:2/-1}.stance.wide .st-d{padding-bottom:4px}}"
+    ".answer{margin:0 0 8px;font-size:16px;font-weight:600}.legend{margin:6px 0 0}"
     ".verdict-parts{margin:6px 0 0;color:var(--mut)}.verdict-parts li{margin:2px 0}"
     ".verdict-parts a{color:inherit;font-weight:600;border-bottom:1px solid currentColor}"
     ".verdict-parts a:focus-visible{outline:3px solid currentColor;outline-offset:2px}</style>"
@@ -257,16 +276,16 @@ def _summary(entries: list[MapEntry], names: dict[str, str]) -> str:
 
 
 def _class_header(label: str, cards: list[Card]) -> str:
-    """Class header: N = confirmed + not settled + without a second read, so no card is silent."""
+    """Class header: N = confirmed + not sure + not checked, so no card is silent."""
     c = sum(x.check == "agrees" for x in cards)
     s = sum(x.check == "disagrees" for x in cards)
     u = len(cards) - c - s
     clauses = [
         t
         for n, t in (
-            (c, f"{c} confirmed by a second read of its quote alone"),
-            (s, f"{s} need other passages to settle"),
-            (u, f"{u} without a second read"),
+            (c, f"{c} confirmed by the second check"),
+            (s, f"{s} not sure"),
+            (u, f"{u} not checked"),
         )
         if n
     ]
@@ -279,24 +298,32 @@ def _part_summary(part: Part, cards: dict[str, Card], names: dict[str, str]) -> 
     by = {r: sum(c.relation == r for c in mine) for r in ("supports", "contradicts", "weakens")}
     irrelevant = max((part.map_counts or {}).get("examined", 0) - (part.map_counts or {}).get("relevant", 0), 0)
     docs = len({c.doc for c in mine})
+    s, c, w = by["supports"], by["contradicts"], by["weakens"]
     out = (
-        f"{by['supports']} supports, {by['contradicts']} contradicts, {by['weakens']} weakens, "
-        f"{irrelevant} irrelevant (hidden), from {docs} of {len(names)} documents"
+        f"{s} {'backs' if s == 1 else 'back'} it up, {c} {'goes' if c == 1 else 'go'} against it, "
+        f"{w} {'casts' if w == 1 else 'cast'} doubt. "
+        f"{_n(irrelevant, 'passage')} not about this part {'is' if irrelevant == 1 else 'are'} hidden. "
+        f"From {docs} of {len(names)} uploaded documents."
     )
     r = len(_map_items(part, cards).refs)
     if r:
-        out += f"; {_n(r, 'document')} referenced, not supplied"
+        out += f" Mentioned but not uploaded: {_n(r, 'document')}."
     return out
 
 
 MAP_NOTE_TEXT = (
-    "Not settled means the second read, which sees only the quote and the part, did not reach the same label. "
+    "Not sure means the second check, which sees only the quote and the part, did not reach the same label. "
     "These passages stay counted and linked here."
 )
 _OPEN_CARDS = {"contradicts": 3, "weakens": 2}
 _DATE_SOURCE = {"in passage": "the passage", "document header": "the document header"}
-_SHOW_ALL = {"supports": "supporting passages"}
-_MAP_GROUPS = [*GROUPS]
+_SHOW_ALL = {"supports": "passages that back it up"}
+_MAP_GROUPS = [
+    ("contradicts", "Goes against it"),
+    ("weakens", "Casts doubt"),
+    ("supports", "Backs it up"),
+    ("set_aside", "Set aside"),
+]
 _PREFIX = re.compile(r"^\d-")
 
 
@@ -364,7 +391,7 @@ def _group(part: Part, rel: str, label: str, view: MapView, reasons, names) -> s
     if unsettled:
         opened = " open" if k and not settled else ""  # a lone contradiction or weakening is never folded away
         body += (
-            f'<details class="map-unsettled"{opened}><summary>{_weight(unsettled)} not settled by a second read of the quote alone'
+            f'<details class="map-unsettled"{opened}><summary>{_weight(unsettled)} not sure after the second check'
             f'</summary>{"".join(_entry(e, reasons, names, True) for e in unsettled)}</details>'
         )
     return (
@@ -374,7 +401,11 @@ def _group(part: Part, rel: str, label: str, view: MapView, reasons, names) -> s
     )
 
 
-_LANES = [("contradicts", "Contradicts", "diamond"), ("weakens", "Weakens", "triangle"), ("supports", "Supports", "circle")]
+_LANES = [
+    ("contradicts", "Goes against it", "diamond"),
+    ("weakens", "Casts doubt", "triangle"),
+    ("supports", "Backs it up", "circle"),
+]
 _SHAPE = {
     "diamond": '<polygon points="12,2 22,12 12,22 2,12"/>',
     "triangle": '<polygon points="12,3 22,21 2,21"/>',
@@ -416,29 +447,31 @@ def _stance_marks(part: Part, view: MapView) -> list[StanceMark]:
     return out
 
 
+_SECOND = {"agrees": "confirmed", "disagrees": "not sure", "unavailable": "not available", "not_run": "not done"}
+
+
+def _long_day(d: date) -> str:
+    return f"{d.day} {d:%B} {d.year}"
+
+
 def _state(cards: list[Card]) -> tuple[str, str]:
-    """(class, words): filled only when every second read in the mark confirmed."""
-    c = sum(x.check == "agrees" for x in cards)
-    s = sum(x.check == "disagrees" for x in cards)
-    u = len(cards) - c - s
-    if c == len(cards):
-        return "filled", "second read confirmed"
-    if s == len(cards):
-        return "hollow", "second read not settled"
-    if u == len(cards):
-        return "hollow", "no second read"
-    bits = [f"{n} {t}" for n, t in ((c, "confirmed"), (s, "not settled"), (u, "without a second read")) if n]
-    return "hollow", "second read: " + ", ".join(bits)
+    """(class, words): solid only when every second check in the mark confirmed."""
+    counts = {k: sum(x.check == k for x in cards) for k in _SECOND}
+    cls = "filled" if counts["agrees"] == len(cards) else "hollow"
+    seen = [k for k, n in counts.items() if n]
+    if len(seen) == 1:
+        return cls, f"second check {_SECOND[seen[0]]}"
+    return cls, "second check: " + ", ".join(f"{counts[k]} {_SECOND[k]}" for k in seen)
 
 
 def _stance_mark(m: StanceMark, label: str, names: dict[str, str]) -> str:
     first = m.cards[0]
     cls, state = _state(m.cards)
-    where = f"{names.get(first.doc, first.doc)} p{first.page}"
+    when = _long_day(m.day) if m.day else "no date found"
+    text = f"{label}, {names.get(first.doc, first.doc)}, page {first.page}, {when}, {state}"
     if len(m.cards) > 1:
-        where += f" and {len(m.cards) - 1} more"
-    when = f"{m.day.day} {m.day:%B} {m.day.year}, inferred from the text" if m.day else "no date found"
-    tip = _e(f"{label}, {where}, {when}, {state}")
+        text += f", and {len(m.cards) - 1} more"
+    tip = _e(text)
     badge = f'<span class="st-n" aria-hidden="true">{len(m.cards)}</span>' if len(m.cards) > 1 else ""
     shape = next(sh for r, _, sh in _LANES if r == m.rel)
     return (
@@ -483,15 +516,19 @@ def _stance_map(part: Part, view: MapView, names: dict[str, str]) -> str:
             f'<div class="st-row st-lane {rel}" data-lane="{rel}" role="group" aria-label="{_e(label)} ({n})">'
             f'<span class="st-name">{_e(label)} ({n})</span>{body}</div>'
         )
-    refs = "".join(
-        f'<p class="st-ref"><strong>Referenced, not supplied</strong> {_e(r.text)} (cited in {_n(r.count, "place")})</p>'
-        for r in view.refs
-    )
+    items = []
+    for r in view.refs:
+        tip = _e(f"Mentioned but not uploaded: {r.text}, cited {_n(r.count, 'time')}")
+        items.append(
+            f'<p class="st-ref" role="group" aria-label="{tip}"><strong>Mentioned but not uploaded</strong> '
+            f'{_e(r.text)} (cited in {_n(r.count, "place")})</p>'
+        )
+    refs = "".join(items)
     refs = f'<div class="st-refs">{refs}</div>' if refs else ""
     return (
         f'<figure class="stance{wide}" data-part="{_e(part.id)}" style="--cols:{len(days)};margin-inline:0" role="group" '
         f'aria-label="Stance map">{axis}{"".join(lanes)}{refs}'
-        f'<figcaption class="st-cap">{_e(MAP_DATE_TEXT)} Days run in order, not to scale.</figcaption></figure>'
+        f'<figcaption class="st-cap">{_e(CAPTION_TEXT)} {_e(MAP_DATE_TEXT)} Days run in order, not to scale.</figcaption></figure>'
     )
 
 
@@ -519,8 +556,50 @@ def _packet_refs(parts: list[Part], names: dict[str, str]) -> str:
     for text, places in refs.values():
         where = ", ".join(f"{names.get(d, d)} p{pg}" for d, pg in sorted(places, key=str) if d)
         cite = f" (cited in {_n(len(places), 'place')}{': ' + where if where else ''})"
-        out.append(f'<p class="map-ref">Referenced, not supplied: {_e(text)}{_e(cite)}</p>')
-    return f'<section class="map-refs" aria-label="Referenced, not supplied">{"".join(out)}</section>' if out else ""
+        out.append(f'<p class="map-ref">Mentioned but not uploaded: {_e(text)}{_e(cite)}</p>')
+    return f'<section class="map-refs" aria-label="Mentioned but not uploaded">{"".join(out)}</section>' if out else ""
+
+
+_ANSWER_PARTS = 3
+_OPPOSING = ("contradicts", "weakens")
+
+
+def _answer(review: Review, cards: dict[str, Card], names: dict[str, str]) -> str:
+    """First sentence of the page: backing and opposing counts together, per part. Counts, names, dates only."""
+    mapped = [(i, p) for i, p in enumerate(review.parts, 1) if p.evidence_map is not None]
+    if not mapped:
+        return ""
+    many = len(review.parts) > 1
+    out = []
+    for i, p in mapped[:_ANSWER_PARTS]:
+        mine = [c for c in cards.values() if c.part == p.id]
+        by = {r: [c for c in mine if c.relation == r] for r in ("supports", *_OPPOSING)}
+        head = f"Claim part {i}: " if many else ""
+        if p.status == "checking":
+            out.append(f"{head}still checking." if many else "Still checking.")
+            continue
+        n = len(by["supports"])
+        clauses = [f"{_n(n, 'passage')} {'backs' if n == 1 else 'back'} it up"]
+        for rel, one, many_ in (("contradicts", "goes against it", "go against it"), ("weakens", "casts doubt", "cast doubt")):
+            k = len(by[rel])
+            if k:
+                clauses.append(f"{k} {one if k == 1 else many_}")
+        text = clauses[0] if len(clauses) == 1 else f"{', '.join(clauses[:-1])} and {clauses[-1]}"
+        if len(clauses) == 1:
+            text += "; none go against it"
+        opp = by["contradicts"] + by["weakens"]
+        if opp:
+            day = {it.card_id: _day_or_none(it.date) for it in p.evidence_map if it.kind == "card"}
+            bits = [
+                f"{names.get(c.doc, c.doc)}, p{c.page}, {_long_day(day[c.id]) if day.get(c.id) else 'no date found'}, "
+                f"second check {_SECOND[c.check]}"
+                for c in opp[:3]
+            ]
+            text += f" ({'; '.join(bits)}{f' and {len(opp) - 3} more' if len(opp) > 3 else ''})"
+        out.append(f"{head}{text}." if many else f"{text[0].upper()}{text[1:]}.")
+    rest = len(mapped) - _ANSWER_PARTS
+    sentence = " ".join(out)
+    return sentence + (f" and {_n(rest, 'more part')} below." if rest > 0 else "")
 
 
 _DECIDES = {"contradicted": "contradicts", "weakened": "weakens", "supported": "supports"}
@@ -533,7 +612,7 @@ def _verdict_parts(review: Review, cards: dict[str, Card], names: dict[str, str]
         return ""
     items = []
     for i, p in enumerate(review.parts, 1):
-        out = f"Part {i} of {len(review.parts)}: {STATUS_LABEL[p.status]}"
+        out = f"Claim part {i} of {len(review.parts)}: {MAP_STATUS_LABEL[p.status]}"
         rel = _DECIDES.get(p.status)
         if p.evidence_map is not None and rel:
             v = _map_items(p, cards)
@@ -542,9 +621,9 @@ def _verdict_parts(review: Review, cards: dict[str, Card], names: dict[str, str]
                 open_ = sum(c.check == "disagrees" for c in ds)
                 out += f" by {_n(len(ds), 'passage')}"
                 if open_ == len(ds):
-                    out += ", second read not settled"
+                    out += ", second check not sure"
                 elif open_:
-                    out += f", {open_} of {len(ds)} with second read not settled"
+                    out += f", {open_} of {len(ds)} with second check not sure"
                 if rel != "supports":
                     links = ", ".join(
                         f'<a href="#" data-reveal="{_e(c.id)}">{_e(names.get(c.doc, c.doc))}, p{c.page}</a>' for c in ds[:3]
@@ -555,7 +634,12 @@ def _verdict_parts(review: Review, cards: dict[str, Card], names: dict[str, str]
 
 
 def _part(
-    part: Part, reason_kind: str | None = None, names: dict[str, str] | None = None, extra: str = "", mapped: bool = False
+    part: Part,
+    reason_kind: str | None = None,
+    names: dict[str, str] | None = None,
+    extra: str = "",
+    mapped: bool = False,
+    plain: bool = False,
 ) -> str:
     said = "Sources point different ways on this part." if mapped else "Sources disagree on this part."
     conflict = f'<p class="conflict">{said}</p>' if part.conflict else ""
@@ -573,7 +657,7 @@ def _part(
     )
     return (
         f'<li class="part {_e(part.status)}" data-part-id="{_e(part.id)}">'
-        f'<span class="chip {_e(part.status)}">{_e(STATUS_LABEL[part.status])}</span> '
+        f'<span class="chip {_e(part.status)}">{_e((MAP_STATUS_LABEL if plain else STATUS_LABEL)[part.status])}</span> '
         f"<span>{_e(part.text)}</span>{unconfirmed}{help_}{reason}{conflict}"
         f"{_evidence(part, names) if names is not None else ''}{extra}</li>"
     )
@@ -601,9 +685,9 @@ def _card(
     if second_read and line:
         saw = _SAW.get(card.check_answer)
         line = (
-            f"The second read of this quote alone {saw}, while this card is labelled {_LABELLED[card.relation]}. {_SEES}"
+            f"The second check of this quote alone {saw}, while this card is labelled {_LABELLED[card.relation]}. {_SEES}"
             if saw and card.relation in _LABELLED
-            else f"The second read of this quote alone is not available here. {_SEES}"
+            else f"The second check of this quote alone is not available here. {_SEES}"
         )
     answer = f'<p class="reason-line check-answer">{_e(line)}</p>' if line and not brief else ""
     if second_read:
@@ -689,12 +773,16 @@ def render(
     maps = {p.id: _map(p, cards, names, reasons) if mapped and p.evidence_map is not None else "" for p in review.parts}
     refs = _packet_refs(review.parts, names) if mapped else ""
     why = _verdict_parts(review, cards, names) if mapped else ""
+    sentence = _answer(review, cards, names) if mapped else ""
+    answer = f'<p class="answer">{_e(sentence)}</p>' if sentence else ""
+    legend = f'<p class="ev legend">{_e(LEGEND_TEXT)}</p>' if sentence else ""
     # "<" escaped so the JSON can never close its script tag.
     data = review.model_dump_json().replace("<", "\\u003c")
     body = (
-        f'<header><h1>{_e(STATUS_LABEL[review.status])}</h1><p class="claim">{_e(review.claim.text)}</p>'
-        f"{why}{badge}{banners}</header>"
-        f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id], names if on else None, maps[p.id], bool(maps[p.id])) for p in review.parts)}</ul>{refs}{notes}{EVIDENCE_CSS if on or mapped else ""}</nav>'
+        f'<header>{answer}<h1>{_e((MAP_STATUS_LABEL if mapped else STATUS_LABEL)[review.status])}</h1>'
+        f'<p class="claim">{_e(review.claim.text)}</p>'
+        f"{why}{legend}{badge}{banners}</header>"
+        f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id], names if on else None, maps[p.id], bool(maps[p.id]), mapped) for p in review.parts)}</ul>{refs}{notes}{EVIDENCE_CSS if on or mapped else ""}</nav>'
         f'<section aria-label="Evidence cards">{"" if mapped and any(p.evidence_map is not None for p in review.parts) else _cards(review.cards, reasons, names, on)}</section>'
         f'<section aria-label="Page">{pages}</section></main>'
         f'<script type="application/json" id="review">{data}</script>'
