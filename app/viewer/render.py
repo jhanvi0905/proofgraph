@@ -595,7 +595,7 @@ def _answer(review: Review, cards: dict[str, Card], names: dict[str, str]) -> st
                 f"second check {_SECOND[c.check]}"
                 for c in opp[:3]
             ]
-            text += f" ({'; '.join(bits)}{f' and {len(opp) - 3} more' if len(opp) > 3 else ''})"
+            text += f" ({'; '.join(bits)}{f'; {len(opp) - 3} more' if len(opp) > 3 else ''})"
         out.append(f"{head}{text}." if many else f"{text[0].upper()}{text[1:]}.")
     rest = len(mapped) - _ANSWER_PARTS
     sentence = " ".join(out)
