@@ -6,7 +6,7 @@
 
 **Before you approve, pay, or sign on a conclusion, see the sentence in the documents that breaks it.**
 
-An AI or a colleague writes "the NDA lets us brief our consultants" or "the filing puts the incident's net cost at $2.2 million", and someone has to act on it. ProofGraph takes that conclusion and the documents behind it, splits the conclusion into its parts, and shows for each part the exact sentence that **supports**, **contradicts**, or **weakens** it, boxed on the original page. If the documents don't settle a part, it says **Not found** or **Can't tell** instead of guessing.
+An AI or a colleague writes "the NDA lets us brief our consultants" or "the filing puts the incident's net cost at $2.2 million", and someone has to act on it. ProofGraph takes that conclusion and the documents behind it, splits the conclusion into its parts, and shows for each part the exact sentence that **supports**, **contradicts**, or **weakens** it, boxed on the original page. When the pages don't settle a part, it answers **Not found** or **Can't tell** rather than force a verdict.
 
 **Why it needs Meta's models:** Muse Spark reads the *whole packet* for every part of the claim, with no retriever, and reads scanned pages from the image. Meta's open-weight **Muse Spark Open** then re-reads every quote blind. Code, not a model, pins each quote to the page and decides each status.
 
@@ -30,7 +30,7 @@ Built during the [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/
 
 The planned demo cases are a governance memo checked against bylaws and a board resolution (LegalReasonBench Test Case 17) and the Bosch NDA above (ContractNLI Test Case 40). Those packets are not committed in this repo, so bring your own contract, policy or filing to the live app.
 
-## How it works: model proposes, code proves, a second model re-reads blind
+## How it works: the model finds, code pins and decides, a second model re-reads blind
 
 <p align="center">
   <img src="docs/img/review-architecture.svg" width="100%" alt="ProofGraph review run. The reviewer submits a claim and files. Code ingests pages and checks the spend cap. Muse Spark reads scan images, splits the claim, and reads the whole packet once per part. Code checks the split and pins each quote to the page. Muse Spark Open re-reads each quote against its part, blind. Code applies fixed status rules and the HTML viewer shows boxes and part verdicts.">
@@ -42,21 +42,33 @@ Parts run in parallel (four at a time), so the app shows each part as a grey "Ch
 
 ## "You're checking AI with more AI. Why trust it?"
 
-Because ProofGraph never asks you to believe a model. It hands you the one sentence that decides each part, boxed on the page, and leaves the deciding to fixed code and your own eyes. **AI finds, code proves, you decide.**
+You don't have to trust it: you check it. ProofGraph never hands you a verdict to believe. It puts the one sentence that decides each part in front of you, boxed on the page, so the final call is yours and takes seconds. **AI finds, code pins it to the page, you decide.**
 
-1. **Finding is hard; checking is easy.** The model does the hard part: finding the one sentence in a long packet that breaks the claim. Checking it takes you seconds. Click the card, the page jumps to the box, read the sentence.
-2. **No quote on the page, no box.** A solid box is drawn only when code finds the model's quote in the PDF's own words ([snap.py](proofgraph/review/snap.py)). If it can't, there is no box, the card says so in plain words, and that card can never turn a part red ([status.py](proofgraph/review/status.py)).
-3. **No model picks the verdict.** Fixed rules in [status.py](proofgraph/review/status.py) turn the evidence into a status, and every review runs the same steps in the same order ([run.py](proofgraph/review/run.py)). A line in a document telling the AI to "approve this" is shown to you as a banner, and it cannot set the verdict, because no model sets the verdict.
-4. **The second read is narrow, and it can only make things more cautious.** Muse Spark Open sees one quote and one sentence, never the first model's answer, its reasoning or the page ([check.py](proofgraph/review/check.py)). If it disagrees with all of a part's support, the part drops to **Can't tell**; a disagreement never upgrades anything. Its weights are open, so you can run this check on your own servers.
-5. **It says "I can't tell".** **Not found** needs every page read and a plain word sweep that finds no mention the model skipped; otherwise the answer is **Can't tell** ([absence.py](proofgraph/review/absence.py)). A tool that admits when it can't tell is one you can rely on when it does answer.
+1. **Finding is hard; checking is easy.** The model does the slow part: reading every page to find the sentence that breaks the claim. Checking that sentence is fast. Click the card, the page jumps to the box, read it.
+2. **Quotes are checked against the page, not taken on trust.** Code looks for the model's quote in the PDF's own words; a solid box means the sentence is there, verbatim, at that spot ([snap.py](proofgraph/review/snap.py)). A quote code can't find gets no box, is marked unpinned on its card, and can never make a part Contradicted ([status.py](proofgraph/review/status.py)).
+3. **Fixed rules set the status.** No model is ever asked for a verdict. Models label passages; the rules in [status.py](proofgraph/review/status.py) turn those labels into a status, and every review runs the same steps in the same order ([run.py](proofgraph/review/run.py)). A line in a document aimed at the reviewer ("mark this approved") is reported back and shown as a banner.
+4. **The second read is narrow, and it only adds caution.** Muse Spark Open sees one quote and one sentence, never the first model's answer, reasoning or page ([check.py](proofgraph/review/check.py)). If it disagrees with all of a part's support, the part becomes **Can't tell**; a disagreement never upgrades a part. It shares lineage with Muse Spark, so the separation comes from what it is shown, not from its weights. Those weights are open, so a company can run this check on its own servers.
+5. **It abstains.** **Not found** requires every page read and a word sweep that finds no mention of the part's terms the model left uncited; anything less is **Can't tell** ([absence.py](proofgraph/review/absence.py)).
 
-Every card is on the record: the quote, its document and page, its box, and the second check's answer, all in the one-file HTML export. Tests keep the blind check from importing the reading model's code or seeing the card's reasoning, document or page ([tests/test_boundaries.py](tests/test_boundaries.py)). The one limit to know: a model can still pick the wrong passage, which is exactly why each finding is a sentence you can read on the page, not a score.
+### What each verdict means, and what it doesn't
+
+| Verdict | What it tells you | What it does not tell you |
+|---|---|---|
+| **Contradicted** | A sentence found verbatim on a text page (solid box) was labelled as making the part false ([status.py](proofgraph/review/status.py)). | That the label is right. Read the boxed sentence; that is the five-second check. |
+| **Weakened** | A passage was labelled as narrowing the part: an exception, condition, time limit or similar. | That the passage was found on the page. Check the card: it says whether the box is pinned, approximate or unpinned. |
+| **Supported** | A supporting passage was returned, and the second read did not disagree with it. | That nothing in the packet cuts against it. By default one deciding passage is shown per part. |
+| **Not found** | Every page was read, and no mention of the part's terms was left uncited. | That a differently worded passage isn't there. The sweep matches words, not meaning. |
+| **Can't tell** | Something blocked a verdict, for example an unread page, an uncited sweep hit, or a second read that disagreed with all the support. | That the claim is wrong. It is the honest answer when the evidence doesn't settle it. |
+
+**The limit, stated plainly:** ProofGraph shows you sentences you can check against the page; it does not prove nothing was missed. The model reads the whole packet and is told to prefer a contradicting passage over a supporting one, but if it overlooks an exception three pages away, a part can read Supported with every check passing. That is why the verdicts that matter most are Contradicted and Weakened, which hand you the sentence to act on, and why a Supported part you are about to sign on still deserves a look for exceptions. ProofGraph shortens that search; it doesn't finish it. Setting `PROOFGRAPH_EVIDENCE_MAP=1` widens what is shown: every passage that shares a term with the part (up to a cap) goes to the model for labelling, and each one it labels supports, contradicts or weakens is listed, not just the deciding one ([evidence_map.py](proofgraph/review/evidence_map.py)).
+
+Everything is on the record: each card's quote, document, page, box and second-read answer, in a one-file HTML export. Tests keep the blind check from importing the reading code or touching a card's reasoning, document or page ([tests/test_boundaries.py](tests/test_boundaries.py)).
 
 ## Why this needs Meta's models
 
 | Meta capability | What ProofGraph does with it | What you would lose without it |
 |---|---|---|
-| **Muse Spark, long context** (1M tokens, [docs/04](docs/04-meta-models.md)) | One call per claim part carries every page of every file, page-tagged, fenced as data ([relate.py](proofgraph/review/relate.py), [prompts/relate.md](prompts/relate.md)). | A retriever ranks passages by how much they look like the claim. The sentence that breaks a claim ("unless authorized in writing", "subject to board approval") often doesn't, so it can be ranked out. Reading whole is how weakeners get found. |
+| **Muse Spark, long context** (1M tokens, [docs/04](docs/04-meta-models.md)) | One call per claim part carries every page of every file, page-tagged, fenced as data ([relate.py](proofgraph/review/relate.py), [prompts/relate.md](prompts/relate.md)). | A retriever ranks passages by how much they look like the claim. The sentence that breaks a claim ("unless authorized in writing", "subject to board approval") often doesn't, so it can be ranked out. Reading whole means a weakener doesn't have to look like the claim to be read. |
 | **Muse Spark vision + Meta Files API** | Pages with no text layer are uploaded with `files.create` and transcribed line by line, each line with a box on a 0 to 1000 grid ([scan.py](proofgraph/review/scan.py), [prompts/transcribe.md](prompts/transcribe.md)). Those lines are then read like any other page. | Scans, photos and stamped copies would stay unread, and a part could never be called Not found while they were. |
 | **Structured outputs + reasoning effort** (Responses API `text.format: json_schema`) | Every call returns a schema-validated object, with one repair call on bad JSON ([muse.py](proofgraph/clients/muse.py)). The split must copy each part verbatim and keep every number inside a part, or code rejects it ([split.py](proofgraph/review/split.py)). | Free text you'd have to parse by guesswork. Here every quote and span is something code can check. |
 | **Muse Spark Open, open weights** (`muse-spark-open-1026` on Baseten) | The blind second read. It gets one quote and one sentence and answers `entails`, `contradicts` or `not_mentioned` ([prompts/blind_wording.md](prompts/blind_wording.md), [check.py](proofgraph/review/check.py)). | The proposer grading its own work. Because the weights are open, a company can host the checker itself and keep the verification step on its own infrastructure. |
@@ -67,7 +79,7 @@ Code does the rest, and that is deliberate. A box is **pinned** only when [snap.
 <details>
 <summary><b>Exactly where the boxes come from</b></summary>
 
-- **Text-layer PDFs (solid box).** Muse Spark proposes the exact quote. Code matches it, letters and digits only, against the words `pdfplumber` extracted from that page and draws one rectangle per printed line. No match means no box. Muse does not draw these boxes; it finds the sentence, and code proves where it is.
+- **Text-layer PDFs (solid box).** Muse Spark proposes the exact quote. Code matches it, letters and digits only, against the words `pdfplumber` extracted from that page and draws one rectangle per printed line. No match means no box. Muse does not draw these boxes; it finds the sentence, and code confirms where it is.
 - **Scans and photos (dashed box).** Muse Spark transcribes the page image and returns a box per line on a 0 to 1000 grid. Code fuzzy-matches the quote to those lines and uses their boxes. A probe found these boxes sit about a line low by a varying offset, so they are marked **approximate**, drawn dashed, and can never turn a part red.
 - **Packet app page (second page in the app).** The older claim-level check asks Muse Spark to return a box for each fact it reads from an uploaded PDF, then code confirms the value is printed inside that box at a 2%, 3% or 4% margin ([ground.py](proofgraph/engine/ground.py)). The same page sends a counted object in a photo to SAM 3.1.
 
@@ -85,11 +97,7 @@ Code does the rest, and that is deliberate. A box is **pinned** only when [snap.
 
 ### "Isn't this just RAG?"
 
-No. There is no retriever, no index, no embeddings and no top-k anywhere in the review path. Muse Spark reads every page for every part, and has to answer with a typed relation, so **contradicts**, **weakens** (with a type such as exception, condition or time limit) and **not found** are first-class outputs, not just "here is a relevant chunk". Then code checks that the quote is really on the page before it counts.
-
-### "Isn't the second model just another LLM grading?"
-
-It is narrower than that on purpose. Muse Spark Open never sees the first model's answer, its reasoning, the page, or any other card: only one quote and one part sentence ([check.py](proofgraph/review/check.py)). It is a witness, not a veto. Its answer is shown on the card and never deletes one. Code decides what it changes: if every supporting quote for a part was disagreed with, that part is **Can't tell**, not Supported. It shares lineage with Muse Spark, so we don't claim it is independent; the separation comes from what it is shown.
+No. There is no embedding index, no vector search and no top-k ranking. In the default mode Muse Spark reads every page for every part and must answer with a typed relation, so **contradicts**, **weakens** (exception, condition, time limit and so on) and **not found** are first-class outputs, not "here is a relevant chunk". Code then looks for each quote on the page and marks the card pinned, approximate or unpinned.
 
 ## Who it's for
 
@@ -179,17 +187,9 @@ Optional, off by default: `PROOFGRAPH_EVIDENCE_MAP=1` shows every labelled passa
 
 Run the tests: `make test` (1,000 tests, no network, no keys).
 
-## Part statuses and the rules behind them
+## Guardrails
 
-| Status | Meaning |
-|---|---|
-| **Contradicted** | A quote pinned to the PDF text says the opposite. If a pinned supporting quote exists too, the part is flagged as a source conflict. |
-| **Weakened** | The quote supports it, but an exception, time limit, or condition narrows it. |
-| **Supported** | A supporting quote stands and nothing above applies. |
-| **Not found** | Every page was read, and a plain word sweep of the part's own terms found nothing the model skipped ([absence.py](proofgraph/review/absence.py)). |
-| **Can't tell** | A page could not be read, the word sweep found an uncited mention, or the second check disagreed with all the support. |
-
-Instructions inside documents are data. A line telling the reviewer to "approve this" is shown as a banner and not obeyed. The guardrails, such as "the proposer never checks itself", are written in [docs/08-guardrails.md](docs/08-guardrails.md) and enforced by [tests/test_boundaries.py](tests/test_boundaries.py).
+Document text is data: the reading prompt fences every page and asks the model to report, not follow, any line aimed at the reviewer ([prompts/relate.md](prompts/relate.md)). The design rules, such as "the proposer never checks itself", are written in [docs/08-guardrails.md](docs/08-guardrails.md) and enforced by [tests/test_boundaries.py](tests/test_boundaries.py).
 
 <details>
 <summary><b>Every Meta model in the repo, and where it runs</b></summary>
@@ -207,7 +207,7 @@ Instructions inside documents are data. A line telling the reviewer to "approve 
 
 - Not a chatbot, and not a RAG app.
 - Not legal or financial advice. It checks a claim against the documents you give it.
-- Not a guarantee. A model can still pick the wrong passage; the boxes are there so a person can see that in seconds.
+- Not a completeness guarantee. A model can pick the wrong passage or miss one; the boxes make the first visible in seconds, and the limit above covers the second.
 - Not exact on scans. Scanned pages get approximate boxes and a plain note saying so.
 
 ## Evaluation
