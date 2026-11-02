@@ -18,3 +18,10 @@ Flag-off single-card path (today) versus map mode, same claims and files, same c
 - M7 cost and speed: median cost per review at most $0.08 and median wall time at most 40 seconds.
 - M8 'Referenced, not supplied' nodes are listed for a hand check (reported, not a pass condition).
 Decision: adoptable as an optional flag only if M1 to M6 pass and the human says yes. Otherwise it stays off and unmerged. The recorded demo path stays single-card.
+
+## Result (run once, 2 Nov 2026, 9 cases, no re-runs, spend $0.20 of the $0.60 stop)
+- M1 pass (flag-off replay 0 differences). M2 pass: 26 cards, all pinned, 0 duplicates, all with a document name (date source spans not individually verified; see caveat). M5 pass: relevant share median 23%, max 50%. M6 pass: 0 errors, slowest 20.5 s. M7 pass: median $0.024 and 18.1 s per review (ledger deltas; some calls were cache hits from earlier arms).
+- M3 (reported): of 7 cases with 2 or more documents, 3 showed passages from 2 or more documents (TC1, TC7, TC13); TC2, TC6 and TC15 showed one document, TC5 showed none (0 of 5 examined relevant).
+- M4: one status change against the flag-off arm: TC39 cannot_tell to weakened, from three weakens cards (an exclusion for public information, an expiry after three years, a legally-compelled-disclosure carve-out). Read by the builder, not by the pre-registered Opus panel: relevant qualifiers, not padding. No new reds.
+- Caveats: dates from the 'first page' tier can be an unrelated date (TC39 shows 2002-08-02 on a 2018 file); the sample was seen in earlier experiments; no accuracy claim.
+Decision: M1 to M6 pass, so adoptable as an optional flag if the human says yes; the recorded demo path stays single-card.
