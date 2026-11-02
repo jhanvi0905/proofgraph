@@ -8,6 +8,7 @@
     var act = btn.querySelector(".act");
     if (act) act.textContent = open ? "Close" : "Open";
     if (btn.dataset.shut) btn.textContent = open ? btn.dataset.open : btn.dataset.shut;
+    if (act && btn.dataset.shutAct) act.textContent = open ? "Close" : btn.dataset.shutAct;
   }
   // Unhide every closed group, list and panel above `el`, and mark the button that controls each one as expanded.
   function openAncestors(el) {
@@ -17,7 +18,7 @@
       if (c) setExpanded(c, true); else n.hidden = false;
     }
   }
-  function reveal(card, stayOnRow) {
+  function reveal(card, stayOnRow, quiet) {
     var li = card.closest("li.row"), btn = li.querySelector(".rowbtn");
     rows.forEach(function (r) { if (r !== btn && r.getAttribute("aria-expanded") === "true") setExpanded(r, false); });
     openAncestors(card);
@@ -26,6 +27,7 @@
     var slot = card.querySelector(".slot");
     if (page && slot) slot.appendChild(page);
     show(card);
+    if (quiet) return;
     (stayOnRow ? btn : card).focus({ preventScroll: true });
     var b = document.querySelector('[data-box-for="' + card.dataset.cardId + '"]');
     (b || li).scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -76,3 +78,6 @@
     next.scrollIntoView({ block: "nearest" });
     announce(next.parentElement.querySelector("[data-card-id]"));
   }, true);
+  // The deciding passage starts open. Quiet: no focus move and no scroll, so the page still opens at the top.
+  var first = document.querySelector("[data-default-open]");
+  if (first) reveal(first.parentElement.querySelector("[data-card-id]"), true, true);

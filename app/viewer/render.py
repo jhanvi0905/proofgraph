@@ -64,6 +64,7 @@ CHECK_LABEL = {
     "unavailable": "Second check unavailable",
     "not_run": "Second check not run",
 }
+OPEN_THIS_TEXT = "Open this passage"
 RULE_TEXT = "One passage that goes against a claim is enough to count against it."
 SECOND_CHECK_TEXT = (
     "A second look at this passage alone. Not sure means it did not reach the same label; the finding still counts."
@@ -110,6 +111,7 @@ LEDGER_CSS = (
     ".rule{margin:8px 0 0;font-size:16px;font-weight:600}"
     ".why-line{margin:12px 0 0;border-left:4px solid var(--c);padding-left:12px;overflow-wrap:anywhere}"
     ".why-line a{color:inherit;border-bottom:1px solid currentColor;text-decoration:none}.why-src{display:block;font-size:14px;color:var(--l-muted)}"
+    ".why-open{display:inline-block;margin-top:4px;font-size:14px;font-weight:600}"
     ".why-note{margin:6px 0 0;font-size:14px;color:var(--l-muted)}"
     ".gap-line{border:2px dashed var(--l-muted);border-radius:8px;padding:10px 14px;margin:12px 0 0;background:var(--l-surface);overflow-wrap:anywhere}"
     ".replay-badge{color:var(--l-ink)}.wrap .banner,.wrap .pagenote,.wrap .docnote{font-size:14px;overflow-wrap:anywhere}"
@@ -406,19 +408,22 @@ def _passage(card: Card, entry: MapEntry, names: dict[str, str]) -> str:
     )
 
 
-def _row(entry: MapEntry, names: dict[str, str]) -> str:
+def _row(entry: MapEntry, names: dict[str, str], decide: str | None = None) -> str:
     """One passage as one text row. Everything the reader needs is words: quote, document, page, date, second check."""
     c = entry.card
     full = getattr(names, "full", {}).get(c.doc, c.doc)
     day = _day_or_none(entry.date)
     nc = "" if c.check == "agrees" else " nc"
+    deciding = c.id == decide
+    default = ' data-default-open="true"' if deciding else ""
+    act = f' data-shut-act="{OPEN_THIS_TEXT}"' if deciding else ""
     return (
         f'<li class="row {_e(c.relation)}{nc}">'
-        f'<button type="button" class="rowbtn" aria-expanded="false" aria-controls="p-{_e(c.id)}">'
+        f'<button type="button" class="rowbtn" aria-expanded="false" aria-controls="p-{_e(c.id)}"{default}{act}>'
         f'{_glyph(_REL_GLYPH[c.relation])}<span class="rt"><span class="q">“{_e(c.quote)}”</span>'
         f'<span class="m"><span title="{_e(full)}">{_e(names.get(c.doc, c.doc))}</span> · Page {c.page} · '
         f'{_e(_long_day(day) if day else "No date in this passage")} · Second check: {_SECOND[c.check]}</span></span>'
-        f'<span class="act" aria-hidden="true">Open</span></button>'
+        f'<span class="act" aria-hidden="true">{OPEN_THIS_TEXT if deciding else "Open"}</span></button>'
         f'<div class="panel" id="p-{_e(c.id)}" hidden>{_passage(c, entry, names)}'
         f'<button type="button" class="close">Close</button></div></li>'
     )
@@ -429,14 +434,16 @@ def _order(entries: list[MapEntry], decide: str | None) -> list[MapEntry]:
     return sorted(entries, key=lambda e: (e.card.id != decide, e.card.check != "agrees", e.date is None))
 
 
-def _group(gid: str, label: str, title: str | None, entries: list[MapEntry], opened: bool, names: dict[str, str]) -> str:
+def _group(
+    gid: str, label: str, title: str | None, entries: list[MapEntry], opened: bool, names: dict[str, str], decide: str | None = None
+) -> str:
     """A folded list: a button, then the first rows, then the rest behind 'Show all N'."""
     shown, rest = entries[:_ROW_CAP], entries[_ROW_CAP:]
-    body = f'<ul>{"".join(_row(e, names) for e in shown)}</ul>'
+    body = f'<ul>{"".join(_row(e, names, decide) for e in shown)}</ul>'
     if rest:
         total = f"Show all {len(entries)}"
         body += (
-            f'<ul class="rest" id="{gid}-x" hidden>{"".join(_row(e, names) for e in rest)}</ul>'
+            f'<ul class="rest" id="{gid}-x" hidden>{"".join(_row(e, names, decide) for e in rest)}</ul>'
             f'<button type="button" class="more" aria-expanded="false" aria-controls="{gid}-x" '
             f'data-shut="{total}" data-open="Show fewer">{total}</button>'
         )
@@ -450,7 +457,7 @@ def _group(gid: str, label: str, title: str | None, entries: list[MapEntry], ope
 
 def _open_list(rel: str, entries: list[MapEntry], names: dict[str, str], decide: str | None) -> str:
     label = f"{_COLUMN[rel]} ({len(entries)})"
-    rows = "".join(_row(e, names) for e in _order(entries, decide))
+    rows = "".join(_row(e, names, decide) for e in _order(entries, decide))
     return f'<div class="sub {"against" if rel == "contradicts" else "doubt"}"><h3>{_glyph(_REL_GLYPH[rel])}{_e(label)}</h3><ul>{rows}</ul></div>'
 
 
@@ -465,7 +472,7 @@ def _columns(part: Part, view: MapView, names: dict[str, str], decide: str | Non
             docs.setdefault(e.card.doc, []).append(e)
         full = getattr(names, "full", {})
         groups = "".join(
-            _group(f"g-{part.id}-{n}", names.get(d, d), full.get(d, d), es, n == 0, names) for n, (d, es) in enumerate(docs.items())
+            _group(f"g-{part.id}-{n}", names.get(d, d), full.get(d, d), es, n == 0, names, decide) for n, (d, es) in enumerate(docs.items())
         )
         right = f'<div class="col back"><h3>{_glyph(_REL_GLYPH["supports"])}{_e(_COLUMN["supports"])} ({len(backs)})</h3>{groups}</div>'
     if left and right:
@@ -477,7 +484,7 @@ def _columns(part: Part, view: MapView, names: dict[str, str], decide: str | Non
     else:
         out = '<p class="none">No passages to show for this part.</p>'
     if by["set_aside"]:
-        out += f'<div class="aside">{_group(f"g-{part.id}-aside", _COLUMN["set_aside"], None, by["set_aside"], False, names)}</div>'
+        out += f'<div class="aside">{_group(f"g-{part.id}-aside", _COLUMN["set_aside"], None, by["set_aside"], False, names, decide)}</div>'
     return out
 
 
@@ -631,7 +638,8 @@ def _why(review: Review, card: Card | None, names: dict[str, str], cards: dict[s
     )
     more = "\u2026" if cut != quote else ""
     link = f'<a href="#" data-reveal="{_e(card.id)}">\u201c{_e(cut)}\u201d</a>{more}'
-    out = f'<p class="why-line"><strong>Why</strong> {link} {src}</p>'
+    go = f'<a class="why-open" href="#" data-reveal="{_e(card.id)}">{OPEN_THIS_TEXT}</a>'
+    out = f'<p class="why-line"><strong>Why</strong> {link} {src} {go}</p>'
     opposing = [c for c in cards.values() if c.relation == "contradicts"]
     if card.relation == "contradicts" and len(opposing) == 1 and card.check == "disagrees":
         out += '<p class="why-note">Only one passage goes against it, and the second check was not sure it fits this part.</p>'

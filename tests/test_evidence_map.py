@@ -723,3 +723,41 @@ def test_banned_words_never_show_in_panels_text_aria_or_title(monkeypatch, check
     low = _visible(_html(r, monkeypatch)).lower()
     for t in ("disagree", "failed", "unverified", "wrong", "flagged"):
         assert t not in low, t
+
+
+# ---- Verdict band: the deciding passage opens by default, with a plain action label ----
+def test_only_the_deciding_row_is_marked_to_open_on_load(monkeypatch):
+    r = _tc17_review()
+    h = _html(r, monkeypatch)
+    marked = re.findall(r'<button type="button" class="rowbtn"[^>]*data-default-open="true"', h)
+    assert len(marked) == 1
+    assert re.search(r'class="rowbtn" aria-expanded="false" aria-controls="p-c1" data-default-open="true"', h)
+
+
+def test_nothing_is_marked_when_code_chose_no_deciding_passage(monkeypatch):
+    r = _tc17_review()
+    r.status = "cannot_tell"
+    for p in r.parts:
+        p.status = "cannot_tell"
+    assert "data-default-open" not in re.sub(r"<script.*?</script>", "", _html(r, monkeypatch), flags=re.S)
+
+
+def test_deciding_row_and_why_line_carry_the_plain_action_label_and_rule_stays_once(monkeypatch):
+    h = _html(_tc17_review(), monkeypatch)
+    row = _row_html(_tc17_review(), monkeypatch, "c1")
+    assert 'data-shut-act="Open this passage"' in row and ">Open this passage</span>" in row
+    why = re.search(r'<p class="why-line">(.*?)</p>', h, re.S).group(1)
+    assert 'data-reveal="c1"' in why and "Open this passage" in _txt(why)
+    assert h.count(RULE) == 1
+    other = _row_html(_tc17_review(), monkeypatch, "w1")
+    assert "Open this passage" not in other and 'class="act" aria-hidden="true">Open</span>' in other
+
+
+def test_default_open_runs_quietly_without_focus_or_scroll():
+    js = (Path(__file__).parents[1] / "app" / "viewer" / "map.js").read_text()
+    assert "data-default-open" in js
+    tail = js.split("data-default-open")[1]
+    body = js.split("function reveal(")[1].split("function closeRow")[0]
+    assert re.search(r"if \(quiet\) return;\s*\n\s*\(stayOnRow", body)
+    assert body.index("if (quiet) return;") < body.index(".focus(") < body.index("scrollIntoView")
+    assert "reveal(" in tail and ", true, true)" in tail
