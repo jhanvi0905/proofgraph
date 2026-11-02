@@ -34,7 +34,7 @@ from proofgraph.review.check import Checker, check_cards
 from proofgraph.review.models import (
     Banner, Card, Claim, Doc, Page, Part, PartStatus, Receipt, Review, Run,
 )
-from proofgraph.review.relate import PageText, relate
+from proofgraph.review.relate import PageText, evidence_set_enabled, relate, relate_set, shape
 from proofgraph.review.scan import Transcription, locate, page_text, transcribe
 from proofgraph.review.snap import snap
 from proofgraph.review.split import split
@@ -160,27 +160,36 @@ def _run_part(part: Part, texts: list[PageText], words: dict, scan_lines: dict,
     banners: list[Banner] = []
     cards: list[Card] = []
     done = part.model_copy()
+    use_set = evidence_set_enabled()
     try:
-        found = relate(part.text, texts, muse)
+        if use_set:
+            found_set = relate_set(part.text, texts, muse)
+            founds = shape(found_set.items, found_set.injection_quote)
+            injection = found_set.injection_quote
+        else:
+            one = relate(part.text, texts, muse)
+            founds, injection = [one], one.injection_quote
     except Exception as exc:
         banners.append(_failure_banner(exc))
         done.status = "error"
         done.reason = ("Stopped at the spend cap; nothing was checked." if isinstance(exc, SpendCapReached)
                        else "The model call failed; nothing was checked.")
         return _Outcome(done, cards, banners)
-    if found.injection_quote:
+    if injection:
         banners.append(Banner(kind="injection",
-                              text=f"A page contains an instruction aimed at the reviewer: {found.injection_quote}"))
-    page_words = words.get((found.doc, found.page))
-    transcript = scan_lines.get((found.doc, found.page))
-    if found.relation != "set_aside" and found.quote.strip() and (page_words is not None or transcript is not None):
-        # a text page snaps to its real word boxes; a scan only gets estimated (approximate) boxes
-        pinned = snap(found.quote, page_words) if page_words is not None else locate(found.quote, transcript)
-        card = Card(id=f"{part.id}-c1", part=part.id, relation=found.relation,
-                    weakener_type=found.weakener_type, quote=found.quote, doc=found.doc,
-                    page=found.page, boxes=pinned.boxes, box_status=pinned.status,
-                    why=found.why, check="not_run")
-        cards = check_cards([card], [part], checker=checker)
+                              text=f"A page contains an instruction aimed at the reviewer: {injection}"))
+    for found in founds:
+        page_words = words.get((found.doc, found.page))
+        transcript = scan_lines.get((found.doc, found.page))
+        if found.relation != "set_aside" and found.quote.strip() and (page_words is not None or transcript is not None):
+            # a text page snaps to its real word boxes; a scan only gets estimated (approximate) boxes
+            pinned = snap(found.quote, page_words) if page_words is not None else locate(found.quote, transcript)
+            cards.append(Card(id=f"{part.id}-c{len(cards) + 1}", part=part.id, relation=found.relation,
+                              weakener_type=found.weakener_type, quote=found.quote, doc=found.doc,
+                              page=found.page, boxes=pinned.boxes, box_status=pinned.status,
+                              why=found.why, check="not_run"))
+    if cards:
+        cards = check_cards(cards, [part], checker=checker)
     complete = build_receipt(part.text, sweep, cards).complete
     done.status, done.conflict = part_status(cards, receipt_complete=complete)
     done.card_ids = [c.id for c in cards]

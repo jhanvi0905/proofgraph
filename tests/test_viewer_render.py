@@ -22,6 +22,10 @@ def test_one_element_per_card(review):
 
 
 def test_cards_grouped_by_relation(review):
+    # Legacy order applies when every part has one card: give c2 its own part.
+    review.parts.append(review.parts[0].model_copy(update={"id": "P2", "conflict": False, "card_ids": ["c2"]}))
+    review.parts[0].card_ids, review.parts[0].conflict = ["c1"], False
+    review.cards[1].part = "P2"
     html = render(review)
     assert html.index("Contradicts") < html.index("Supports")
     assert html.index('data-card-id="c1"') < html.index('data-card-id="c2"')
@@ -327,3 +331,86 @@ def test_card_meta_shows_the_document_name_not_its_id(review):
         meta = re.search(rf'data-card-id="{re.escape(card.id)}".*?<p class="meta">(.*?)</p>', html, re.S).group(1)
         assert meta.startswith(f"{names[card.doc]} p{card.page}")
         assert f'data-doc="{card.doc}"' in html
+
+
+# ---- evidence-set multi-card display ----
+
+GOLDEN = Path(__file__).parent / "fixtures" / "viewer_single_card_golden.html"
+
+
+def _single(review):
+    r = review.model_copy(deep=True)
+    r.cards = [c for c in r.cards if c.id == "c1"]
+    r.parts[0].card_ids, r.parts[0].conflict = ["c1"], False
+    return r
+
+
+def test_single_card_review_is_byte_identical_to_golden(review):
+    assert render(_single(review), {("d1", 1): b"abc"}) == GOLDEN.read_text()
+
+
+def _multi(review):
+    """P1 (conflict): c1 contradicts d1, c2 supports d2, c3 weakens (disagreed). P2: one card."""
+    r = review.model_copy(deep=True)
+    r.docs.append(r.docs[0].model_copy(deep=True, update={"id": "d2", "name": "Side <b>letter</b>.pdf"}))
+    r.docs[1].pages = [r.docs[0].pages[0]]
+    c1, c2 = r.cards
+    c2.doc = "d2"
+    c3 = c1.model_copy(update={"id": "c3", "relation": "weakens", "check": "disagrees", "check_answer": "not_mentioned"})
+    c4 = c2.model_copy(update={"id": "c4", "part": "P2", "doc": "d1"})
+    r.parts[0].card_ids = ["c1", "c2", "c3"]
+    r.parts.append(r.parts[0].model_copy(update={"id": "P2", "status": "supported", "conflict": False, "card_ids": ["c4"]}))
+    r.cards = [c1, c3, c2, c4]
+    return r
+
+
+def test_multi_card_orders_supports_first(review):
+    html = render(_multi(review))
+    pos = {i: html.index(f'data-card-id="{i}"') for i in ("c1", "c2", "c3", "c4")}
+    assert pos["c2"] < pos["c3"] < pos["c1"]
+    assert html.index("<h3>Supports") < html.index(NOT_HOLD) < html.index("<h3>Contradicts")
+    assert html.count(NOT_HOLD) == 1
+
+
+def test_not_hold_up_heading_absent_in_single_card(review):
+    assert NOT_HOLD not in render(_single(review))
+
+
+def test_multi_card_conflict_strip_names_both_docs_escaped(review):
+    html = render(_multi(review))
+    assert "Sources disagree: Bosch_NDA.pdf vs Side &lt;b&gt;letter&lt;/b&gt;.pdf" in html or \
+        "Sources disagree: Side &lt;b&gt;letter&lt;/b&gt;.pdf vs Bosch_NDA.pdf" in html
+    assert "<b>letter" not in html.split('<script type="application/json"')[0]
+    assert html.count('class="conflict"') == 1
+
+
+def test_only_one_passage_note_on_single_card_part_in_multi_mode(review):
+    html = render(_multi(review))
+    assert html.count("Only one passage found") == 1
+    assert html.index("Only one passage found") > html.index('data-part-id="P2"')
+
+
+def test_disagreed_card_goes_in_weaker_details_but_stays_in_dom(review):
+    html = render(_multi(review))
+    m = re.search(r'<details class="weaker"><summary>([^<]*)</summary>(.*?)</details>', html, re.S)
+    assert m.group(1) == "Weaker evidence: the second check did not confirm this quote"
+    assert 'data-card-id="c3"' in m.group(2) and 'data-part="P1"' in m.group(2)
+    assert 'data-doc="d1"' in m.group(2) and 'data-page="1"' in m.group(2)
+    assert "Second check disagrees" in m.group(2)
+    assert 'data-card-id="c1"' not in m.group(2)
+
+
+def test_multi_card_every_card_once_and_doc_names_shown(review):
+    r = _multi(review)
+    html = render(r)
+    ids = re.findall(r'<article[^>]*\bdata-card-id="([^"]+)"', html)
+    assert sorted(ids) == sorted(c.id for c in r.cards)
+    assert "Bosch_NDA.pdf p1" in html
+
+
+def test_single_card_has_no_multi_extras(review):
+    html = render(_single(review))
+    assert "Only one passage" not in html and "<details" not in html and "details.weaker" not in html
+
+
+NOT_HOLD = "Where it does not hold up"

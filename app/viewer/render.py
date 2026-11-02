@@ -54,6 +54,30 @@ NOT_DOUBLE_CHECKED_TEXT = "Not double-checked"
 REPLAY_TEXT = "Replayed from a saved run, not a live check"
 
 
+# Multi-card mode only (some part has 2+ cards): supports first, bad news last.
+MULTI_GROUPS = [
+    ("supports", "Supports"),
+    ("weakens", "Weakens"),
+    ("contradicts", "Contradicts"),
+    ("set_aside", "Set aside"),
+]
+NOT_HOLD_UP_TEXT = "Where it does not hold up"
+WEAKER_TEXT = "Weaker evidence: the second check did not confirm this quote"
+ONE_PASSAGE_TEXT = "Only one passage found"
+# Appended only in multi-card mode so single-card output stays byte-identical.
+MULTI_CSS = (
+    "<style>.group-sub{margin:14px 0 0;font-size:12px;font-weight:600;color:var(--mut)}"
+    "details.weaker{margin:0 0 8px}details.weaker>summary{cursor:pointer;color:var(--mut);margin-bottom:6px}"
+    ".one-passage{margin:4px 0 0;color:var(--mut)}</style>"
+)
+# A card in a closed <details> cannot take focus, so open them before j/k/[/] navigation.
+MULTI_JS = (
+    "<script>document.addEventListener('keydown',function(e){"
+    "if('jk[]'.indexOf(e.key)<0||e.ctrlKey||e.metaKey||e.altKey)return;"
+    "document.querySelectorAll('details.weaker').forEach(function(d){d.open=true;});},true);</script>"
+)
+
+
 def _e(value: object) -> str:
     return html.escape(str(value), quote=True)
 
@@ -62,10 +86,27 @@ def _pct(value: int) -> str:
     return f"{value / 10:g}%"
 
 
-def _part(part: Part, reason_kind: str | None = None) -> str:
-    conflict = (
-        '<p class="conflict">Sources disagree on this part.</p>' if part.conflict else ""
-    )
+def _conflict_names(part: Part, cards: list[Card], names: dict[str, str]) -> str:
+    own = [c for c in cards if c.part == part.id]
+    sup = next((c for c in own if c.relation == "supports"), None)
+    con = next((c for c in own if c.relation == "contradicts"), None)
+    if sup is None or con is None:
+        return "Sources disagree on this part."
+    a, b = names.get(sup.doc, sup.doc), names.get(con.doc, con.doc)
+    return f"Sources disagree: {_e(a)} vs {_e(b)}"
+
+
+def _part(
+    part: Part,
+    reason_kind: str | None = None,
+    multi: tuple[list[Card], dict[str, str]] | None = None,
+) -> str:
+    conflict = ""
+    if part.conflict:
+        text = "Sources disagree on this part." if multi is None else _conflict_names(part, *multi)
+        conflict = f'<p class="conflict">{text}</p>'
+    if multi is not None and sum(c.part == part.id for c in multi[0]) == 1:
+        conflict += f'<p class="one-passage">{ONE_PASSAGE_TEXT}</p>'
     reason = f'<p class="reason">{_e(part.reason)}</p>' if part.reason else ""
     help_ = ""
     if part.status in STATE_HELP:
@@ -116,6 +157,28 @@ def _cards(cards: list[Card], reasons: dict[str, str | None], names: dict[str, s
     return "".join(out)
 
 
+def _cards_multi(cards: list[Card], reasons: dict[str, str | None], names: dict[str, str]) -> str:
+    per_part: dict[str, int] = {}
+    for c in cards:
+        per_part[c.part] = per_part.get(c.part, 0) + 1
+    out, sub_done = [], False
+    for relation, label in MULTI_GROUPS:
+        group = [c for c in cards if c.relation == relation]
+        if not group:
+            continue
+        weak = [c for c in group if c.check == "disagrees" and per_part[c.part] > 1]
+        main = [c for c in group if c not in weak]
+        html_ = "".join(_card(c, reasons.get(c.part), names.get(c.doc)) for c in main)
+        if weak:
+            inner = "".join(_card(c, reasons.get(c.part), names.get(c.doc)) for c in weak)
+            html_ += f'<details class="weaker"><summary>{WEAKER_TEXT}</summary>{inner}</details>'
+        if relation in ("weakens", "contradicts") and not sub_done:
+            out.append(f'<p class="group-sub">{NOT_HOLD_UP_TEXT}</p>')
+            sub_done = True
+        out.append(f'<section class="group"><h3>{label}</h3>{html_}</section>')
+    return "".join(out)
+
+
 def _page(doc: Doc, page: Page, cards: list[Card], images: dict[tuple[str, int], bytes]) -> str:
     data = images.get((doc.id, page.n))
     if data is None:
@@ -161,15 +224,25 @@ def render(
     banners = "".join(map(_banner, review.banners))
     badge = f'<p class="replay-badge" role="note">{REPLAY_TEXT}</p>' if replay else ""
     reasons = {p.id: supports_reason(c for c in review.cards if c.part == p.id) for p in review.parts}
+    names = {d.id: d.name for d in review.docs}
+    counts: dict[str, int] = {}
+    for c in review.cards:
+        counts[c.part] = counts.get(c.part, 0) + 1
+    is_multi = any(n >= 2 for n in counts.values())
+    multi = (review.cards, names) if is_multi else None
+    cards_html = (_cards_multi if is_multi else _cards)(review.cards, reasons, names)
     pages = "".join(_page(d, p, review.cards, images) for d in review.docs for p in d.pages)
     # "<" escaped so the JSON can never close its script tag.
     data = review.model_dump_json().replace("<", "\\u003c")
     body = (
         f'<header><h1>{_e(STATUS_LABEL[review.status])}</h1><p class="claim">{_e(review.claim.text)}</p>'
         f"{badge}{banners}</header>"
-        f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id]) for p in review.parts)}</ul>{notes}</nav>'
-        f'<section aria-label="Evidence cards">{_cards(review.cards, reasons, {d.id: d.name for d in review.docs})}</section>'
+        f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id], multi) for p in review.parts)}</ul>{notes}</nav>'
+        f'<section aria-label="Evidence cards">{cards_html}</section>'
         f'<section aria-label="Page">{pages}</section></main>'
         f'<script type="application/json" id="review">{data}</script>'
     )
-    return TEMPLATE.read_text().replace("<!--BODY-->", body)
+    out = TEMPLATE.read_text().replace("<!--BODY-->", body)
+    if is_multi:
+        out = out.replace("</head>", MULTI_CSS + "</head>", 1).replace("</body>", MULTI_JS + "</body>", 1)
+    return out
