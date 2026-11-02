@@ -27,8 +27,9 @@ from typing import Any, Protocol
 
 from proofgraph.review.absence import _term_tokens, _tokenise
 
-CANDIDATE_RULE_VERSION = "candidates-1"
+CANDIDATE_RULE_VERSION = "candidates-2"
 DEFAULT_CAP = 40
+UNIT_MAX = 400  # a longer list item is cut at sentence ends into pieces of about this size
 CONTEXT_MAX = 120
 
 _ABBREVIATIONS = frozenset("""
@@ -118,6 +119,22 @@ def _trim(text: str, start: int, end: int) -> tuple[int, int]:
     return start, end
 
 
+def _pieces(text: str, start: int, end: int) -> list[tuple[int, int]]:
+    """A list item cut at sentence ends into pieces of at most UNIT_MAX characters where it can be.
+    The marker stays on the first piece. A single sentence longer than the cap stays whole."""
+    if end - start <= UNIT_MAX:
+        return [(start, end)]
+    pieces: list[tuple[int, int]] = []
+    first, last = start, start  # the piece being built, and where its last sentence ended
+    for a, b in _sentences(text[start:end], start):
+        if last > first and b - first > UNIT_MAX:
+            pieces.append(_trim(text, first, last))
+            first = a
+        last = b
+    pieces.append(_trim(text, first, last))
+    return [(a, b) for a, b in pieces if a < b]
+
+
 def _units(text: str) -> list[_Unit]:
     units: list[_Unit] = []
     block: tuple[int, int, str] | None = None  # start, end, kind
@@ -134,7 +151,8 @@ def _units(text: str) -> list[_Unit]:
         if s >= e:
             return
         if kind == "list":
-            units.append(_Unit(s, e, "list"))
+            for a, b in _pieces(text, s, e):
+                units.append(_Unit(a, b, "list"))
         else:
             for a, b in _sentences(text[s:e], s):
                 a, b = _trim(text, a, b)

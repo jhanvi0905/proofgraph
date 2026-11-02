@@ -26,6 +26,8 @@ from proofgraph.review.models import GRID, Box, BoxStatus
 
 FUZZY_RATIO = 0.9
 MIN_FUZZY_CHARS = 20  # shorter quotes must match exactly; a near match on a few letters means little
+MAX_FUZZY_CHARS = 400  # a longer target is never searched approximately: the search is quadratic in its length
+_FUZZY_BUDGET = 2_000_000  # words x quote characters; above this the approximate search is skipped
 _LENGTH_SLACK = (0.8, 1.25)  # windows outside this length band cannot reach FUZZY_RATIO
 PAD = 3  # grid units added around each line so the drawn box clears the glyphs
 _SAME_LINE_OVERLAP = 0.5  # share of the shorter word height that must overlap vertically
@@ -110,7 +112,9 @@ def _word_boxes(
 
 def _fuzzy(target: str, page: str, offsets: list[int]) -> tuple[int, int] | None:
     """Best whole-word window at or above FUZZY_RATIO, as a character range."""
-    if len(target) < MIN_FUZZY_CHARS:
+    if len(target) < MIN_FUZZY_CHARS or len(target) > MAX_FUZZY_CHARS:
+        return None
+    if (len(offsets) - 1) * len(target) > _FUZZY_BUDGET:
         return None
     low, high = (round(len(target) * f) for f in _LENGTH_SLACK)
     matcher = SequenceMatcher(None, autojunk=False)

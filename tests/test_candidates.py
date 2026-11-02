@@ -114,3 +114,48 @@ def test_no_terms_or_no_text_gives_nothing():
     assert build_candidates("", [page("The tenant paid.")]).candidates == ()
     r = build_candidates(CLAIM, [AbsencePage("d1", 1, None)])
     assert r.candidates == () and r.total_matched == 0 and not r.truncated
+
+
+# ----------------------------------------------------------------------------- snap-ability and unit cap
+
+def _layout(rows):
+    """Words laid out like a PDF text layer: rows of (y, [(text, y_offset)]) left to right."""
+    from proofgraph.review.ingest import Word
+    words = []
+    for y, row in rows:
+        x = 100
+        for text, dy in row:
+            words.append(Word(text, (x, y + dy, x + 40, y + dy + 10)))
+            x += 45
+    return words
+
+
+def test_every_candidate_is_an_exact_match_on_the_page_words(monkeypatch):
+    monkeypatch.setenv("PROOFGRAPH_EVIDENCE_MAP", "1")  # the by-line word ordering is part of map mode
+    from proofgraph.review.run import _page_text
+    from proofgraph.review.snap import _exact, _normalise, snap
+    row1 = [(w, 0) for w in "Notes and other business information.".split()]
+    # a bold run-in heading whose boxes sit a few units off the baseline of the body text
+    row2 = [("2.", 0), ("PERIOD", 3), ("OF", 3), ("DEPOSIT.", 3), ("The", 0), ("tenant", 0), ("paid", 0), ("the", 0), ("deposit", 0)]
+    row3 = [(w, 0) for w in "to the landlord in full.".split()]
+    footer = [("Page", 0), ("1", 0), ("of", 0), ("4", 0)]
+    words = _layout([(100, row1), (120, row2), (140, row3), (900, footer)])
+    text = _page_text(words)
+    cands = build_candidates(CLAIM, [page(text)]).candidates
+    assert cands
+    page_string = "".join(_normalise(w.text) for w in words)
+    for c in cands:
+        assert _exact(_normalise(c.text), page_string) is not None, c.text
+        assert snap(c.text, words).status == "pinned"
+
+
+def test_long_list_item_is_cut_at_sentence_ends_and_pieces_cover_it():
+    sentence = "The tenant paid the deposit and shall keep every receipt for the records of the landlord."
+    item = "5. " + " ".join([sentence] * 12)
+    assert len(item) > 800
+    r = build_candidates(CLAIM, [page(item)], cap=100)
+    assert len(r.candidates) > 1
+    assert all(len(c.text) <= 400 for c in r.candidates)
+    assert r.candidates[0].text.startswith("5. The tenant")
+    assert " ".join(c.text for c in r.candidates) == item
+    assert r.rule_version == "candidates-2"

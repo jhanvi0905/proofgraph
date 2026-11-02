@@ -317,11 +317,14 @@ def _assemble(claim: str, muse: MuseClient, docs: list[Doc], images: dict, parts
 
 
 def _page_text(words: list) -> str:
-    lines: list[list[str]] = []
+    lines: list[list] = []
     top = None
     for word in sorted(words, key=lambda w: (w.box[1], w.box[0])):
         if top is None or word.box[1] - top > LINE_GAP:
             lines.append([])
             top = word.box[1]
-        lines[-1].append(word.text)
-    return "\n".join(" ".join(line) for line in lines)
+        lines[-1].append(word)
+    if not evidence_map_on():  # flag off keeps the original word order (and the cached prompts) unchanged
+        return "\n".join(" ".join(w.text for w in line) for line in lines)
+    # words on one printed line can differ slightly in top (bold run-in heading), so order each line by x
+    return "\n".join(" ".join(w.text for w in sorted(line, key=lambda w: w.box[0])) for line in lines)
