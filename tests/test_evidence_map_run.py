@@ -147,3 +147,63 @@ def test_render_no_duplicate_cards_and_irrelevant_never_shown():
     assert "catalogue" not in body
     assert "1 matched passages were judged not to bear on this part by the labelling step." in html
     assert all(i.card_id in {c.id for c in review.cards} for i in review.parts[0].evidence_map if i.kind == "card")
+
+
+# ---- semantic read: a passage that shares no claim word is added to the candidates and labelled like any other
+
+HIDDEN = "Any carrier handover must complete inside 45 hours after dispatch."
+
+
+class SuggestMuse(Muse):
+    def __init__(self, labels, pick=None, exc=None):
+        super().__init__(labels)
+        self.pick, self.rexc = pick, exc
+
+    def structured(self, prompt, model):
+        if model.__name__ == "Relate":
+            if self.rexc:
+                raise self.rexc
+            return model.model_validate(self.pick)
+        return super().structured(prompt, model)
+
+
+def _hidden_run(muse, monkeypatch=None):
+    texts = TEXTS + [PageText("dD", 1, "Date: 2026-02-02\nUnrelated heading.\n" + HIDDEN)]
+    words = dict(WORDS)
+    words[("dD", 1)] = _words(texts[-1].text)
+    part = Part(id="p1", text=CLAIM, span=(0, len(CLAIM)), status="checking")
+    return run_mod._run_part(part, texts, words, {}, [], muse, lambda q, p: "entails", {**NAMES, "dD": "D.pdf"})
+
+
+def _pick(quote=HIDDEN, rel="contradicts", doc="dD"):
+    return {"relation": rel, "weakener_type": "time", "quote": quote, "doc": doc, "page": 1, "why": "w"}
+
+
+def _rule(doc, text):
+    return "contradicts" if "45 hours" in text else _by_text(doc, text)
+
+
+def test_suggested_passage_joins_map_and_drives_status():
+    out = _hidden_run(SuggestMuse(_label(_rule), _pick()))
+    assert any(c.doc == "dD" and c.relation == "contradicts" for c in out.cards)
+    assert out.part.map_counts["suggested"] == 1
+    only = _hidden_run(SuggestMuse(_label(lambda d, t: "contradicts" if "45 hours" in t else "irrelevant"), _pick()))
+    assert (only.part.status, len(only.cards)) == ("contradicted", 1)
+
+
+def test_suggested_passage_can_be_labelled_irrelevant():
+    out = _hidden_run(SuggestMuse(_label(_by_text), _pick()))
+    assert all(c.doc != "dD" for c in out.cards) and out.part.map_counts["suggested"] == 1
+
+
+def test_no_suggestion_behaves_as_before():
+    base = _hidden_run(Muse(_label(_rule)))  # relate call fails validation and is ignored
+    assert base.part.map_counts["suggested"] == 0 and all(c.doc != "dD" for c in base.cards)
+    for pick in (_pick(rel="set_aside"), _pick(quote=""), _pick(quote="not on the page at all"), _pick(doc="zz")):
+        out = _hidden_run(SuggestMuse(_label(_rule), pick))
+        assert out.part.map_counts["suggested"] == 0 and [c.quote for c in out.cards] == [c.quote for c in base.cards]
+
+
+def test_spend_cap_propagates_from_semantic_read():
+    out = _hidden_run(SuggestMuse(_label(_rule), exc=SpendCapReached("cap")))
+    assert out.part.status == "error"

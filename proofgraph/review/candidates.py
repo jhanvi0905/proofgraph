@@ -20,6 +20,7 @@ on a candidate; since a candidate already shares a term, a cue never adds a unit
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -58,6 +59,7 @@ class Candidate:
     terms: tuple[str, ...]  # claim terms found in the unit, first-appearance order
     cues: tuple[str, ...] = ()
     context: str = ""  # a table row's header line; empty otherwise
+    source: str = "code"  # "suggested" when it came from the semantic read, not from shared terms
 
 
 @dataclass(frozen=True)
@@ -204,6 +206,25 @@ def build_candidates(part_text: str, pages: Sequence[PageLike], cap: int = DEFAU
         cues = tuple(dict.fromkeys(m.group().lower() for m in _CUE.finditer(text)))
         out.append(Candidate(f"k{n}", doc, page, text, u.start, u.kind, terms, cues, u.context))
     return CandidateSet(CANDIDATE_RULE_VERSION, tuple(out), len(found), len(out), len(out) < len(found), cap)
+
+
+def unit_for(page_text: str, quote: str, doc: str, page: int) -> Candidate | None:
+    """The unit holding an exact (letters and digits only, case-folded) occurrence of ``quote``, else None."""
+    keep = [(i, ch) for i, c in enumerate(page_text) for ch in unicodedata.normalize("NFKC", c).casefold()
+            if ch.isalnum()]
+    target = "".join(ch for c in quote for ch in unicodedata.normalize("NFKC", c).casefold() if ch.isalnum())
+    hay = "".join(c for _, c in keep)
+    at = hay.find(target) if target else -1
+    if at < 0:
+        return None
+    units = _units(page_text)
+    i = _unit_index([u.start for u in units], units, keep[at][0])
+    if i is None:
+        return None
+    u = units[i]
+    text = page_text[u.start:u.end]
+    cues = tuple(dict.fromkeys(m.group().lower() for m in _CUE.finditer(text)))
+    return Candidate("", doc, page, text, u.start, u.kind, (), cues, u.context, "suggested")
 
 
 def _unit_index(starts: list[int], units: list[_Unit], offset: int) -> int | None:
