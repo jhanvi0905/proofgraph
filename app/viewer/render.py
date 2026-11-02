@@ -2,6 +2,8 @@
 
 import base64
 import html
+import re
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
@@ -52,6 +54,19 @@ CHECK_LABEL = {
     "unavailable": "Second check unavailable",
     "not_run": "Second check not run",
 }
+SECOND_READ = {
+    "agrees": "Second read of this quote alone: confirmed.",
+    "disagrees": "Second read of this quote alone: not settled.",
+    "unavailable": CHECK_LABEL["unavailable"],
+    "not_run": CHECK_LABEL["not_run"],
+}
+_SEES = "It sees only the quote and the part."
+_LABELLED = {"supports": "as support", "contradicts": "as contradicting", "weakens": "as weakening"}
+_SAW = {
+    "entails": "found it supports this part",
+    "contradicts": "found it goes against this part",
+    "not_mentioned": "found it does not mention this part",
+}
 UNCONFIRMED_TEXT = "The second check did not confirm the supporting quote."
 NOT_DOUBLE_CHECKED_TEXT = "Not double-checked"
 REPLAY_TEXT = "Replayed from a saved run, not a live check"
@@ -63,6 +78,7 @@ EVIDENCE_CSS = (
     ".ev-list{margin:4px 0 0}.ev-list li{margin:4px 0}"
     ".map{list-style:none;padding:0}.map>li{margin:6px 0}.map-date,.map-rel{font-size:.85em;color:var(--mut)}"
     ".map-rel{font-weight:600;margin-right:6px}.map-undated{font-weight:600;border-top:1px solid var(--gry);padding-top:4px}"
+    ".mark.second-read{font-weight:600;color:var(--mut)}"
     ".map-ref{border:1px dashed var(--gry);border-radius:4px;padding:4px 8px}</style>"
 )
 
@@ -116,6 +132,123 @@ MAP_LIMIT_TEXT = "Text pages only; {n} passages in {m} documents examined; scans
 MAP_DATE_TEXT = "Dates are inferred from the text, not legal dates."
 
 
+@dataclass
+class MapEntry:
+    """One card in the map. `also` holds near-duplicates merged into it (same relation, same check state)."""
+
+    card: Card
+    date: str | None
+    date_source: str | None
+    also: list[Card] = field(default_factory=list)
+
+
+@dataclass
+class MapRef:
+    """One distinct unsupplied reference, cited `count` times."""
+
+    text: str
+    count: int
+    places: list[tuple[str | None, int | None]]
+
+
+@dataclass
+class MapView:
+    entries: list[MapEntry]
+    disagreeing: list[MapEntry]
+    refs: list[MapRef]
+
+
+def _ref_key(text: str | None) -> str:
+    return " ".join(re.sub(r"[^\w\s]", " ", (text or "").casefold()).split())
+
+
+def _near(a: MapEntry, b: MapEntry) -> bool:
+    x, y = a.card, b.card
+    if x.relation != y.relation or x.doc != y.doc:
+        return False
+    return x.page == y.page or (abs(x.page - y.page) == 1 and a.date == b.date)
+
+
+def _map_items(part: Part, cards: dict[str, Card]) -> MapView:
+    """Pure: dedupe references, merge near-duplicates inside one relation, split out unsettled second reads."""
+    refs: dict[str, MapRef] = {}
+    pools: tuple[list[MapEntry], list[MapEntry]] = ([], [])
+    for it in part.evidence_map or []:
+        if it.kind == "referenced":
+            ref = refs.setdefault(_ref_key(it.ref_text), MapRef(it.ref_text or "", 0, []))
+            ref.count += 1
+            ref.places.append((it.ref_doc, it.ref_page))
+            continue
+        if it.card_id not in cards:
+            continue
+        card = cards[it.card_id]
+        entry = MapEntry(card, it.date, it.date_source)
+        pool = pools[card.check == "disagrees"]
+        primary = next((e for e in pool if _near(e, entry)), None)
+        if primary:
+            primary.also.append(card)
+        else:
+            pool.append(entry)
+    return MapView(pools[0], pools[1], list(refs.values()))
+
+
+def _day(d: date, year: bool) -> str:
+    return f"{d.day} {d:%b}" + (f" {d.year}" if year else "")
+
+
+def _summary(entries: list[MapEntry], names: dict[str, str]) -> str:
+    """One line from counts, document names and dates only. No model text."""
+    cards = [c for e in entries for c in (e.card, *e.also)]
+    docs = list(dict.fromkeys(names.get(c.doc, c.doc) for c in cards))
+    out = f"{_n(len(cards), 'passage')} from {', '.join(docs)}"
+    days = []
+    for e in entries:
+        try:
+            days.append(date.fromisoformat(e.date)) if e.date else None
+        except ValueError:
+            pass
+    if days:
+        lo, hi = min(days), max(days)
+        if lo == hi:
+            out += f", {_day(lo, True)}"
+        else:
+            out += f", {_day(lo, lo.year != hi.year)} to {_day(hi, True)}"
+    return out
+
+
+def _class_header(label: str, cards: list[Card]) -> str:
+    """Class header: N = confirmed + not settled + without a second read, so no card is silent."""
+    c = sum(x.check == "agrees" for x in cards)
+    s = sum(x.check == "disagrees" for x in cards)
+    u = len(cards) - c - s
+    clauses = [
+        t
+        for n, t in (
+            (c, f"{c} confirmed by a second read of its quote alone"),
+            (s, f"{s} need other passages to settle"),
+            (u, f"{u} without a second read"),
+        )
+        if n
+    ]
+    return f"{label} ({len(cards)}): {', '.join(clauses)}." if clauses else f"{label} ({len(cards)})"
+
+
+def _part_summary(part: Part, cards: dict[str, Card], names: dict[str, str]) -> str:
+    """Counts-and-sources line from card fields and map counts. Irrelevant is counted, never rendered."""
+    mine = [c for c in cards.values() if c.part == part.id]
+    by = {r: sum(c.relation == r for c in mine) for r in ("supports", "contradicts", "weakens")}
+    irrelevant = max((part.map_counts or {}).get("examined", 0) - (part.map_counts or {}).get("relevant", 0), 0)
+    docs = len({c.doc for c in mine})
+    out = (
+        f"{by['supports']} supports, {by['contradicts']} contradicts, {by['weakens']} weakens, "
+        f"{irrelevant} irrelevant (hidden), from {docs} of {len(names)} documents"
+    )
+    r = len(_map_items(part, cards).refs)
+    if r:
+        out += f"; {_n(r, 'document')} referenced, not supplied"
+    return out
+
+
 def _map(part: Part, cards: dict[str, Card], names: dict[str, str], reasons: dict[str, str | None]) -> str:
     """Ordered evidence map under a part (flag on only): one list, dates inferred, relation as a word."""
     n = (part.map_counts or {}).get("examined", 0)
@@ -140,13 +273,14 @@ def _map(part: Part, cards: dict[str, Card], names: dict[str, str], reasons: dic
         seen_dated = seen_dated or bool(when)
         items.append(
             f'<li><span class="map-rel">{_e(dict(GROUPS)[c.relation])}</span><span class="map-date">{_e(label)}</span>'
-            f"{_card(c, reasons.get(c.part), names.get(c.doc), True)}</li>"
+            f"{_card(c, reasons.get(c.part), names.get(c.doc), True, True)}</li>"
         )
     limit = MAP_LIMIT_TEXT.format(n=n, m=len(names))
     skipped = n - (part.map_counts or {}).get("relevant", 0)
     if skipped > 0:
         limit += f" {skipped} matched passages were judged not to bear on this part by the labelling step."
-    return f'<p class="ev ev-limit">{_e(limit)} {_e(MAP_DATE_TEXT)}</p><ol class="map">{"".join(items)}</ol>'
+    summary = f'<p class="ev ev-summary">{_e(_part_summary(part, cards, names))}</p>'
+    return f'{summary}<p class="ev ev-limit">{_e(limit)} {_e(MAP_DATE_TEXT)}</p><ol class="map">{"".join(items)}</ol>'
 
 
 def _part(part: Part, reason_kind: str | None = None, names: dict[str, str] | None = None, extra: str = "") -> str:
@@ -173,7 +307,9 @@ def _part(part: Part, reason_kind: str | None = None, names: dict[str, str] | No
     )
 
 
-def _card(card: Card, reason_kind: str | None = None, doc_name: str | None = None, plain: bool = False) -> str:
+def _card(
+    card: Card, reason_kind: str | None = None, doc_name: str | None = None, plain: bool = False, second_read: bool = False
+) -> str:
     unchecked = (
         f' <span class="not-double-checked">{NOT_DOUBLE_CHECKED_TEXT}</span>'
         if reason_kind == "not_double_checked" and card.relation == "supports" and card.check != "disagrees"
@@ -185,7 +321,19 @@ def _card(card: Card, reason_kind: str | None = None, doc_name: str | None = Non
         weakener += f" · {_e(phrase)}"
     computed = f'<p class="computed">{_e(card.computed.text)}</p>' if card.computed else ""
     line = check_reason(card.relation, card.check, card.check_answer)
+    if second_read and line:
+        saw = _SAW.get(card.check_answer)
+        line = (
+            f"The second read of this quote alone {saw}, while this card is labelled {_LABELLED[card.relation]}. {_SEES}"
+            if saw and card.relation in _LABELLED
+            else f"The second read of this quote alone is not available here. {_SEES}"
+        )
     answer = f'<p class="reason-line check-answer">{_e(line)}</p>' if line else ""
+    if second_read:
+        text = _e(SECOND_READ[card.check])
+        badge = f'<span class="mark second-read" aria-label="{text}">{text}</span>'
+    else:
+        badge = f'<span class="mark {_e(card.check)}">{_e(CHECK_LABEL[card.check])}</span>'
     return (
         f'<article class="card {_e(card.relation)}" tabindex="0" '
         f'data-card-id="{_e(card.id)}" data-part="{_e(card.part)}" '
@@ -194,7 +342,7 @@ def _card(card: Card, reason_kind: str | None = None, doc_name: str | None = Non
         f'<p class="why">{_e(card.why)}</p>{computed}'
         f'<p class="meta">{_e(doc_name or card.doc)} p{card.page}{weakener} · '
         f"box {_e(card.box_status)} · "
-        f'<span class="mark {_e(card.check)}">{_e(CHECK_LABEL[card.check])}</span>{unchecked}</p>{answer}</article>'
+        f"{badge}{unchecked}</p>{answer}</article>"
     )
 
 
