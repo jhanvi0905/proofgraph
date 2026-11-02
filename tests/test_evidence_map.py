@@ -45,8 +45,8 @@ def test_flag_on_renders_grouped_map(review, monkeypatch):
     assert "Dates are inferred from the text, not legal dates." in html
     assert "May 7, 2026 \u00b7 inferred from the signature block" in html
     assert "No date found in this passage" in html and ">Undated<" not in html
-    assert html.count('class="map-ref"') == 1
-    assert "Mentioned but not uploaded: the &lt;b&gt;2019&lt;/b&gt; master agreement (cited in 1 place: Bosch_NDA.pdf p2)" in html
+    assert html.count('class="gap-line"') == 1
+    assert "Not uploaded: the &lt;b&gt;2019&lt;/b&gt; master agreement. Cited 1 time." in html
     assert "<b>2019</b>" not in html
     assert len(re.findall(r"<article ", html)) == 2  # unknown card id skipped
     assert not re.search(r"resolved|score", html.split('<div class="map">')[1].split("</nav>")[0], re.I)
@@ -309,21 +309,6 @@ def test_dates_and_labels(monkeypatch):
     assert "Dates are inferred from the text, not legal dates." in body
 
 
-def test_verdict_line_facts_only_with_reveal_links(monkeypatch):
-    h = _ui_html(monkeypatch)
-    line = h.split('class="ev verdict-parts"')[1].split("</ul>")[0]
-    assert 'data-reveal="c1"' in line and 'data-reveal="k0"' in line and 'data-reveal="w1"' in line
-    assert "1 passage, second check not sure" in line
-    assert "worst" not in line.lower() and "strongest" not in line.lower()
-    assert "Bylaws.pdf, p1" in line and "0-Bylaws" not in line
-
-
-def test_reference_marker_once_per_packet(monkeypatch):
-    h = _ui_html(monkeypatch)
-    assert h.count('class="map-ref"') == 1
-    assert "cited in 2 places" in h
-
-
 def test_conflict_wording_and_no_banned_words_anywhere_visible(monkeypatch):
     h = _ui_html(monkeypatch)
     assert "Sources point different ways on this part." in h and "Sources disagree" not in h
@@ -335,7 +320,8 @@ def test_conflict_wording_and_no_banned_words_anywhere_visible(monkeypatch):
 def test_file_prefix_stripped_in_map_mode_only(monkeypatch):
     monkeypatch.setenv(FLAG, "1")
     on = re.sub(r"<script.*?</script>", "", render(_ui_review()), flags=re.S)
-    assert "0-Bylaws" not in on and "Bylaws.pdf" in on and "Minutes.pdf" in on
+    assert "0-Bylaws" not in re.sub(r'title="[^"]*"', "", on) and "Bylaws" in on and "Minutes" in on
+    assert 'title="0-Bylaws.pdf"' in on  # the full file name stays on hover
     monkeypatch.delenv(FLAG)
     assert "0-Bylaws.pdf" in re.sub(r"<script.*?</script>", "", render(_ui_review()), flags=re.S)
 
@@ -355,7 +341,7 @@ class _Stance(HTMLParser):
     def __init__(self):
         super().__init__()
         self.figs, self.cur, self.lane, self.cell, self.order = {}, None, None, None, []
-        self.articles, self.tag_order = {}, []
+        self.articles, self.tag_order, self.list_for = {}, [], None
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
@@ -368,16 +354,20 @@ class _Stance(HTMLParser):
             self.cur = self.figs.setdefault(a["data-part"], {"lanes": {}, "refs": [], "attrs": a})
             self.tag_order.append("figure")
         elif self.cur is not None:
-            if "st-lane" in cls:
+            if "st-empty" in cls:
+                self.cur["lanes"].setdefault(a["data-lane"], {"marks": [], "none": True, "attrs": a})
+            elif "st-lane" in cls:
                 self.lane = self.cur["lanes"].setdefault(a["data-lane"], {"marks": [], "none": False, "attrs": a})
             elif "st-cell" in cls:
                 self.cell = {"undated": "undated" in cls, "date": a.get("data-day")}
-            elif "st-none" in cls and self.lane is not None:
-                self.lane["none"] = True
             elif "st-ref" in cls:
                 self.cur["refs"].append(a)
             elif "st-mark" in cls:
                 self.lane["marks"].append({**a, "cell": self.cell, "tag": tag})
+            elif "st-list" in cls:
+                self.list_for = next(m for ln in self.cur["lanes"].values() for m in ln["marks"] if m.get("data-opens") == a["id"])
+            elif "st-item" in cls:
+                self.list_for.setdefault("items", []).append(a["data-reveal"])
 
     def handle_endtag(self, tag):
         if tag == "figure":
@@ -388,6 +378,10 @@ def _stance(h):
     s = _Stance()
     s.feed(h)
     return s
+
+
+def _rid(m):
+    return m.get("data-reveal") or m["items"][0]
 
 
 def _count(m):
@@ -414,11 +408,12 @@ def test_three_lanes_in_order_and_counts_equal_cards(monkeypatch):
     rv = _ui_review()
     for part in rv.parts:
         fig = s.figs[part.id]
-        assert list(fig["lanes"]) == ["contradicts", "weakens", "supports"]
+        assert sorted(fig["lanes"]) == ["contradicts", "supports", "weakens"]
         for rel, lane in fig["lanes"].items():
             n = sum(c.relation == rel and c.part == part.id for c in rv.cards)
             assert sum(map(_count, lane["marks"])) == n, (part.id, rel)
-            assert (f"({n})" in lane["attrs"]["aria-label"]) and lane["none"] == (n == 0)
+            assert (f"({n})" in lane["attrs"]["aria-label"] if n else "none found" in lane["attrs"]["aria-label"])
+            assert lane["none"] == (n == 0)
     assert "none found" in h
 
 
@@ -430,8 +425,8 @@ def test_marks_resolve_to_cards_of_their_own_part(monkeypatch):
         for lane in fig["lanes"].values():
             for m in lane["marks"]:
                 assert m["tag"] == "button" and m["type"] == "button"
-                assert s.articles[m["data-reveal"]] == pid
-                seen.append(m["data-reveal"])
+                assert s.articles[_rid(m)] == pid
+                seen.append(_rid(m))
     assert len(seen) == len(set(seen))
 
 
@@ -444,15 +439,15 @@ def test_shape_fill_and_relation_class(monkeypatch):
         for rel, lane in fig["lanes"].items():
             for m in lane["marks"]:
                 assert m["data-shape"] == shape[rel] and rel in m["class"].split()
-                state = "filled" if checks[m["data-reveal"]] == "agrees" and _count(m) == 1 else "hollow"
+                state = "filled" if checks[_rid(m)] == "agrees" and _count(m) == 1 else "hollow"
                 assert state in m["class"].split() or _count(m) > 1
 
 
 def test_undated_column_and_dates_inferred(monkeypatch):
     s = _stance(_ui_html(monkeypatch))
-    c1 = next(m for m in s.figs["p2"]["lanes"]["contradicts"]["marks"] if m["data-reveal"] == "c1")
+    c1 = next(m for m in s.figs["p2"]["lanes"]["contradicts"]["marks"] if _rid(m) == "c1")
     assert c1["cell"]["undated"] and "no date found" in c1["aria-label"].lower()
-    t1 = next(m for m in s.figs["p2"]["lanes"]["supports"]["marks"] if m["data-reveal"] == "t1")
+    t1 = next(m for m in s.figs["p2"]["lanes"]["supports"]["marks"] if _rid(m) == "t1")
     assert not t1["cell"]["undated"] and t1["cell"]["date"] == "2024-04-04"
     assert "4 April 2024" in t1["aria-label"]
 
@@ -463,17 +458,17 @@ def test_aria_label_has_relation_document_page_state_and_no_banned_words(monkeyp
     assert labels
     for lab in labels:
         assert lab.split(",")[0] in {"Goes against it", "Casts doubt", "Backs it up"}
-        assert re.search(r"\.pdf, page \d", lab) and ("second check" in lab)
+        assert re.search(r", page \d", lab) and ("second check" in lab)
         assert not [b for b in BANNED if b in lab.lower()]
-    assert any(lab.startswith("Goes against it, Minutes.pdf, page 1, no date found, second check not sure") for lab in labels)
+    assert any(lab.startswith("Goes against it, Minutes, page 1, no date found, second check not sure") for lab in labels)
 
 
 def test_merged_cards_show_a_count(monkeypatch):
     s = _stance(_ui_html(monkeypatch))
     w = s.figs["p1"]["lanes"]["weakens"]["marks"]
     merged = [m for m in w if _count(m) > 1]
-    assert [m["data-reveal"] for m in merged] == ["w2"] and _count(merged[0]) == 2
-    assert "and 1 more" in merged[0]["aria-label"]
+    assert [_rid(m) for m in merged] == ["w2"] and _count(merged[0]) == 2
+    assert "2 passages, first in" in merged[0]["aria-label"] and "opens a list" in merged[0]["aria-label"]
 
 
 def test_many_same_day_marks_collapse_to_a_count(monkeypatch):
@@ -491,7 +486,7 @@ def test_many_same_day_marks_collapse_to_a_count(monkeypatch):
     s = _stance(render(r))
     marks = s.figs["p3"]["lanes"]["supports"]["marks"]
     assert len(marks) == 1 and _count(marks[0]) == 6
-    assert marks[0]["data-reveal"] == "z0"
+    assert _rid(marks[0]) == "z0"
     assert "z0" in s.articles and all(f"z{i}" in s.articles for i in range(6))  # all still reachable below
 
 
@@ -500,7 +495,7 @@ def test_referenced_row_one_per_distinct_reference(monkeypatch):
     s = _stance(h)
     assert len(s.figs["p1"]["refs"]) == 1 and len(s.figs["p2"]["refs"]) == 1 and not s.figs["p3"]["refs"]
     assert "cited in 2 places" in h.split('class="stance')[1]
-    assert h.count('class="map-ref"') == 1  # the packet-level marker is untouched
+    assert h.count('class="gap-line"') == 1  # promoted once to the top, not repeated per part
 
 
 def test_stance_css_is_themed_and_not_colour_only():
@@ -538,55 +533,6 @@ def _visible_and_attrs(h):
     return _h.unescape(re.sub(r"<[^>]+>", " ", body) + " " + " ".join(attrs))
 
 
-def test_answer_sentence_counts_equal_cards_per_relation(monkeypatch):
-    h = _ui_html(monkeypatch)
-    ans = _answer(h)
-    rv = _ui_review()
-    assert h.index('class="answer"') < h.index("<h1>")
-    for i, p in enumerate(rv.parts, 1):
-        by = {r: sum(c.relation == r and c.part == p.id for c in rv.cards) for r in ("supports", "contradicts", "weakens")}
-        part = ans.split(f"Claim part {i}: ")[1].split(" Claim part ")[0]
-        assert re.search(rf"\b{by['supports']} passages? back", part)
-        if by["contradicts"]:
-            assert re.search(rf"\b{by['contradicts']} (goes|go) against it", part)
-        if by["weakens"]:
-            assert re.search(rf"\b{by['weakens']} (casts|cast) doubt", part)
-
-
-def test_answer_sentence_exact_and_none_go_against(monkeypatch):
-    ans = _answer(_ui_html(monkeypatch))
-    assert ("Claim part 2: 1 passage backs it up and 1 goes against it "
-            "(Minutes.pdf, p1, no date found, second check not sure).") in ans
-    monkeypatch.setenv(FLAG, "1")
-    r = _ui_review()
-    r.cards = [c for c in r.cards if c.relation == "supports" or c.part != "p2"]
-    assert "Claim part 2: 1 passage backs it up; none go against it." in _answer(render(r))
-
-
-def test_sole_opposing_unconfirmed_card_is_named_in_the_sentence(monkeypatch):
-    ans = _answer(_ui_html(monkeypatch))
-    part2 = ans.split("Claim part 2: ")[1].split(" Claim part ")[0]
-    assert "second check not sure" in part2 and "no date found" in part2
-
-
-def test_answer_sentence_has_only_template_words(monkeypatch):
-    ans = _answer(_ui_html(monkeypatch))
-    s = re.sub(r"Bylaws\.pdf|Minutes\.pdf|Letter\.pdf|January|February|March|April|May|June|July|August|September|October|November|December", "", ans)
-    s = re.sub(r"\d+|\bp\d+", "", s)
-    assert "SECRET" not in ans
-    words = set(re.findall(r"[a-z]+", s.lower())) - {"claim", "part", "passage", "passages", "back", "backs", "it", "up", "and", "go", "goes",
-        "against", "cast", "casts", "doubt", "no", "date", "found", "second", "check", "confirmed", "not", "sure", "more", "none"}
-    assert not words, words
-
-
-def test_answer_caps_at_three_parts(monkeypatch):
-    monkeypatch.setenv(FLAG, "1")
-    r = _ui_review()
-    r.parts.append(r.parts[0].model_copy(update={"id": "p4"}))
-    ans = _answer(render(r))
-    assert "Claim part 3:" in ans and "Claim part 4:" not in ans and ans.endswith("and 1 more part below.")
-
-
 def test_no_old_terms_or_banned_words_for_every_check_value(monkeypatch):
     monkeypatch.setenv(FLAG, "1")
     for check in ("agrees", "disagrees", "unavailable", "not_run"):
@@ -599,31 +545,12 @@ def test_no_old_terms_or_banned_words_for_every_check_value(monkeypatch):
             assert t.lower() not in low, (check, t)
 
 
-def test_legend_once_before_the_first_part_and_caption_once_per_map(monkeypatch):
-    h = _ui_html(monkeypatch)
-    assert h.count(LEGEND) == 1 and h.index(LEGEND) < h.index('data-part-id="p1"')
-    cap = ("Circle = backs it up, triangle = casts doubt, diamond = goes against it. Solid = second check confirmed, "
-           "hollow = second check not sure. Dashed row = documents mentioned but not uploaded. "
-           "One passage that goes against a claim is enough to count against it.")
-    assert h.count(cap) == 3 and "Days run in order, not to scale." in h
-
-
-def test_plain_labels_in_chip_groups_and_lanes(monkeypatch):
-    h = _ui_html(monkeypatch)
-    for t in ("Goes against the claim", "Casts doubt on the claim", "Goes against it (", "Casts doubt (", "Backs it up (",
-              "Claim part 2 of 3", "Mentioned but not uploaded", "No date found", "Second check: not sure.", "Second check: confirmed."):
-        assert t in h, t
-    assert "Show all 3 passages that back it up" in h and ">Show all 3<" in h
-    assert "1 backs it up, 0 go against it, 0 cast doubt" not in h  # sanity: only counts that exist
-    assert "Mentioned but not uploaded: 1 document" in h
-
-
 def test_mark_aria_label_equals_template_and_state(monkeypatch):
     h = _ui_html(monkeypatch)
     s = _stance(h)
     rv = _ui_review()
     cards = {c.id: c for c in rv.cards}
-    names = {"d1": "Bylaws.pdf", "d2": "Minutes.pdf", "d3": "Letter.pdf"}
+    names = {"d1": "Bylaws", "d2": "Minutes", "d3": "Letter"}
     rel = {"contradicts": "Goes against it", "weakens": "Casts doubt", "supports": "Backs it up"}
     said = {"agrees": "confirmed", "disagrees": "not sure"}
     n = 0
@@ -632,7 +559,7 @@ def test_mark_aria_label_equals_template_and_state(monkeypatch):
             for m in lane["marks"]:
                 if _count(m) > 1:
                     continue
-                c = cards[m["data-reveal"]]
+                c = cards[_rid(m)]
                 day = {"x": None}
                 when = m["cell"]["date"]
                 if when:
@@ -665,6 +592,193 @@ def test_undated_cards_only_in_the_no_date_column_and_one_dashed_mark_per_refere
         for ln in fig["lanes"].values():
             for m in ln["marks"]:
                 if _count(m) == 1:
-                    assert m["cell"]["undated"] == (dated[m["data-reveal"]] is None)
+                    assert m["cell"]["undated"] == (dated[_rid(m)] is None)
     assert len(s.figs["p1"]["refs"]) == 1
     assert s.figs["p1"]["refs"][0]["aria-label"] == "Mentioned but not uploaded: The Master Agreement., cited 2 times"
+
+
+# ---- Wave 4: results page arrangement v2 (docs/sprint/journey/arrangement-v2.md) ----
+RULE = "One passage that goes against a claim is enough to count against it."
+OLD_VERDICT_WORDS = ["Weakened", "Contradicted", "Supported", "box pinned", "labelling step"]
+
+
+def _tc17_review(ref_text="the letter dated May 7, 2026", claim="Connors was continuously authorized from May 7, 2026."):
+    """Two parts: p1 casts doubt, p2 has one undated, not-sure contradiction (driver); one document cited, not supplied."""
+    r = _ui_review()
+    r.claim.text = claim
+    r.driver_part = "p2"
+    r.parts = r.parts[:2]
+    keep = {i for p in r.parts for i in p.card_ids}
+    r.cards = [c for c in r.cards if c.id in keep]
+    for p in r.parts:
+        for it in p.evidence_map:
+            if it.kind == "referenced":
+                it.ref_text = ref_text
+    return r
+
+
+def _html(r, monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    return render(r)
+
+
+def _head(h):
+    return h.split("<main>")[0]
+
+
+def test_first_element_is_the_verdict_chip_and_nothing_numeric_precedes_it(monkeypatch):
+    h = _html(_tc17_review(), monkeypatch)
+    assert h.split("<body>")[1].lstrip().split("<header>")[1].startswith('<h1 class="chip')
+    before = h.split("<header>")[0]
+    assert "passages" not in re.sub(r"<script.*?</script>|<style.*?</style>", "", before, flags=re.S)
+
+
+def test_one_verdict_vocabulary_everywhere(monkeypatch):
+    h = _html(_tc17_review(), monkeypatch)
+    for t in OLD_VERDICT_WORDS:
+        assert t not in h, t
+    assert "Goes against the claim" in _head(h) and "Casts doubt on the claim" in h
+
+
+def test_rule_line_under_the_chip_at_16px_only_for_goes_against(monkeypatch):
+    h = _html(_tc17_review(), monkeypatch)
+    head = _head(h)
+    assert head.index('class="chip') < head.index(RULE) < head.index('class="claim"')
+    assert re.search(r"\.rule\{[^}]*font-size:16px", h)
+    assert h.count(RULE) == 1
+    r = _tc17_review()
+    r.status = "weakened"
+    assert RULE not in _html(r, monkeypatch)
+
+
+def test_why_line_is_the_code_chosen_deciding_passage(monkeypatch):
+    r = _tc17_review()
+    h = _html(r, monkeypatch)
+    why = re.search(r'<p class="why-line">(.*?)</p>', h, re.S).group(1)
+    c1 = next(c for c in r.cards if c.id == "c1")
+    assert 'data-reveal="c1"' in why and c1.quote in why
+    assert "Minutes" in why and "p1" in why and "no date found" in why and "second check: not sure" in why
+    assert 'title="2-Minutes.pdf"' in why  # full name on hover
+    assert "Only one passage goes against it, and the second check was not sure." in _head(h)
+    assert h.index('class="why-line"') < h.index('data-part-id="p1"')
+
+
+def test_why_line_for_backs_up_takes_first_confirmed_passage(monkeypatch):
+    r = _tc17_review()
+    r.status = "supported"
+    r.driver_part = "p1"
+    for p in r.parts:
+        p.status = "supported"
+    for c in r.cards:
+        c.relation = "supports"
+        c.check = "disagrees" if c.id in ("w1", "w2") else "agrees"
+    h = _html(r, monkeypatch)
+    why = re.search(r'<p class="why-line">(.*?)</p>', h, re.S).group(1)
+    assert 'data-reveal="w3"' in why
+
+
+def test_deciding_mark_carries_a_ring(monkeypatch):
+    s = _stance(_html(_tc17_review(), monkeypatch))
+    ringed = [_rid(m) for f in s.figs.values() for ln in f["lanes"].values() for m in ln["marks"] if "decides" in m["class"].split()]
+    assert ringed == ["c1"]
+
+
+def test_gap_line_before_first_part_names_the_document_and_the_settle_clause_needs_a_match(monkeypatch):
+    h = _html(_tc17_review(), monkeypatch)
+    gap = re.search(r'<p class="gap-line">(.*?)</p>', h, re.S).group(1)
+    assert gap.startswith("Not uploaded: the letter dated May 7, 2026.") and "Cited 2 times." in gap
+    assert gap.endswith("It is the document that would settle this.")
+    assert h.index('class="gap-line"') < h.index('data-part-id="p1"') and h.count('class="map-ref"') == 0
+    h2 = _html(_tc17_review(ref_text="the Master Agreement", claim="Connors was authorized."), monkeypatch)
+    assert "would settle this" not in h2 and "Not uploaded: the Master Agreement" in h2
+    r = _tc17_review()
+    for p in r.parts:
+        p.evidence_map = [m for m in p.evidence_map if m.kind == "card"]
+    assert 'class="gap-line"' not in _html(r, monkeypatch)
+
+
+def test_key_precedes_each_map_and_names_every_mark_type(monkeypatch):
+    h = _html(_tc17_review(), monkeypatch)
+    for pid in ("p1", "p2"):
+        li = h.split(f'data-part-id="{pid}"')[1].split("</li>")[0]
+        assert li.index('class="st-key"') < li.index('<figure class="stance')
+        key = re.sub(r"<[^>]+>", " ", re.search(r'<div class="st-key".*?</div>', li, re.S).group(0)).lower()
+        for w in ("circle", "triangle", "diamond", "solid", "hollow", "number", "dashed", "not to scale", "second check", "no date found"):
+            assert w in key, (pid, w)
+    assert "Not sure means it did not reach the same label; the finding still counts." in h
+    assert "<figcaption" not in h
+
+
+def test_empty_lanes_collapse_to_one_line_after_the_filled_lanes(monkeypatch):
+    s = _stance(_html(_tc17_review(), monkeypatch))
+    h = _html(_tc17_review(), monkeypatch)
+    for pid, fig in s.figs.items():
+        order = list(fig["lanes"])
+        filled = [rel for rel, ln in fig["lanes"].items() if ln["marks"]]
+        assert order[: len(filled)] == filled and filled == sorted(filled, key=["contradicts", "weakens", "supports"].index)
+        assert order[0] == filled[0]
+    assert "Goes against it: none found" in h
+
+
+def test_display_names_are_short_and_full_names_are_on_hover(monkeypatch):
+    from app.viewer.render import _short_names
+    docs = [Doc(id="a", name="IHP_Bylaws_Excerpt_Article_V_Officers.pdf", pages=[]),
+            Doc(id="b", name="IHP_Board_Resolution_2026-14.pdf", pages=[]),
+            Doc(id="c", name="01_Bosch-Automotive-Service-Solutions-Mutual-Non-Disclosure-Agreement-7-12-17.pdf", pages=[])]
+    n = _short_names(docs)
+    assert ".pdf" not in "".join(n.values()) and "IHP" not in n["a"] and len(set(n.values())) == 3
+    assert all(len(v) <= 30 for v in n.values()) and n["c"].endswith("7-12-17")
+    h = _html(_tc17_review(), monkeypatch)
+    assert 'title="0-Bylaws.pdf"' in h or 'title="2-Minutes.pdf"' in h
+
+
+def test_each_numbered_mark_opens_a_list_whose_items_reveal_one_card(monkeypatch):
+    s = _stance(_html(_tc17_review(), monkeypatch))
+    h = _html(_tc17_review(), monkeypatch)
+    multi = [m for f in s.figs.values() for ln in f["lanes"].values() for m in ln["marks"] if _count(m) > 1]
+    assert multi
+    for m in multi:
+        assert m["data-opens"] and "data-reveal" not in m and m["aria-expanded"] == "false"
+        lst = h.split(f'id="{m["data-opens"]}"')[1].split("</div>")[0]
+        assert len(re.findall(r"data-reveal=", lst)) == _count(m)
+
+
+def test_one_click_one_box_per_card_even_for_a_many_line_passage(monkeypatch):
+    """Regression for the 20-box click: a long passage has one rectangle per printed line."""
+    r = _tc17_review()
+    c = next(c for c in r.cards if c.id == "s1")
+    c.boxes = [[100, 100 + i * 20, 900, 115 + i * 20] for i in range(20)]
+    h = _html(r, monkeypatch)
+    assert len(re.findall(r'class="box [^"]*" data-box-for="s1"', h)) == 1
+    box = re.search(r'data-box-for="s1" style="([^"]*)"', h).group(1)
+    assert "left:10%" in box and "top:10%" in box and "width:80%" in box
+    assert all(len(re.findall(rf'data-box-for="{c.id}"', h)) <= 1 for c in r.cards)
+
+
+def test_flag_off_pages_keep_one_box_per_line(review, monkeypatch):
+    monkeypatch.delenv(FLAG, raising=False)
+    c = review.cards[0]
+    assert len(re.findall(rf'data-box-for="{c.id}"', render(review))) == len(c.boxes)
+
+
+def test_cold_read_top_screen_names_the_verdict_the_rule_and_the_deciding_source(monkeypatch):
+    head = re.sub(r"<[^>]+>", " ", _head(_html(_tc17_review(), monkeypatch)).split("</h1>")[0] + _head(_html(_tc17_review(), monkeypatch)).split("</h1>")[1])
+    assert "against" in head.lower() and "Minutes" in head and "SECRETQUOTE c1" in head and ".pdf" not in head
+    assert not re.search(r"\d+ (passages|documents)", head)
+
+
+def test_footer_holds_counts_and_caveats_and_nothing_else_numeric_is_above(monkeypatch):
+    h = _html(_tc17_review(), monkeypatch)
+    foot = h.split("<footer")[1].split("</footer>")[0]
+    assert "documents read" in foot and "not about this part" in foot and "Text pages only" in foot
+    assert "not about this part" not in h.split("<footer")[0]
+
+
+def test_new_copy_has_no_banned_words_or_old_terms(monkeypatch):
+    for check in ("agrees", "disagrees", "unavailable", "not_run"):
+        r = _tc17_review()
+        for c in r.cards:
+            c.check, c.check_answer = check, ("not_mentioned" if check == "disagrees" else None)
+        low = _visible_and_attrs(_html(r, monkeypatch)).lower().replace("claim part", "")
+        for t in OLD_TERMS + BANNED + [w.lower() for w in OLD_VERDICT_WORDS]:
+            assert t.lower() not in low, (check, t)

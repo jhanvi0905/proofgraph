@@ -30,3 +30,30 @@
     e.preventDefault();
     if (target) reveal(target);
   });
+  // A numbered mark opens a short list of its cards; each item reveals one card (one box on the page).
+  function closeLists(except) {
+    document.querySelectorAll(".st-list").forEach(function (l) { if (l !== except) l.hidden = true; });
+    document.querySelectorAll("[data-opens]").forEach(function (o) {
+      o.setAttribute("aria-expanded", String(!!except && o.dataset.opens === except.id && !except.hidden));
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var o = e.target.closest && e.target.closest("[data-opens]");
+    if (!o) return;
+    e.preventDefault();
+    var list = document.getElementById(o.dataset.opens);
+    var open = list.hidden;
+    closeLists(null);
+    list.hidden = !open;
+    o.setAttribute("aria-expanded", String(open));
+    var first = open && list.querySelector("button");
+    if (first) first.focus();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    var list = e.target.closest && e.target.closest(".st-list");
+    if (!list) return;
+    var opener = document.querySelector('[data-opens="' + list.id + '"]');
+    closeLists(null);
+    if (opener) opener.focus();
+  });

@@ -71,14 +71,10 @@ SECOND_READ = {
     "not_run": "Second check: not done.",
 }
 _SEES = "It sees only the quote and the part."
-LEGEND_TEXT = (
-    "We split your claim into parts and checked each one against your documents. "
-    "Each mark is one passage; click it to read it."
-)
-CAPTION_TEXT = (
-    "Circle = backs it up, triangle = casts doubt, diamond = goes against it. Solid = second check confirmed, "
-    "hollow = second check not sure. Dashed row = documents mentioned but not uploaded. "
-    "One passage that goes against a claim is enough to count against it."
+LEGEND_TEXT = "We split your claim into parts and checked each one against your documents."
+RULE_TEXT = "One passage that goes against a claim is enough to count against it."
+SECOND_CHECK_TEXT = (
+    "A second look at this passage alone. Not sure means it did not reach the same label; the finding still counts."
 )
 _LABELLED = {"supports": "as support", "contradicts": "as contradicting", "weakens": "as weakening"}
 _SAW = {
@@ -98,7 +94,6 @@ EVIDENCE_CSS = (
     ".map{list-style:none;padding:0}.map>li{margin:6px 0}.map-date,.map-rel{font-size:.85em;color:var(--mut)}"
     ".map-rel{font-weight:600;margin-right:6px}.map-undated{font-weight:600;border-top:1px solid var(--gry);padding-top:4px}"
     ".mark.second-read{font-weight:600;color:var(--mut)}"
-    ".map-ref{border:1px dashed var(--gry);border-radius:4px;padding:4px 8px;margin:6px 0;overflow-wrap:anywhere}"
     ".map-group{border:1px solid var(--line);border-left:4px solid var(--gry);border-radius:6px;margin:8px 0;overflow-wrap:anywhere}"
     ".map-group.contradicts{border-left-color:var(--red)}.map-group.weakens{border-left-color:var(--amb)}"
     ".map-group.supports{border-left-color:var(--grn)}"
@@ -114,7 +109,7 @@ EVIDENCE_CSS = (
     ".map-group>*:not(summary){margin-left:10px;margin-right:10px}.map-group .map-more,.map-group .map-unsettled,.map-group .map-also{border-top:1px solid var(--line);margin:6px 0 8px}"
     ".map-more>summary,.map-unsettled>summary,.map-also>summary{padding:6px 0;color:var(--mut);font-weight:600}"
     ".map-note{margin:6px 10px;color:var(--mut);font-size:.9em}.map-date{margin:8px 0 2px;font-size:.85em;color:var(--mut)}"
-    ".map-entry{margin:6px 0}.map-refs{margin-top:8px}"
+    ".map-entry{margin:6px 0}"
     ".stance{container-type:inline-size;margin:8px 0}.stance .st-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:4px 12px;padding:8px 0;border-top:1px solid var(--line)}"
     ".st-name{flex:1 1 100%;font-weight:600;font-size:13px}.st-none{color:var(--mut);font-size:13px}"
     ".st-cell{display:flex;flex-direction:column;gap:2px}.st-marks{display:flex;flex-wrap:wrap;gap:2px}"
@@ -122,7 +117,7 @@ EVIDENCE_CSS = (
     ".st-cd,.st-axis .st-d{font-size:12px;color:var(--mut);border-bottom:1px dotted currentColor}"
     ".st-cell.undated .st-cd,.st-axis .st-d.undated{border-bottom:0}"
     ".stance .st-axis{display:none;font-size:12px;color:var(--mut);border-top:0}"
-    ".st-mark{position:relative;box-sizing:border-box;width:40px;height:40px;padding:0;border:0;border-radius:6px;background:none;cursor:pointer;color:var(--gry)}"
+    ".st-mark{position:relative;box-sizing:border-box;width:44px;height:44px;padding:0;border:0;border-radius:6px;background:none;cursor:pointer;color:var(--gry)}"
     ".st-mark.contradicts{color:var(--red-text)}.st-mark.weakens{color:var(--amb)}.st-mark.supports{color:var(--grn)}"
     ".st-mark svg{width:28px;height:28px;display:block;margin:auto;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linejoin:round}"
     ".st-mark.filled svg{fill:currentColor}.st-mark:hover{background:var(--line)}"
@@ -131,14 +126,23 @@ EVIDENCE_CSS = (
     "background:var(--bg);color:var(--fg);font:700 12px/14px system-ui,sans-serif;text-align:center}"
     ".st-refs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}"
     ".st-ref{margin:0;border:1px dashed var(--gry);border-radius:4px;padding:4px 8px;font-size:12px;overflow-wrap:anywhere}"
-    ".st-cap{margin:6px 0 0;color:var(--mut);font-size:12px}"
     "@container (min-width:34rem){.stance.wide .st-row,.stance.wide .st-axis{display:grid;grid-template-columns:7rem repeat(var(--cols),minmax(0,1fr)) 6.5rem;gap:0 4px;align-items:start}"
     ".stance.wide .st-name{flex:none;align-self:center}.stance.wide .st-cd{display:none}.stance.wide .st-cell.undated{padding-left:8px}"
     ".stance.wide .st-none{grid-column:2/-1}.stance.wide .st-d{padding-bottom:4px}}"
-    ".answer{margin:0 0 8px;font-size:16px;font-weight:600}.legend{margin:6px 0 0}"
-    ".verdict-parts{margin:6px 0 0;color:var(--mut)}.verdict-parts li{margin:2px 0}"
-    ".verdict-parts a{color:inherit;font-weight:600;border-bottom:1px solid currentColor}"
-    ".verdict-parts a:focus-visible{outline:3px solid currentColor;outline-offset:2px}</style>"
+    ".chip.verdict{display:inline-block;font-size:18px;margin:0}.rule{margin:8px 0 0;font-size:16px;font-weight:600}"
+    ".why-line{margin:10px 0 0;font-size:15px;overflow-wrap:anywhere}.why-line a{color:inherit;font-style:italic;border-bottom:1px solid currentColor}"
+    ".why-line a:focus-visible,.st-item:focus-visible{outline:3px solid currentColor;outline-offset:2px}"
+    ".why-src{color:var(--mut)}.why-note,.gap-line{margin:6px 0 0;overflow-wrap:anywhere}"
+    ".gap-line{padding:6px 8px;border:1px dashed var(--gry);border-radius:4px}"
+    ".legend{margin:0 0 6px}.part-n{font-weight:600;margin-right:6px}"
+    ".st-key{margin:8px 0;padding:6px 8px;border-left:3px solid var(--gry);font-size:14px}.st-key p{margin:3px 0}"
+    ".st-k{width:14px;height:14px;vertical-align:-2px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linejoin:round}"
+    ".st-mark.decides{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--fg);border-radius:50%}"
+    ".st-empty{margin:0;padding:6px 0;border-top:1px solid var(--line);color:var(--mut);font-size:13px}"
+    ".st-list{display:flex;flex-direction:column;gap:2px;margin-top:2px}.st-list[hidden]{display:none}"
+    ".st-item{min-height:44px;text-align:left;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:none;color:inherit;font:inherit;font-size:14px;cursor:pointer}"
+    ".st-item:hover{background:var(--line)}.qualifier{margin:6px 0 0;font-weight:600}"
+    "footer.foot{padding:8px 16px 16px;border-top:1px solid var(--line);font-size:13px;overflow-wrap:anywhere}</style>"
 )
 
 
@@ -324,13 +328,48 @@ _MAP_GROUPS = [
     ("supports", "Backs it up"),
     ("set_aside", "Set aside"),
 ]
-_PREFIX = re.compile(r"^\d-")
+class _Names(dict):
+    """Short display names by document id; `.full` holds the file names for hover."""
+
+    full: dict[str, str]
 
 
-def _shown_names(docs: list[Doc]) -> dict[str, str]:
-    """Map mode only: drop a leading '0-' / '2-' from displayed names unless that makes two names equal."""
-    clean = {d.id: _PREFIX.sub("", d.name) or d.name for d in docs}
-    return clean if len(set(clean.values())) == len(clean) else {d.id: d.name for d in docs}
+_NAME_MAX = 30
+
+
+def _tidy(name: str) -> str:
+    stem = re.sub(r"\.[A-Za-z0-9]{2,4}$", "", name)
+    stem = re.sub(r"^\d+[-_ ]+", "", stem).replace("_", " ")
+    stem = re.sub(r"(?<=[A-Za-z])-|-(?=[A-Za-z])", " ", stem)
+    return " ".join(re.sub(r"\bArticle\b", "Art.", stem).split())
+
+
+def _middle(text: str) -> str:
+    """Shorten in the middle, on word boundaries, so the start and the end of the name both survive."""
+    if len(text) <= _NAME_MAX:
+        return text
+    words = text.split()
+    head, tail = [], []
+    while words and len(" ".join(head + words[:1])) <= 16:
+        head.append(words.pop(0))
+    while words and len(" ".join(words[-1:] + tail)) <= 12:
+        tail.insert(0, words.pop())
+    return f"{' '.join(head)} \u2026 {' '.join(tail)}".strip()
+
+
+def _short_names(docs: list[Doc]) -> _Names:
+    """Map mode only: deterministic short names (no extension, no shared leading word, middle-truncated)."""
+    tidy = {d.id: _tidy(d.name) or d.name for d in docs}
+    firsts = [t.split(" ", 1)[0] for t in tidy.values()]
+    shared = {f for f in firsts if firsts.count(f) > 1 and f.isupper()}  # an acronym prefix such as IHP_
+    tidy = {k: (v.split(" ", 1)[1] if v.split(" ", 1)[0] in shared and " " in v else v) for k, v in tidy.items()}
+    out = _Names({k: _middle(v) for k, v in tidy.items()})
+    if len(set(out.values())) != len(out):
+        out = _Names(tidy)
+    if len(set(out.values())) != len(out):
+        out = _Names({d.id: d.name for d in docs})
+    out.full = {d.id: d.name for d in docs}
+    return out
 
 
 def _when(day: str | None, source: str | None) -> str:
@@ -344,7 +383,8 @@ def _when(day: str | None, source: str | None) -> str:
 
 
 def _map_card(card: Card, reasons: dict[str, str | None], names: dict[str, str]) -> str:
-    return _card(card, reasons.get(card.part), names.get(card.doc), True, True, True)
+    full = getattr(names, "full", {}).get(card.doc)
+    return _card(card, reasons.get(card.part), names.get(card.doc), True, True, True, full)
 
 
 def _entry(e: MapEntry, reasons: dict[str, str | None], names: dict[str, str], flat: bool) -> str:
@@ -464,24 +504,42 @@ def _state(cards: list[Card]) -> tuple[str, str]:
     return cls, "second check: " + ", ".join(f"{counts[k]} {_SECOND[k]}" for k in seen)
 
 
-def _stance_mark(m: StanceMark, label: str, names: dict[str, str]) -> str:
+def _stance_mark(m: StanceMark, label: str, names: dict[str, str], decide: str | None = None) -> tuple[str, str]:
+    """(button, list): a numbered mark opens a list of its cards; a single mark reveals its one card."""
     first = m.cards[0]
     cls, state = _state(m.cards)
     when = _long_day(m.day) if m.day else "no date found"
-    text = f"{label}, {names.get(first.doc, first.doc)}, page {first.page}, {when}, {state}"
-    if len(m.cards) > 1:
-        text += f", and {len(m.cards) - 1} more"
+    where = f"{names.get(first.doc, first.doc)}, page {first.page}"
+    many = len(m.cards) > 1
+    text = (
+        f"{label}, {len(m.cards)} passages, first in {where}, {when}, {state}, opens a list"
+        if many
+        else f"{label}, {where}, {when}, {state}"
+    )
     tip = _e(text)
-    badge = f'<span class="st-n" aria-hidden="true">{len(m.cards)}</span>' if len(m.cards) > 1 else ""
+    ring = " decides" if decide and any(c.id == decide for c in m.cards) else ""
+    badge = f'<span class="st-n" aria-hidden="true">{len(m.cards)}</span>' if many else ""
     shape = next(sh for r, _, sh in _LANES if r == m.rel)
-    return (
-        f'<button type="button" class="st-mark {m.rel} {cls}" data-reveal="{_e(first.id)}" data-count="{len(m.cards)}" '
+    if many:
+        lid = f"st-{first.id}"
+        act = f'data-opens="{_e(lid)}" aria-expanded="false" aria-controls="{_e(lid)}"'
+        items = "".join(
+            f'<button type="button" class="st-item" data-reveal="{_e(c.id)}">{_e(names.get(c.doc, c.doc))}, page {c.page}'
+            f" \u00b7 second check {_SECOND[c.check]}</button>"
+            for c in m.cards
+        )
+        lst = f'<div class="st-list" id="{_e(lid)}" hidden>{items}</div>'
+    else:
+        act, lst = f'data-reveal="{_e(first.id)}"', ""
+    btn = (
+        f'<button type="button" class="st-mark {m.rel} {cls}{ring}" {act} data-count="{len(m.cards)}" '
         f'data-shape="{shape}" aria-label="{tip}" title="{tip}">'
         f'<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">{_SHAPE[shape]}</svg>{badge}</button>'
     )
+    return btn, lst
 
 
-def _stance_map(part: Part, view: MapView, names: dict[str, str]) -> str:
+def _stance_map(part: Part, view: MapView, names: dict[str, str], decide: str | None = None) -> str:
     """Per part, lanes (Contradicts, Weakens, Supports) over days in order, plus a No-date column. Facts only."""
     marks = _stance_marks(part, view)
     days = sorted({m.day for m in marks if m.day})
@@ -494,13 +552,18 @@ def _stance_map(part: Part, view: MapView, names: dict[str, str]) -> str:
             + "".join(f'<span class="st-d" style="grid-column:{col[d]}">{_e(_day(d, True))}</span>' for d in days)
             + f'<span class="st-d undated" style="grid-column:{len(days) + 2}">No date found</span></div>'
         )
-    lanes = []
+    lanes, empty = [], []
     for rel, label, _ in _LANES:
         mine = [m for m in marks if m.rel == rel]
         n = sum(len(m.cards) for m in mine)
+        if not mine:
+            empty.append(
+                f'<p class="st-empty" data-lane="{rel}" role="group" aria-label="{_e(label)}: none found">{_e(label)}: none found</p>'
+            )
+            continue
         cells = []
         for key in [*days, None]:
-            here = [m for m in mine if m.day == key]
+            here = [_stance_mark(m, label, names, decide) for m in mine if m.day == key]
             if not here:
                 continue
             if key:
@@ -509,12 +572,11 @@ def _stance_map(part: Part, view: MapView, names: dict[str, str]) -> str:
                 head, gc, cls, data = "No date found", len(days) + 2, " undated", ""
             cells.append(
                 f'<div class="st-cell{cls}"{data} style="grid-column:{gc}"><span class="st-cd">{_e(head)}</span>'
-                f'<div class="st-marks">{"".join(_stance_mark(m, label, names) for m in here)}</div></div>'
+                f'<div class="st-marks">{"".join(b for b, _ in here)}</div>{"".join(l for _, l in here)}</div>'
             )
-        body = "".join(cells) if cells else '<span class="st-none">none found</span>'
         lanes.append(
             f'<div class="st-row st-lane {rel}" data-lane="{rel}" role="group" aria-label="{_e(label)} ({n})">'
-            f'<span class="st-name">{_e(label)} ({n})</span>{body}</div>'
+            f'<span class="st-name">{_e(label)} ({n})</span>{"".join(cells)}</div>'
         )
     items = []
     for r in view.refs:
@@ -527,110 +589,158 @@ def _stance_map(part: Part, view: MapView, names: dict[str, str]) -> str:
     refs = f'<div class="st-refs">{refs}</div>' if refs else ""
     return (
         f'<figure class="stance{wide}" data-part="{_e(part.id)}" style="--cols:{len(days)};margin-inline:0" role="group" '
-        f'aria-label="Stance map">{axis}{"".join(lanes)}{refs}'
-        f'<figcaption class="st-cap">{_e(CAPTION_TEXT)} {_e(MAP_DATE_TEXT)} Days run in order, not to scale.</figcaption></figure>'
+        f'aria-label="Stance map">{axis}{"".join(lanes)}{"".join(empty)}{refs}</figure>'
     )
 
 
-def _map(part: Part, cards: dict[str, Card], names: dict[str, str], reasons: dict[str, str | None]) -> str:
-    """Evidence map under a part (flag on only): one <details> per relation, counted and linked, dates inferred."""
-    n = (part.map_counts or {}).get("examined", 0)
+def _key(ring: bool) -> str:
+    """The key sits above each map, in body-size type: every mark and column explained in four short lines."""
+
+    def sh(name: str) -> str:
+        return f'<svg class="st-k" viewBox="0 0 24 24" aria-hidden="true" focusable="false">{_SHAPE[name]}</svg>'
+
+    rows = [
+        f"<strong>Shapes</strong> {sh('circle')} circle backs it up, {sh('triangle')} triangle casts doubt, "
+        f"{sh('diamond')} diamond goes against it. Solid = second check confirmed, hollow = second check not sure.",
+        f"<strong>Second check</strong> {_e(SECOND_CHECK_TEXT)}",
+        "<strong>Number on a mark</strong> N passages on that day, click to see them. "
+        "<strong>Dashed row</strong> mentioned in your documents but not uploaded.",
+        "<strong>Columns</strong> Dates are in order, not to scale. Dates come from the text. "
+        "No date found: these passages state no date.",
+    ]
+    if ring:
+        rows.append("<strong>Ring</strong> the passage quoted at the top of the page.")
+    return f'<div class="st-key">{"".join(f"<p>{r}</p>" for r in rows)}</div>'
+
+
+def _map(
+    part: Part, cards: dict[str, Card], names: dict[str, str], reasons: dict[str, str | None], decide: str | None = None
+) -> str:
+    """Under a part (flag on only): the key, the stance map, then one <details> per relation. Counts go to the footer."""
     view = _map_items(part, cards)
     groups = "".join(_group(part, rel, label, view, reasons, names) for rel, label in _MAP_GROUPS)
-    limit = MAP_LIMIT_TEXT.format(n=n, m=len(names))
-    skipped = n - (part.map_counts or {}).get("relevant", 0)
-    if skipped > 0:
-        limit += f" {skipped} matched passages were judged not to bear on this part by the labelling step."
-    summary = f'<p class="ev ev-summary">{_e(_part_summary(part, cards, names))}</p>'
-    return f'{_stance_map(part, view, names)}{summary}<p class="ev ev-limit">{_e(limit)} {_e(MAP_DATE_TEXT)}</p><div class="map">{groups}</div>'
+    ring = bool(decide) and any(c.id == decide for c in cards.values() if c.part == part.id)
+    return f'{_key(ring)}{_stance_map(part, view, names, decide)}<div class="map">{groups}</div>'
 
 
-def _packet_refs(parts: list[Part], names: dict[str, str]) -> str:
-    """One marker per distinct unsupplied reference for the whole packet, with where it is cited."""
-    refs: dict[str, tuple[str, set]] = {}
-    for p in parts:
+def _footer(review: Review, cards: dict[str, Card], names: dict[str, str]) -> str:
+    """Counts, hidden passages and caveats, last on the page."""
+    full = getattr(names, "full", {})
+    docs = ", ".join(f'<span title="{_e(full.get(d.id, d.name))}">{_e(names[d.id])}</span>' for d in review.docs)
+    out = [f'<p class="ev ev-docs">{_n(len(review.docs), "document")} read: {docs}.</p>']
+    for i, p in enumerate(review.parts, 1):
+        if p.evidence_map is None:
+            continue
+        pre = f"Part {i}: " if len(review.parts) > 1 else ""
+        limit = MAP_LIMIT_TEXT.format(n=(p.map_counts or {}).get("examined", 0), m=len(names))
+        out.append(f'<p class="ev ev-summary">{_e(pre + _part_summary(p, cards, names))}</p>')
+        out.append(f'<p class="ev ev-limit">{_e(limit)} {_e(MAP_DATE_TEXT)}</p>')
+    return f'<footer class="foot">{"".join(out)}</footer>'
+
+
+_DAYS = {
+    m: i
+    for i, m in enumerate(
+        ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"],
+        1,
+    )
+}
+_DAYS.update({k[:3]: v for k, v in list(_DAYS.items())})
+_MON = "|".join(sorted(_DAYS, key=len, reverse=True))
+_DATE_RES = (
+    re.compile(rf"\b({_MON})\.? (\d{{1,2}})(?:st|nd|rd|th)?,? (\d{{4}})\b", re.I),
+    re.compile(rf"\b(\d{{1,2}})(?:st|nd|rd|th)? ({_MON})\.?,? (\d{{4}})\b", re.I),
+    re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b"),
+)
+_GENERIC = {"letter", "dated", "agreement", "document", "attached", "exhibit", "section", "article", "policy", "notice", "which"}
+
+
+def _dates_in(text: str) -> set[date]:
+    out = set()
+    for n, rx in enumerate(_DATE_RES):
+        for m in rx.finditer(text or ""):
+            a, b, c = m.groups()
+            try:
+                if n == 0:
+                    out.add(date(int(c), _DAYS[a.lower()], int(b)))
+                elif n == 1:
+                    out.add(date(int(c), _DAYS[b.lower()], int(a)))
+                else:
+                    out.add(date(int(a), int(b), int(c)))
+            except ValueError:
+                pass
+    return out
+
+
+def _words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]{5,}", (text or "").casefold()) if w not in _GENERIC}
+
+
+def _settles(ref_text: str, ref_date: str | None, claim: str) -> bool:
+    """Code-only match: the missing document's date is a date in the claim, or two distinctive words are shared."""
+    mine = _dates_in(ref_text)
+    if (d := _day_or_none(ref_date)) is not None:
+        mine.add(d)
+    return bool(mine & _dates_in(claim)) or len(_words(ref_text) & _words(claim)) >= 2
+
+
+def _gap_line(review: Review) -> str:
+    """Facts only: each cited-but-not-uploaded document, how often it is cited, and whether code can tie it to the claim."""
+    refs: dict[str, list] = {}
+    for p in review.parts:
         for it in p.evidence_map or []:
             if it.kind == "referenced":
-                refs.setdefault(_ref_key(it.ref_text), (it.ref_text or "", set()))[1].add((it.ref_doc, it.ref_page))
+                r = refs.setdefault(_ref_key(it.ref_text), [it.ref_text or "", set(), it.date])
+                r[1].add((it.ref_doc, it.ref_page))
+                r[2] = r[2] or it.date
     out = []
-    for text, places in refs.values():
-        where = ", ".join(f"{names.get(d, d)} p{pg}" for d, pg in sorted(places, key=str) if d)
-        cite = f" (cited in {_n(len(places), 'place')}{': ' + where if where else ''})"
-        out.append(f'<p class="map-ref">Mentioned but not uploaded: {_e(text)}{_e(cite)}</p>')
-    return f'<section class="map-refs" aria-label="Mentioned but not uploaded">{"".join(out)}</section>' if out else ""
-
-
-_ANSWER_PARTS = 3
-_OPPOSING = ("contradicts", "weakens")
-
-
-def _answer(review: Review, cards: dict[str, Card], names: dict[str, str]) -> str:
-    """First sentence of the page: backing and opposing counts together, per part. Counts, names, dates only."""
-    mapped = [(i, p) for i, p in enumerate(review.parts, 1) if p.evidence_map is not None]
-    if not mapped:
-        return ""
-    many = len(review.parts) > 1
-    out = []
-    for i, p in mapped[:_ANSWER_PARTS]:
-        mine = [c for c in cards.values() if c.part == p.id]
-        by = {r: [c for c in mine if c.relation == r] for r in ("supports", *_OPPOSING)}
-        head = f"Claim part {i}: " if many else ""
-        if p.status == "checking":
-            out.append(f"{head}still checking." if many else "Still checking.")
-            continue
-        n = len(by["supports"])
-        clauses = [f"{_n(n, 'passage')} {'backs' if n == 1 else 'back'} it up"]
-        for rel, one, many_ in (("contradicts", "goes against it", "go against it"), ("weakens", "casts doubt", "cast doubt")):
-            k = len(by[rel])
-            if k:
-                clauses.append(f"{k} {one if k == 1 else many_}")
-        text = clauses[0] if len(clauses) == 1 else f"{', '.join(clauses[:-1])} and {clauses[-1]}"
-        if len(clauses) == 1:
-            text += "; none go against it"
-        opp = by["contradicts"] + by["weakens"]
-        if opp:
-            day = {it.card_id: _day_or_none(it.date) for it in p.evidence_map if it.kind == "card"}
-            bits = [
-                f"{names.get(c.doc, c.doc)}, p{c.page}, {_long_day(day[c.id]) if day.get(c.id) else 'no date found'}, "
-                f"second check {_SECOND[c.check]}"
-                for c in opp[:3]
-            ]
-            text += f" ({'; '.join(bits)}{f'; {len(opp) - 3} more' if len(opp) > 3 else ''})"
-        out.append(f"{head}{text}." if many else f"{text[0].upper()}{text[1:]}.")
-    rest = len(mapped) - _ANSWER_PARTS
-    sentence = " ".join(out)
-    return sentence + (f" and {_n(rest, 'more part')} below." if rest > 0 else "")
+    for text, places, day in list(refs.values())[:3]:
+        line = f"Not uploaded: {text.rstrip('. ')}. Cited {_n(len(places), 'time')}."
+        if _settles(text, day, review.claim.text):
+            line += " It is the document that would settle this."
+        out.append(line)
+    if len(refs) > 3:
+        out.append(f"{len(refs) - 3} more documents are cited and not uploaded.")
+    return f'<p class="gap-line">{_e(" ".join(out))}</p>' if out else ""
 
 
 _DECIDES = {"contradicted": "contradicts", "weakened": "weakens", "supported": "supports"}
+_QUOTE_MAX = 240
 
 
-def _verdict_parts(review: Review, cards: dict[str, Card], names: dict[str, str]) -> str:
-    """Under the overall verdict: each part's verdict and its deciding passages. Facts only."""
-    mapped = [p for p in review.parts if p.evidence_map is not None]
-    if not mapped:
+def _decider(review: Review, cards: dict[str, Card]) -> Card | None:
+    """The deciding passage, chosen by code: first confirmed, then lowest page, in the driver part first."""
+    rel = _DECIDES.get(review.status)
+    if not rel:
+        return None
+    parts = sorted((p for p in review.parts if p.status == review.status), key=lambda p: p.id != review.driver_part)
+    for p in parts:
+        mine = [c for c in cards.values() if c.part == p.id and c.relation == rel]
+        if mine:
+            return sorted(mine, key=lambda c: (c.check != "agrees", c.page))[0]
+    return None
+
+
+def _why(review: Review, card: Card | None, names: dict[str, str], cards: dict[str, Card]) -> str:
+    """Verbatim quote, short name and page of the deciding passage. The quote opens its card and its page."""
+    if card is None:
         return ""
-    items = []
-    for i, p in enumerate(review.parts, 1):
-        out = f"Claim part {i} of {len(review.parts)}: {MAP_STATUS_LABEL[p.status]}"
-        rel = _DECIDES.get(p.status)
-        if p.evidence_map is not None and rel:
-            v = _map_items(p, cards)
-            ds = [c for e in v.entries + v.disagreeing for c in (e.card, *e.also) if c.relation == rel]
-            if ds:
-                open_ = sum(c.check == "disagrees" for c in ds)
-                out += f" by {_n(len(ds), 'passage')}"
-                if open_ == len(ds):
-                    out += ", second check not sure"
-                elif open_:
-                    out += f", {open_} of {len(ds)} with second check not sure"
-                if rel != "supports":
-                    links = ", ".join(
-                        f'<a href="#" data-reveal="{_e(c.id)}">{_e(names.get(c.doc, c.doc))}, p{c.page}</a>' for c in ds[:3]
-                    )
-                    out += f": {links}" + (f" and {len(ds) - 3} more" if len(ds) > 3 else "")
-        items.append(f"<li>{out}</li>")
-    return f'<ul class="ev verdict-parts" aria-label="Deciding passages by part">{"".join(items)}</ul>'
+    quote = card.quote
+    cut = quote if len(quote) <= _QUOTE_MAX else quote[:_QUOTE_MAX].rsplit(" ", 1)[0]
+    day = next((_day_or_none(i.date) for p in review.parts for i in p.evidence_map or [] if i.card_id == card.id), None)
+    full = getattr(names, "full", {}).get(card.doc, card.doc)
+    when = _long_day(day) if day else "no date found"
+    src = (
+        f'<span class="why-src" title="{_e(full)}">{_e(names.get(card.doc, card.doc))}, p{card.page} '
+        f"({_e(when)}, second check: {_SECOND[card.check]})</span>"
+    )
+    more = "\u2026" if cut != quote else ""
+    link = f'<a href="#" data-reveal="{_e(card.id)}">\u201c{_e(cut)}\u201d</a>{more}'
+    out = f'<p class="why-line"><strong>Why</strong> {link} {src}</p>'
+    opposing = [c for c in cards.values() if c.relation == "contradicts"]
+    if card.relation == "contradicts" and len(opposing) == 1 and card.check == "disagrees":
+        out += '<p class="why-note">Only one passage goes against it, and the second check was not sure.</p>'
+    return out
 
 
 def _part(
@@ -640,6 +750,7 @@ def _part(
     extra: str = "",
     mapped: bool = False,
     plain: bool = False,
+    number: str = "",
 ) -> str:
     said = "Sources point different ways on this part." if mapped else "Sources disagree on this part."
     conflict = f'<p class="conflict">{said}</p>' if part.conflict else ""
@@ -655,10 +766,11 @@ def _part(
     unconfirmed = (
         f'<p class="reason-line unconfirmed">{UNCONFIRMED_TEXT}</p>' if reason_kind == "unconfirmed" else ""
     )
+    num = f'<span class="part-n">{_e(number)}</span>' if number else ""
     return (
         f'<li class="part {_e(part.status)}" data-part-id="{_e(part.id)}">'
         f'<span class="chip {_e(part.status)}">{_e((MAP_STATUS_LABEL if plain else STATUS_LABEL)[part.status])}</span> '
-        f"<span>{_e(part.text)}</span>{unconfirmed}{help_}{reason}{conflict}"
+        f"{num}<span>{_e(part.text)}</span>{unconfirmed}{help_}{reason}{conflict}"
         f"{_evidence(part, names) if names is not None else ''}{extra}</li>"
     )
 
@@ -670,6 +782,7 @@ def _card(
     plain: bool = False,
     second_read: bool = False,
     brief: bool = False,
+    full: str | None = None,
 ) -> str:
     unchecked = (
         f' <span class="not-double-checked">{NOT_DOUBLE_CHECKED_TEXT}</span>'
@@ -678,8 +791,11 @@ def _card(
     )
     weakener = f" · {_e(card.weakener_type)}" if card.weakener_type else ""
     phrase = qualifier_phrase(card.weakener_type) if plain else None
-    if phrase:
+    if second_read:  # map mode: the reason is a line of its own above the source line, not footer words
+        weakener = ""
+    elif phrase:
         weakener += f" · {_e(phrase)}"
+    qualifier = f'<p class="qualifier">{_e(phrase)}</p>' if second_read and phrase else ""
     computed = f'<p class="computed">{_e(card.computed.text)}</p>' if card.computed else ""
     line = check_reason(card.relation, card.check, card.check_answer)
     if second_read and line:
@@ -696,14 +812,19 @@ def _card(
         badge = f'<span class="mark second-read" aria-label="{text}"{tip}>{text}</span>'
     else:
         badge = f'<span class="mark {_e(card.check)}">{_e(CHECK_LABEL[card.check])}</span>'
+    where = _e(doc_name or card.doc)
+    if second_read and full:
+        where = f'<span title="{_e(full)}">{where}</span>'
+    position = {"pinned": "", "approximate": "position approximate \u00b7 ", "unpinned": "position not found \u00b7 "}
+    box = f"box {_e(card.box_status)} \u00b7 " if not second_read else position[card.box_status]
     return (
         f'<article class="card {_e(card.relation)}" tabindex="0" '
         f'data-card-id="{_e(card.id)}" data-part="{_e(card.part)}" '
         f'data-doc="{_e(card.doc)}" data-page="{card.page}">'
         f'<blockquote>{_e(card.quote)}</blockquote>'
-        f'<p class="why">{_e(card.why)}</p>{computed}'
-        f'<p class="meta">{_e(doc_name or card.doc)} p{card.page}{weakener} · '
-        f"box {_e(card.box_status)} · "
+        f'<p class="why">{_e(card.why)}</p>{qualifier}{computed}'
+        f'<p class="meta">{where} p{card.page}{weakener} · '
+        f"{box}"
         f"{badge}{unchecked}</p>{answer}</article>"
     )
 
@@ -717,8 +838,20 @@ def _cards(cards: list[Card], reasons: dict[str, str | None], names: dict[str, s
     return "".join(out)
 
 
+def _one_box(boxes: list) -> list:
+    """One rectangle for a passage that runs over many printed lines, so one click draws one box."""
+    if not boxes:
+        return []
+    return [[min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)]]
+
+
 def _page(
-    doc: Doc, page: Page, cards: list[Card], images: dict[tuple[str, int], bytes], name: str | None = None
+    doc: Doc,
+    page: Page,
+    cards: list[Card],
+    images: dict[tuple[str, int], bytes],
+    name: str | None = None,
+    merge: bool = False,
 ) -> str:
     name = name or doc.name
     data = images.get((doc.id, page.n))
@@ -732,7 +865,7 @@ def _page(
         f'style="left:{_pct(x0)};top:{_pct(y0)};width:{_pct(x1 - x0)};height:{_pct(y1 - y0)}"></div>'
         for c in cards
         if (c.doc, c.page) == (doc.id, page.n)
-        for x0, y0, x1, y1 in c.boxes
+        for x0, y0, x1, y1 in (_one_box(c.boxes) if merge else c.boxes)
     )
     return (
         f'<div class="page" hidden data-doc="{_e(doc.id)}" data-page="{page.n}" '
@@ -762,29 +895,41 @@ def render(
     images = page_images or {}
     on = evidence_lines_on()
     mapped = evidence_map_on()
-    names = _shown_names(review.docs) if mapped else {d.id: d.name for d in review.docs}
+    names = _short_names(review.docs) if mapped else {d.id: d.name for d in review.docs}
     cards = {c.id: c for c in review.cards}
     notes = "".join(f'<p class="docnote">{_e(names[d.id])}: {_e(d.note)}</p>' for d in review.docs if d.note)
     notes += _unreadable_notes(review, names)
     banners = "".join(map(_banner, review.banners))
     badge = f'<p class="replay-badge" role="note">{REPLAY_TEXT}</p>' if replay else ""
     reasons = {p.id: supports_reason(c for c in review.cards if c.part == p.id) for p in review.parts}
-    pages = "".join(_page(d, p, review.cards, images, names[d.id]) for d in review.docs for p in d.pages)
-    maps = {p.id: _map(p, cards, names, reasons) if mapped and p.evidence_map is not None else "" for p in review.parts}
-    refs = _packet_refs(review.parts, names) if mapped else ""
-    why = _verdict_parts(review, cards, names) if mapped else ""
-    sentence = _answer(review, cards, names) if mapped else ""
-    answer = f'<p class="answer">{_e(sentence)}</p>' if sentence else ""
-    legend = f'<p class="ev legend">{_e(LEGEND_TEXT)}</p>' if sentence else ""
+    pages = "".join(_page(d, p, review.cards, images, names[d.id], mapped) for d in review.docs for p in d.pages)
+    decider = _decider(review, cards) if mapped else None
+    decide = decider.id if decider else None
+    maps = {
+        p.id: _map(p, cards, names, reasons, decide) if mapped and p.evidence_map is not None else "" for p in review.parts
+    }
+    legend = f'<p class="ev legend">{_e(LEGEND_TEXT)}</p>' if mapped and len(review.parts) > 1 else ""
+    top = ""
+    if mapped:
+        rule = f'<p class="rule">{_e(RULE_TEXT)}</p>' if review.status == "contradicted" else ""
+        top = f'{rule}<p class="claim">{_e(review.claim.text)}</p>{_why(review, decider, names, cards)}{_gap_line(review)}'
     # "<" escaped so the JSON can never close its script tag.
     data = review.model_dump_json().replace("<", "\\u003c")
+    if mapped:
+        chip = f'<h1 class="chip verdict {_e(review.status)}">{_e(MAP_STATUS_LABEL[review.status])}</h1>{top}'
+    else:
+        chip = f'<h1>{_e(STATUS_LABEL[review.status])}</h1><p class="claim">{_e(review.claim.text)}</p>'
+    total = len(review.parts)
+    rows = "".join(
+        _part(p, reasons[p.id], names if on else None, maps[p.id], bool(maps[p.id]), mapped, f"Part {i}" if mapped and total > 1 else "")
+        for i, p in enumerate(review.parts, 1)
+    )
+    foot = _footer(review, cards, names) if mapped else ""
     body = (
-        f'<header>{answer}<h1>{_e((MAP_STATUS_LABEL if mapped else STATUS_LABEL)[review.status])}</h1>'
-        f'<p class="claim">{_e(review.claim.text)}</p>'
-        f"{why}{legend}{badge}{banners}</header>"
-        f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id], names if on else None, maps[p.id], bool(maps[p.id]), mapped) for p in review.parts)}</ul>{refs}{notes}{EVIDENCE_CSS if on or mapped else ""}</nav>'
+        f"<header>{chip}{badge}{banners}</header>"
+        f'<main><nav aria-label="Claim parts">{legend}<ul>{rows}</ul>{notes}{EVIDENCE_CSS if on or mapped else ""}</nav>'
         f'<section aria-label="Evidence cards">{"" if mapped and any(p.evidence_map is not None for p in review.parts) else _cards(review.cards, reasons, names, on)}</section>'
-        f'<section aria-label="Page">{pages}</section></main>'
+        f'<section aria-label="Page">{pages}</section></main>{foot}'
         f'<script type="application/json" id="review">{data}</script>'
     )
     page = TEMPLATE.read_text().replace("<!--BODY-->", body)
