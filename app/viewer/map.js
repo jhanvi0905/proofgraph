@@ -1,59 +1,78 @@
-  // Evidence map only (PROOFGRAPH_EVIDENCE_MAP): cards can sit inside closed <details>.
-  function openAncestors(card) {
-    for (var d = card.parentElement; d; d = d.parentElement) if (d.tagName === "DETAILS" && !d.open) d.open = true;
+  // Argument ledger only (PROOFGRAPH_EVIDENCE_MAP). A row opens its passage under itself. One passage is open at a time,
+  // so the one page image sits in one place and carries exactly one box.
+  var rows = Array.prototype.slice.call(document.querySelectorAll(".rowbtn"));
+  function setExpanded(btn, open) {
+    btn.setAttribute("aria-expanded", String(open));
+    var target = document.getElementById(btn.getAttribute("aria-controls"));
+    if (target) target.hidden = !open;
+    var act = btn.querySelector(".act");
+    if (act) act.textContent = open ? "Close" : "Open";
+    if (btn.dataset.shut) btn.textContent = open ? btn.dataset.open : btn.dataset.shut;
   }
-  function reveal(card) {
+  // Unhide every closed group, list and panel above `el`, and mark the button that controls each one as expanded.
+  function openAncestors(el) {
+    for (var n = el.parentElement; n; n = n.parentElement) {
+      if (!n.hidden || !n.id) continue;
+      var c = document.querySelector('[aria-controls="' + n.id + '"]');
+      if (c) setExpanded(c, true); else n.hidden = false;
+    }
+  }
+  function reveal(card, stayOnRow) {
+    var li = card.closest("li.row"), btn = li.querySelector(".rowbtn");
+    rows.forEach(function (r) { if (r !== btn && r.getAttribute("aria-expanded") === "true") setExpanded(r, false); });
     openAncestors(card);
+    setExpanded(btn, true);
+    var page = document.querySelector('.page[data-doc="' + card.dataset.doc + '"][data-page="' + card.dataset.page + '"]');
+    var slot = card.querySelector(".slot");
+    if (page && slot) slot.appendChild(page);
     show(card);
-    card.focus({ preventScroll: true });
+    (stayOnRow ? btn : card).focus({ preventScroll: true });
     var b = document.querySelector('[data-box-for="' + card.dataset.cardId + '"]');
-    (b || card).scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    (b || li).scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }
-  // Same choice as go() above, made first (capture phase) so the card is open when go() focuses it.
+  function closeRow(li) {
+    var btn = li.querySelector(".rowbtn");
+    setExpanded(btn, false);
+    btn.focus();
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest && e.target.closest("button, [data-reveal]");
+    if (!t) return;
+    if (t.classList.contains("rowbtn")) {
+      e.preventDefault();
+      if (t.getAttribute("aria-expanded") === "true") setExpanded(t, false);
+      else reveal(t.parentElement.querySelector("[data-card-id]"), true);
+    } else if (t.classList.contains("close")) closeRow(t.closest("li.row"));
+    else if (t.hasAttribute("aria-controls")) setExpanded(t, t.getAttribute("aria-expanded") !== "true");
+    else if (t.hasAttribute("data-reveal")) {
+      e.preventDefault();
+      var target = byId(t.dataset.reveal);
+      if (target) reveal(target, false);
+    }
+  });
+  // Made first (capture phase) and final: the shared handler would call preventDefault on Enter, which stops a button click.
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return;
-    var k = e.key, step = k === "j" || k === "]" ? 1 : k === "k" || k === "[" ? -1 : 0;
+    var k = e.key;
+    if ((k === "Enter" || k === " ") && e.target.closest && e.target.closest("button")) return e.stopImmediatePropagation();
+    var li = document.activeElement && document.activeElement.closest && document.activeElement.closest("li.row");
+    if (k === "Escape") {
+      if (li && li.querySelector(".rowbtn").getAttribute("aria-expanded") === "true") closeRow(li);
+      return;
+    }
+    var step = k === "j" || k === "]" ? 1 : k === "k" || k === "[" ? -1 : 0;
     if (!step) return;
-    var list = k === "]" || k === "[" ? cards.filter(function (c) { return c.classList.contains("contradicts"); }) : cards;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    var list = k === "]" || k === "[" ? rows.filter(function (r) { return r.parentElement.classList.contains("contradicts"); }) : rows;
     if (!list.length) return;
-    var cur = current(), at = list.indexOf(cur), next;
+    var cur = li ? li.querySelector(".rowbtn") : null, at = list.indexOf(cur), next;
     if (at < 0) {
-      var from = cards.indexOf(cur), ahead = list.filter(function (c) { return step > 0 ? cards.indexOf(c) > from : cards.indexOf(c) < from; });
+      var from = rows.indexOf(cur), ahead = list.filter(function (r) { return step > 0 ? rows.indexOf(r) > from : rows.indexOf(r) < from; });
       next = ahead.length ? ahead[step > 0 ? 0 : ahead.length - 1] : list[step > 0 ? 0 : list.length - 1];
     } else next = list[(at + step + list.length) % list.length];
     openAncestors(next);
+    next.focus({ preventScroll: true });
+    next.scrollIntoView({ block: "nearest" });
+    announce(next.parentElement.querySelector("[data-card-id]"));
   }, true);
-  document.addEventListener("click", function (e) {
-    var link = e.target.closest && e.target.closest("[data-reveal]");
-    var target = link && byId(link.dataset.reveal);
-    if (!link) return;
-    e.preventDefault();
-    if (target) reveal(target);
-  });
-  // A numbered mark opens a short list of its cards; each item reveals one card (one box on the page).
-  function closeLists(except) {
-    document.querySelectorAll(".st-list").forEach(function (l) { if (l !== except) l.hidden = true; });
-    document.querySelectorAll("[data-opens]").forEach(function (o) {
-      o.setAttribute("aria-expanded", String(!!except && o.dataset.opens === except.id && !except.hidden));
-    });
-  }
-  document.addEventListener("click", function (e) {
-    var o = e.target.closest && e.target.closest("[data-opens]");
-    if (!o) return;
-    e.preventDefault();
-    var list = document.getElementById(o.dataset.opens);
-    var open = list.hidden;
-    closeLists(null);
-    list.hidden = !open;
-    o.setAttribute("aria-expanded", String(open));
-    var first = open && list.querySelector("button");
-    if (first) first.focus();
-  });
-  document.addEventListener("keydown", function (e) {
-    if (e.key !== "Escape") return;
-    var list = e.target.closest && e.target.closest(".st-list");
-    if (!list) return;
-    var opener = document.querySelector('[data-opens="' + list.id + '"]');
-    closeLists(null);
-    if (opener) opener.focus();
-  });
