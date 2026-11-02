@@ -346,3 +346,174 @@ def test_viewer_js_reveal_only_in_map_mode(review, monkeypatch):
     monkeypatch.setenv(FLAG, "1")
     h = render(_ui_review())
     assert "function reveal(" in h and "[data-reveal]" in h and "MAP_JS" not in h
+
+
+# ---- Wave 3A: stance map (lanes x dates, undated column, referenced row) ----
+class _Stance(HTMLParser):
+    """Collect, per part, the stance figure's lanes, cells and marks."""
+
+    def __init__(self):
+        super().__init__()
+        self.figs, self.cur, self.lane, self.cell, self.order = {}, None, None, None, []
+        self.articles, self.tag_order = {}, []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        cls = (a.get("class") or "").split()
+        if tag == "article" and "data-card-id" in a:
+            self.articles[a["data-card-id"]] = a["data-part"]
+        if "map-group" in cls and self.cur is None:
+            self.tag_order.append("group")
+        if tag == "figure" and "stance" in cls:
+            self.cur = self.figs.setdefault(a["data-part"], {"lanes": {}, "refs": [], "attrs": a})
+            self.tag_order.append("figure")
+        elif self.cur is not None:
+            if "st-lane" in cls:
+                self.lane = self.cur["lanes"].setdefault(a["data-lane"], {"marks": [], "none": False, "attrs": a})
+            elif "st-cell" in cls:
+                self.cell = {"undated": "undated" in cls, "date": a.get("data-day")}
+            elif "st-none" in cls and self.lane is not None:
+                self.lane["none"] = True
+            elif "st-ref" in cls:
+                self.cur["refs"].append(a)
+            elif "st-mark" in cls:
+                self.lane["marks"].append({**a, "cell": self.cell, "tag": tag})
+
+    def handle_endtag(self, tag):
+        if tag == "figure":
+            self.cur = self.lane = self.cell = None
+
+
+def _stance(h):
+    s = _Stance()
+    s.feed(h)
+    return s
+
+
+def _count(m):
+    return int(m.get("data-count", "1"))
+
+
+def test_stance_absent_when_flag_off(review, monkeypatch):
+    monkeypatch.delenv(FLAG, raising=False)
+    assert "stance" not in render(review) and "st-mark" not in render(review)
+
+
+def test_one_stance_map_per_part_first_above_the_groups(monkeypatch):
+    s = _stance(_ui_html(monkeypatch))
+    assert set(s.figs) == {"p1", "p2", "p3"}
+    h = _ui_html(monkeypatch)
+    for pid in ("p1", "p2", "p3"):
+        li = h.split(f'data-part-id="{pid}"')[1].split("</li>")[0]
+        assert li.index('class="stance') < li.index('class="map-group')
+
+
+def test_three_lanes_in_order_and_counts_equal_cards(monkeypatch):
+    h = _ui_html(monkeypatch)
+    s = _stance(h)
+    rv = _ui_review()
+    for part in rv.parts:
+        fig = s.figs[part.id]
+        assert list(fig["lanes"]) == ["contradicts", "weakens", "supports"]
+        for rel, lane in fig["lanes"].items():
+            n = sum(c.relation == rel and c.part == part.id for c in rv.cards)
+            assert sum(map(_count, lane["marks"])) == n, (part.id, rel)
+            assert (f"({n})" in lane["attrs"]["aria-label"]) and lane["none"] == (n == 0)
+    assert "none found" in h
+
+
+def test_marks_resolve_to_cards_of_their_own_part(monkeypatch):
+    h = _ui_html(monkeypatch)
+    s = _stance(h)
+    seen = []
+    for pid, fig in s.figs.items():
+        for lane in fig["lanes"].values():
+            for m in lane["marks"]:
+                assert m["tag"] == "button" and m["type"] == "button"
+                assert s.articles[m["data-reveal"]] == pid
+                seen.append(m["data-reveal"])
+    assert len(seen) == len(set(seen))
+
+
+def test_shape_fill_and_relation_class(monkeypatch):
+    h = _ui_html(monkeypatch)
+    s = _stance(h)
+    shape = {"contradicts": "diamond", "weakens": "triangle", "supports": "circle"}
+    checks = {c.id: c.check for c in _ui_review().cards}
+    for fig in s.figs.values():
+        for rel, lane in fig["lanes"].items():
+            for m in lane["marks"]:
+                assert m["data-shape"] == shape[rel] and rel in m["class"].split()
+                state = "filled" if checks[m["data-reveal"]] == "agrees" and _count(m) == 1 else "hollow"
+                assert state in m["class"].split() or _count(m) > 1
+
+
+def test_undated_column_and_dates_inferred(monkeypatch):
+    s = _stance(_ui_html(monkeypatch))
+    c1 = next(m for m in s.figs["p2"]["lanes"]["contradicts"]["marks"] if m["data-reveal"] == "c1")
+    assert c1["cell"]["undated"] and "no date found" in c1["aria-label"].lower()
+    t1 = next(m for m in s.figs["p2"]["lanes"]["supports"]["marks"] if m["data-reveal"] == "t1")
+    assert not t1["cell"]["undated"] and t1["cell"]["date"] == "2024-04-04"
+    assert "4 April 2024" in t1["aria-label"] and "inferred from the text" in t1["aria-label"]
+
+
+def test_aria_label_has_relation_document_page_state_and_no_banned_words(monkeypatch):
+    s = _stance(_ui_html(monkeypatch))
+    labels = [m["aria-label"] for f in s.figs.values() for ln in f["lanes"].values() for m in ln["marks"]]
+    assert labels
+    for lab in labels:
+        assert lab.split(",")[0] in {"Contradicts", "Weakens", "Supports"}
+        assert re.search(r"\.pdf p\d", lab) and ("second read" in lab)
+        assert not [b for b in BANNED if b in lab.lower()]
+    assert any(lab.startswith("Contradicts, Minutes.pdf p1, no date found, second read not settled") for lab in labels)
+
+
+def test_merged_cards_show_a_count(monkeypatch):
+    s = _stance(_ui_html(monkeypatch))
+    w = s.figs["p1"]["lanes"]["weakens"]["marks"]
+    merged = [m for m in w if _count(m) > 1]
+    assert [m["data-reveal"] for m in merged] == ["w2"] and _count(merged[0]) == 2
+    assert "and 1 more" in merged[0]["aria-label"]
+
+
+def test_many_same_day_marks_collapse_to_a_count(monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    r = _ui_review()
+    p = r.parts[2]
+    cs = []
+    for i in range(6):
+        c = _card(f"z{i}", "supports", "d1" if i % 2 else "d2", i + 1)
+        c.part, c.page = "p3", i + 1
+        cs.append(c)
+    r.cards += cs
+    p.evidence_map += [MapItem(kind="card", card_id=c.id, date="2024-06-01") for c in cs]
+    p.card_ids += [c.id for c in cs]
+    s = _stance(render(r))
+    marks = s.figs["p3"]["lanes"]["supports"]["marks"]
+    assert len(marks) == 1 and _count(marks[0]) == 6
+    assert marks[0]["data-reveal"] == "z0"
+    assert "z0" in s.articles and all(f"z{i}" in s.articles for i in range(6))  # all still reachable below
+
+
+def test_referenced_row_one_per_distinct_reference(monkeypatch):
+    h = _ui_html(monkeypatch)
+    s = _stance(h)
+    assert len(s.figs["p1"]["refs"]) == 1 and len(s.figs["p2"]["refs"]) == 1 and not s.figs["p3"]["refs"]
+    assert "cited in 2 places" in h.split('class="stance')[1]
+    assert h.count("Referenced, not supplied:") == 1  # the packet-level marker is untouched
+
+
+def test_stance_css_is_themed_and_not_colour_only():
+    from app.viewer.render import EVIDENCE_CSS
+    rules = [r for r in EVIDENCE_CSS.split("}") if ".st-" in r or ".stance" in r]
+    assert rules and not re.search(r"#[0-9a-fA-F]{3,6}", "".join(rules))
+    assert "focus-visible" in EVIDENCE_CSS and "container-type" in EVIDENCE_CSS
+
+
+def test_stance_map_survives_an_empty_part(monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    r = _ui_review()
+    r.parts[0].evidence_map = []
+    h = render(r)
+    fig = _stance(h).figs["p1"]
+    assert all(ln["none"] for ln in fig["lanes"].values())

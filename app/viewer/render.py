@@ -97,6 +97,26 @@ EVIDENCE_CSS = (
     ".map-more>summary,.map-unsettled>summary,.map-also>summary{padding:6px 0;color:var(--mut);font-weight:600}"
     ".map-note{margin:6px 10px;color:var(--mut);font-size:.9em}.map-date{margin:8px 0 2px;font-size:.85em;color:var(--mut)}"
     ".map-entry{margin:6px 0}.map-refs{margin-top:8px}"
+    ".stance{container-type:inline-size;margin:8px 0}.stance .st-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:4px 12px;padding:8px 0;border-top:1px solid var(--line)}"
+    ".st-name{flex:1 1 100%;font-weight:600;font-size:13px}.st-none{color:var(--mut);font-size:13px}"
+    ".st-cell{display:flex;flex-direction:column;gap:2px}.st-marks{display:flex;flex-wrap:wrap;gap:2px}"
+    ".st-cell.undated{border-left:2px dashed var(--gry);padding-left:10px}.st-name+.st-cell.undated{border-left:0;padding-left:0}"
+    ".st-cd,.st-axis .st-d{font-size:12px;color:var(--mut);border-bottom:1px dotted currentColor}"
+    ".st-cell.undated .st-cd,.st-axis .st-d.undated{border-bottom:0}"
+    ".stance .st-axis{display:none;font-size:12px;color:var(--mut);border-top:0}"
+    ".st-mark{position:relative;box-sizing:border-box;width:40px;height:40px;padding:0;border:0;border-radius:6px;background:none;cursor:pointer;color:var(--gry)}"
+    ".st-mark.contradicts{color:var(--red-text)}.st-mark.weakens{color:var(--amb)}.st-mark.supports{color:var(--grn)}"
+    ".st-mark svg{width:28px;height:28px;display:block;margin:auto;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linejoin:round}"
+    ".st-mark.filled svg{fill:currentColor}.st-mark:hover{background:var(--line)}"
+    ".st-mark:focus-visible{outline:3px solid var(--fg);outline-offset:1px}"
+    ".st-n{position:absolute;top:-2px;right:-2px;min-width:16px;padding:0 3px;box-sizing:border-box;border:1px solid var(--fg);border-radius:8px;"
+    "background:var(--bg);color:var(--fg);font:700 12px/14px system-ui,sans-serif;text-align:center}"
+    ".st-refs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}"
+    ".st-ref{margin:0;border:1px dashed var(--gry);border-radius:4px;padding:4px 8px;font-size:12px;overflow-wrap:anywhere}"
+    ".st-cap{margin:6px 0 0;color:var(--mut);font-size:12px}"
+    "@container (min-width:34rem){.stance.wide .st-row,.stance.wide .st-axis{display:grid;grid-template-columns:7rem repeat(var(--cols),minmax(0,1fr)) 6.5rem;gap:0 4px;align-items:start}"
+    ".stance.wide .st-name{flex:none;align-self:center}.stance.wide .st-cd{display:none}.stance.wide .st-cell.undated{padding-left:8px}"
+    ".stance.wide .st-none{grid-column:2/-1}.stance.wide .st-d{padding-bottom:4px}}"
     ".verdict-parts{margin:6px 0 0;color:var(--mut)}.verdict-parts li{margin:2px 0}"
     ".verdict-parts a{color:inherit;font-weight:600;border-bottom:1px solid currentColor}"
     ".verdict-parts a:focus-visible{outline:3px solid currentColor;outline-offset:2px}</style>"
@@ -354,6 +374,127 @@ def _group(part: Part, rel: str, label: str, view: MapView, reasons, names) -> s
     )
 
 
+_LANES = [("contradicts", "Contradicts", "diamond"), ("weakens", "Weakens", "triangle"), ("supports", "Supports", "circle")]
+_SHAPE = {
+    "diamond": '<polygon points="12,2 22,12 12,22 2,12"/>',
+    "triangle": '<polygon points="12,3 22,21 2,21"/>',
+    "circle": '<circle cx="12" cy="12" r="9"/>',
+}
+_COLLAPSE_OVER = 3  # more marks than this on one lane and day become one mark with a count
+_WIDE_MAX_DAYS = 8
+
+
+@dataclass
+class StanceMark:
+    """One mark on the stance map: a card, or the near-duplicates merged into it, or one lane-day's crowd."""
+
+    rel: str
+    day: date | None
+    cards: list[Card]
+
+
+def _day_or_none(value: str | None) -> date | None:
+    try:
+        return date.fromisoformat(value) if value else None
+    except ValueError:
+        return None  # a date we cannot read is never placed on the axis
+
+
+def _stance_marks(part: Part, view: MapView) -> list[StanceMark]:
+    """Pure: one mark per entry, then lane-days holding more than _COLLAPSE_OVER marks collapse to one."""
+    order = {it.card_id: i for i, it in enumerate(part.evidence_map or []) if it.kind == "card"}
+    cells: dict[tuple[str, date | None], list[StanceMark]] = {}
+    for e in sorted(view.entries + view.disagreeing, key=lambda e: order.get(e.card.id, 0)):
+        if e.card.relation in {r for r, _, _ in _LANES}:
+            day = _day_or_none(e.date)
+            cells.setdefault((e.card.relation, day), []).append(StanceMark(e.card.relation, day, [e.card, *e.also]))
+    out = []
+    for (rel, day), marks in cells.items():
+        if len(marks) > _COLLAPSE_OVER:
+            marks = [StanceMark(rel, day, [c for m in marks for c in m.cards])]
+        out += marks
+    return out
+
+
+def _state(cards: list[Card]) -> tuple[str, str]:
+    """(class, words): filled only when every second read in the mark confirmed."""
+    c = sum(x.check == "agrees" for x in cards)
+    s = sum(x.check == "disagrees" for x in cards)
+    u = len(cards) - c - s
+    if c == len(cards):
+        return "filled", "second read confirmed"
+    if s == len(cards):
+        return "hollow", "second read not settled"
+    if u == len(cards):
+        return "hollow", "no second read"
+    bits = [f"{n} {t}" for n, t in ((c, "confirmed"), (s, "not settled"), (u, "without a second read")) if n]
+    return "hollow", "second read: " + ", ".join(bits)
+
+
+def _stance_mark(m: StanceMark, label: str, names: dict[str, str]) -> str:
+    first = m.cards[0]
+    cls, state = _state(m.cards)
+    where = f"{names.get(first.doc, first.doc)} p{first.page}"
+    if len(m.cards) > 1:
+        where += f" and {len(m.cards) - 1} more"
+    when = f"{m.day.day} {m.day:%B} {m.day.year}, inferred from the text" if m.day else "no date found"
+    tip = _e(f"{label}, {where}, {when}, {state}")
+    badge = f'<span class="st-n" aria-hidden="true">{len(m.cards)}</span>' if len(m.cards) > 1 else ""
+    shape = next(sh for r, _, sh in _LANES if r == m.rel)
+    return (
+        f'<button type="button" class="st-mark {m.rel} {cls}" data-reveal="{_e(first.id)}" data-count="{len(m.cards)}" '
+        f'data-shape="{shape}" aria-label="{tip}" title="{tip}">'
+        f'<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">{_SHAPE[shape]}</svg>{badge}</button>'
+    )
+
+
+def _stance_map(part: Part, view: MapView, names: dict[str, str]) -> str:
+    """Per part, lanes (Contradicts, Weakens, Supports) over days in order, plus a No-date column. Facts only."""
+    marks = _stance_marks(part, view)
+    days = sorted({m.day for m in marks if m.day})
+    col = {d: i + 2 for i, d in enumerate(days)}
+    wide = " wide" if 1 <= len(days) <= _WIDE_MAX_DAYS else ""
+    axis = ""
+    if wide:
+        axis = (
+            '<div class="st-row st-axis" aria-hidden="true"><span></span>'
+            + "".join(f'<span class="st-d" style="grid-column:{col[d]}">{_e(_day(d, True))}</span>' for d in days)
+            + f'<span class="st-d undated" style="grid-column:{len(days) + 2}">No date found</span></div>'
+        )
+    lanes = []
+    for rel, label, _ in _LANES:
+        mine = [m for m in marks if m.rel == rel]
+        n = sum(len(m.cards) for m in mine)
+        cells = []
+        for key in [*days, None]:
+            here = [m for m in mine if m.day == key]
+            if not here:
+                continue
+            if key:
+                head, gc, cls, data = _day(key, True), col[key], "", f' data-day="{key.isoformat()}"'
+            else:
+                head, gc, cls, data = "No date found", len(days) + 2, " undated", ""
+            cells.append(
+                f'<div class="st-cell{cls}"{data} style="grid-column:{gc}"><span class="st-cd">{_e(head)}</span>'
+                f'<div class="st-marks">{"".join(_stance_mark(m, label, names) for m in here)}</div></div>'
+            )
+        body = "".join(cells) if cells else '<span class="st-none">none found</span>'
+        lanes.append(
+            f'<div class="st-row st-lane {rel}" data-lane="{rel}" role="group" aria-label="{_e(label)} ({n})">'
+            f'<span class="st-name">{_e(label)} ({n})</span>{body}</div>'
+        )
+    refs = "".join(
+        f'<p class="st-ref"><strong>Referenced, not supplied</strong> {_e(r.text)} (cited in {_n(r.count, "place")})</p>'
+        for r in view.refs
+    )
+    refs = f'<div class="st-refs">{refs}</div>' if refs else ""
+    return (
+        f'<figure class="stance{wide}" data-part="{_e(part.id)}" style="--cols:{len(days)};margin-inline:0" role="group" '
+        f'aria-label="Stance map">{axis}{"".join(lanes)}{refs}'
+        f'<figcaption class="st-cap">{_e(MAP_DATE_TEXT)} Days run in order, not to scale.</figcaption></figure>'
+    )
+
+
 def _map(part: Part, cards: dict[str, Card], names: dict[str, str], reasons: dict[str, str | None]) -> str:
     """Evidence map under a part (flag on only): one <details> per relation, counted and linked, dates inferred."""
     n = (part.map_counts or {}).get("examined", 0)
@@ -364,7 +505,7 @@ def _map(part: Part, cards: dict[str, Card], names: dict[str, str], reasons: dic
     if skipped > 0:
         limit += f" {skipped} matched passages were judged not to bear on this part by the labelling step."
     summary = f'<p class="ev ev-summary">{_e(_part_summary(part, cards, names))}</p>'
-    return f'{summary}<p class="ev ev-limit">{_e(limit)} {_e(MAP_DATE_TEXT)}</p><div class="map">{groups}</div>'
+    return f'{_stance_map(part, view, names)}{summary}<p class="ev ev-limit">{_e(limit)} {_e(MAP_DATE_TEXT)}</p><div class="map">{groups}</div>'
 
 
 def _packet_refs(parts: list[Part], names: dict[str, str]) -> str:
