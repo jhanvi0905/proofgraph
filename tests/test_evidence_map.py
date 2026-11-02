@@ -38,19 +38,18 @@ def test_flag_off_is_byte_identical_to_golden(review, monkeypatch):
     assert "class=\"map\"" not in render(_mapped(review))
 
 
-def test_flag_on_renders_ordered_map(review, monkeypatch):
+def test_flag_on_renders_grouped_map(review, monkeypatch):
     monkeypatch.setenv(FLAG, "1")
     html = render(_mapped(review))
     assert "Text pages only; 12 passages in 1 documents examined; scans/images not read; may be incomplete." in html
     assert "Dates are inferred from the text, not legal dates." in html
-    assert "May 7, 2026 · inferred from the signature block" in html
-    first, undated, ref = (html.index(s) for s in ("May 7, 2026", ">Undated<", "Referenced, not supplied"))
-    assert first < ref < undated
-    assert html.count('<li class="map-undated">Undated</li>') == 1
-    assert "Referenced, not supplied: the &lt;b&gt;2019&lt;/b&gt; master agreement (cited in Bosch_NDA.pdf p2)" in html
+    assert "May 7, 2026 \u00b7 inferred from the signature block" in html
+    assert "No date found in this passage" in html and ">Undated<" not in html
+    assert html.count("Referenced, not supplied:") == 1
+    assert "Referenced, not supplied: the &lt;b&gt;2019&lt;/b&gt; master agreement (cited in 1 place: Bosch_NDA.pdf p2)" in html
     assert "<b>2019</b>" not in html
-    assert len(re.findall(r'class="map-rel"', html)) == 2  # unknown card id skipped
-    assert not re.search(r"resolved|score", html.split('<ol class="map">')[1].split("</ol>")[0], re.I)
+    assert len(re.findall(r"<article ", html)) == 2  # unknown card id skipped
+    assert not re.search(r"resolved|score", html.split('<div class="map">')[1].split("</nav>")[0], re.I)
 
 
 def test_saved_json_unchanged_when_none_and_old_json_validates(review):
@@ -163,7 +162,7 @@ def test_no_banned_word_in_visible_map_output(review, monkeypatch, check, answer
     for c in r.cards[:2]:
         c.check, c.check_answer = check, answer
     h = render(r)
-    h = h[h.index('class="ev ev-summary"'):h.index("</ol>")]  # the map; part.reason/conflict text is not ours
+    h = h[h.index('class="ev ev-summary"'):h.index("</nav>")]  # the map; part.reason/conflict text is not ours
     h = re.sub(r"<script.*?</script>|<style.*?</style>", "", h, flags=re.S)
     for t in BANNED:
         assert t not in h.lower(), t
@@ -191,3 +190,156 @@ def test_part_summary_in_map_render_and_irrelevant_not_rendered(review, monkeypa
     h = render(r)
     assert 'class="ev ev-summary"' in h and "irrelevant (hidden)" in h
     assert h.count("data-card-id=") >= 1
+
+
+# ---- UI wave 2: per-relation groups, verdict line, copy fixes ----
+from html.parser import HTMLParser  # noqa: E402
+
+from proofgraph.review.models import Claim, Doc, Review as _Review, Run  # noqa: E402
+
+
+def _ui_review() -> Review:
+    """TC17-shaped: 3 parts, 3 documents, unsettled sole contradiction in p2, repeated references in p1 and p2."""
+    base = json.loads((FIX / "review_tc40.json").read_text())
+    page = base["docs"][0]["pages"][0]
+    docs = [Doc(id=i, name=n, pages=[page]) for i, n in (("d1", "0-Bylaws.pdf"), ("d2", "2-Minutes.pdf"), ("d3", "Letter.pdf"))]
+    cs, parts = [], []
+
+    def add(pid, cid, rel, doc="d1", pg=1, check="agrees", date=None, src="in passage", answer=None):
+        c = _card(cid, rel, doc, pg, check, answer)
+        c.part = pid
+        c.page = 1
+        cs.append(c)
+        return MapItem(kind="card", card_id=cid, date=date, date_source=src if date else None)
+
+    def refs():
+        return [MapItem(kind="referenced", ref_text=t, ref_doc="d1", ref_page=p)
+                for t, p in (("The Master Agreement.", 1), ("the master agreement", 2))]
+
+    m1 = [add("p1", "w1", "weakens", date="2024-03-01"), add("p1", "w2", "weakens", "d2", date="2024-03-02"),
+          add("p1", "w3", "weakens", "d2", pg=1, date="2024-03-09"), add("p1", "w4", "weakens", "d1", check="disagrees", answer="not_mentioned"),
+          add("p1", "s1", "supports", date="2024-03-12"), add("p1", "s2", "supports", "d2"),
+          add("p1", "s3", "supports", "d1", check="disagrees", answer="not_mentioned"), *refs()]
+    m2 = [add("p2", "c1", "contradicts", "d2", check="disagrees", answer="not_mentioned"),
+          add("p2", "t1", "supports", date="2024-04-04"), *refs()]
+    m3 = [add("p3", f"k{i}", "contradicts", ("d1", "d2", "d3", "d1")[i], date=f"2024-05-0{i + 1}") for i in range(4)]
+    for pid, text, status, ms, conflict in (("p1", "Part one.", "weakened", m1, False), ("p2", "Part two.", "contradicted", m2, True),
+                                            ("p3", "Part three.", "contradicted", m3, False)):
+        parts.append(Part(id=pid, text=text, span=(0, 1), status=status, card_ids=[m.card_id for m in ms if m.card_id],
+                          evidence_map=ms, map_counts={"examined": 12, "relevant": len(ms), "shown": len(ms)}, conflict=conflict))
+    return _Review(version="review-1", review_id="r", claim=Claim(text="A claim.", origin="typed"), status="contradicted",
+                   driver_part="p3", run=Run(mode="live", recorded_at="2026-11-03", models={}, cost_usd=0), docs=docs,
+                   parts=parts, cards=cs)
+
+
+class _Walk(HTMLParser):
+    """Collect cards with the number of closed <details> above them, plus group order."""
+
+    def __init__(self):
+        super().__init__()
+        self.stack, self.cards, self.groups, self.in_script = [], {}, [], 0
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "script" or tag == "style":
+            self.in_script += 1
+        if tag == "details":
+            self.stack.append("open" in a)
+            if "map-group" in (a.get("class") or ""):
+                self.groups.append((a.get("data-part"), a.get("data-rel"), "open" in a))
+        elif tag == "article" and "data-card-id" in a:
+            self.cards[a["data-card-id"]] = sum(not o for o in self.stack)
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style"):
+            self.in_script -= 1
+        if tag == "details":
+            self.stack.pop()
+
+
+def _walk(html):
+    w = _Walk()
+    w.feed(html)
+    return w
+
+
+def _ui_html(monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    return render(_ui_review())
+
+
+def test_groups_order_defaults_and_two_clicks(monkeypatch):
+    h = _ui_html(monkeypatch)
+    w = _walk(h)
+    p1 = [(r, o) for p, r, o in w.groups if p == "p1"]
+    assert p1 == [("weakens", True), ("supports", False)]
+    assert [(r, o) for p, r, o in w.groups if p == "p3"] == [("contradicts", True)]
+    vis = lambda pid: sorted(c for c, n in w.cards.items() if n == 0 and c in {x.id for x in _ui_review().cards if x.part == pid})
+    assert vis("p3") == ["k0", "k1", "k2"]  # Contradicts: first 3 open
+    assert [c for c in vis("p1") if c.startswith("w")] == ["w1", "w2"]  # Weakens: first 2
+    assert not [c for c in vis("p1") if c.startswith("s")]  # Supports collapsed
+    assert set(w.cards) == {c.id for c in _ui_review().cards}  # nothing lost
+    assert max(w.cards.values()) <= 2
+
+
+def test_sole_unsettled_contradiction_is_not_hidden(monkeypatch):
+    w = _walk(_ui_html(monkeypatch))
+    assert w.cards["c1"] == 0
+
+
+def test_group_header_counts_equal_cards(monkeypatch):
+    h = _ui_html(monkeypatch)
+    sec = h.split('data-rel="weakens"')[1].split('data-rel="supports"')[0]
+    assert "Weakens (4): 3 confirmed by a second read of its quote alone, 1 need other passages to settle." in sec
+    assert len(re.findall(r"<article ", sec)) == 4
+    assert "Show all 3 supporting passages" in h and ">Show all 3<" in h
+
+
+def test_one_class_note_and_short_badges_in_map_mode(monkeypatch):
+    h = _ui_html(monkeypatch)
+    assert 'class="reason-line check-answer"' not in h  # the long note is a tooltip, not a paragraph per card
+    assert h.count('class="ev map-note"') == 3  # p1 weakens, p1 supports, p2 contradicts: one per class, not per card
+
+
+def test_dates_and_labels(monkeypatch):
+    h = _ui_html(monkeypatch)
+    body = re.sub(r"<script.*?</script>|<style.*?</style>", "", h, flags=re.S)
+    assert ">Undated<" not in body and "inferred from in passage" not in body
+    assert "No date found in this passage" in body and "March 1, 2024 · inferred from the passage" in body
+    assert "Dates are inferred from the text, not legal dates." in body
+
+
+def test_verdict_line_facts_only_with_reveal_links(monkeypatch):
+    h = _ui_html(monkeypatch)
+    line = h.split('class="ev verdict-parts"')[1].split("</ul>")[0]
+    assert 'data-reveal="c1"' in line and 'data-reveal="k0"' in line and 'data-reveal="w1"' in line
+    assert "1 passage, second read not settled" in line
+    assert "worst" not in line.lower() and "strongest" not in line.lower()
+    assert "Bylaws.pdf, p1" in line and "0-Bylaws" not in line
+
+
+def test_reference_marker_once_per_packet(monkeypatch):
+    h = _ui_html(monkeypatch)
+    assert h.count("Referenced, not supplied:") == 1
+    assert "cited in 2 places" in h
+
+
+def test_conflict_wording_and_no_banned_words_anywhere_visible(monkeypatch):
+    h = _ui_html(monkeypatch)
+    assert "Sources point different ways on this part." in h and "Sources disagree" not in h
+    vis = re.sub(r"<script.*?</script>|<style.*?</style>", "", h, flags=re.S).lower()
+    for t in BANNED:
+        assert t not in vis, t
+
+
+def test_file_prefix_stripped_in_map_mode_only(monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    on = re.sub(r"<script.*?</script>", "", render(_ui_review()), flags=re.S)
+    assert "0-Bylaws" not in on and "Bylaws.pdf" in on and "Minutes.pdf" in on
+    monkeypatch.delenv(FLAG)
+    assert "0-Bylaws.pdf" in re.sub(r"<script.*?</script>", "", render(_ui_review()), flags=re.S)
+
+
+def test_viewer_js_has_reveal():
+    t = (Path(__file__).parents[1] / "app/viewer/viewer.html").read_text()
+    assert "function reveal(" in t and "[data-reveal]" in t

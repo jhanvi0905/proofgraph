@@ -79,7 +79,26 @@ EVIDENCE_CSS = (
     ".map{list-style:none;padding:0}.map>li{margin:6px 0}.map-date,.map-rel{font-size:.85em;color:var(--mut)}"
     ".map-rel{font-weight:600;margin-right:6px}.map-undated{font-weight:600;border-top:1px solid var(--gry);padding-top:4px}"
     ".mark.second-read{font-weight:600;color:var(--mut)}"
-    ".map-ref{border:1px dashed var(--gry);border-radius:4px;padding:4px 8px}</style>"
+    ".map-ref{border:1px dashed var(--gry);border-radius:4px;padding:4px 8px;margin:6px 0;overflow-wrap:anywhere}"
+    ".map-group{border:1px solid var(--line);border-left:4px solid var(--gry);border-radius:6px;margin:8px 0;overflow-wrap:anywhere}"
+    ".map-group.contradicts{border-left-color:var(--red)}.map-group.weakens{border-left-color:var(--amb)}"
+    ".map-group.supports{border-left-color:var(--grn)}"
+    ".map-group summary,.map-more>summary,.map-unsettled>summary,.map-also>summary{cursor:pointer;padding:8px 10px;list-style:none}"
+    ".map-group summary::before{content:'\\25B8';display:inline-block;width:1.2em;color:var(--mut)}"
+    ".map-group details[open]>summary::before,.map-group[open]>summary::before{content:'\\25BE'}"
+    ".map-group>summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px}"
+    ".map-group>summary::before{flex:none}"
+    ".map-head{font-weight:600;flex:1 1 14em}.map-sum{flex:1 1 100%;color:var(--mut);font-size:.9em;padding-left:1.2em}"
+    ".map-show{font-weight:600;border:1px solid var(--gry);border-radius:4px;padding:0 8px}"
+    ".map-group[open]>summary .map-show{display:none}"
+    ".map-group summary:focus-visible{outline:3px solid currentColor;outline-offset:-3px}"
+    ".map-group>*:not(summary){margin-left:10px;margin-right:10px}.map-group .map-more,.map-group .map-unsettled,.map-group .map-also{border-top:1px solid var(--line);margin:6px 0 8px}"
+    ".map-more>summary,.map-unsettled>summary,.map-also>summary{padding:6px 0;color:var(--mut);font-weight:600}"
+    ".map-note{margin:6px 10px;color:var(--mut);font-size:.9em}.map-date{margin:8px 0 2px;font-size:.85em;color:var(--mut)}"
+    ".map-entry{margin:6px 0}.map-refs{margin-top:8px}"
+    ".verdict-parts{margin:6px 0 0;color:var(--mut)}.verdict-parts li{margin:2px 0}"
+    ".verdict-parts a{color:inherit;font-weight:600;border-bottom:1px solid currentColor}"
+    ".verdict-parts a:focus-visible{outline:3px solid currentColor;outline-offset:2px}</style>"
 )
 
 
@@ -249,44 +268,155 @@ def _part_summary(part: Part, cards: dict[str, Card], names: dict[str, str]) -> 
     return out
 
 
-def _map(part: Part, cards: dict[str, Card], names: dict[str, str], reasons: dict[str, str | None]) -> str:
-    """Ordered evidence map under a part (flag on only): one list, dates inferred, relation as a word."""
-    n = (part.map_counts or {}).get("examined", 0)
-    items, seen_dated = [], False
-    for it in part.evidence_map or []:
-        if it.kind == "card" and it.card_id not in cards:
-            continue
-        if it.kind == "referenced":
-            cite = f" (cited in {_e(names.get(it.ref_doc, it.ref_doc))} p{it.ref_page})" if it.ref_doc else ""
-            items.append(f'<li class="map-ref">Referenced, not supplied: {_e(it.ref_text)}{cite}</li>')
-            continue
-        if it.date is None and seen_dated:
-            items.append('<li class="map-undated">Undated</li>')
-            seen_dated = False
-        c = cards[it.card_id]
-        try:
-            d = date.fromisoformat(it.date) if it.date else None
-            when = f"{d:%B} {d.day}, {d.year}" if d else None
-        except ValueError:
-            when = it.date
-        label = f"{when} · inferred from {it.date_source or 'the text'}" if when else "Undated"
-        seen_dated = seen_dated or bool(when)
-        items.append(
-            f'<li><span class="map-rel">{_e(dict(GROUPS)[c.relation])}</span><span class="map-date">{_e(label)}</span>'
-            f"{_card(c, reasons.get(c.part), names.get(c.doc), True, True)}</li>"
+MAP_NOTE_TEXT = (
+    "Not settled means the second read, which sees only the quote and the part, did not reach the same label. "
+    "These passages stay counted and linked here."
+)
+_OPEN_CARDS = {"contradicts": 3, "weakens": 2}
+_DATE_SOURCE = {"in passage": "the passage", "document header": "the document header"}
+_SHOW_ALL = {"supports": "supporting passages"}
+_MAP_GROUPS = [*GROUPS]
+_PREFIX = re.compile(r"^\d-")
+
+
+def _shown_names(docs: list[Doc]) -> dict[str, str]:
+    """Map mode only: drop a leading '0-' / '2-' from displayed names unless that makes two names equal."""
+    clean = {d.id: _PREFIX.sub("", d.name) or d.name for d in docs}
+    return clean if len(set(clean.values())) == len(clean) else {d.id: d.name for d in docs}
+
+
+def _when(day: str | None, source: str | None) -> str:
+    try:
+        d = date.fromisoformat(day) if day else None
+    except ValueError:
+        return f"{day} \u00b7 inferred from {_DATE_SOURCE.get(source or '', source or 'the text')}"
+    if not d:
+        return "No date found in this passage"
+    return f"{d:%B} {d.day}, {d.year} \u00b7 inferred from {_DATE_SOURCE.get(source or '', source or 'the text')}"
+
+
+def _map_card(card: Card, reasons: dict[str, str | None], names: dict[str, str]) -> str:
+    return _card(card, reasons.get(card.part), names.get(card.doc), True, True, True)
+
+
+def _entry(e: MapEntry, reasons: dict[str, str | None], names: dict[str, str], flat: bool) -> str:
+    out = f'<div class="map-entry"><p class="map-date">{_e(_when(e.date, e.date_source))}</p>{_map_card(e.card, reasons, names)}'
+    extra = "".join(_map_card(c, reasons, names) for c in e.also)
+    if extra and flat:
+        out += extra
+    elif extra:
+        out += (
+            f'<details class="map-also"><summary>Also {_n(len(e.also), "similar passage")} on the same page</summary>'
+            f"{extra}</details>"
         )
+    return out + "</div>"
+
+
+def _weight(entries: list[MapEntry]) -> int:
+    return sum(1 + len(e.also) for e in entries)
+
+
+def _group(part: Part, rel: str, label: str, view: MapView, reasons, names) -> str:
+    settled = [e for e in view.entries if e.card.relation == rel]
+    unsettled = [e for e in view.disagreeing if e.card.relation == rel]
+    everything = [c for e in settled + unsettled for c in (e.card, *e.also)]
+    if not everything:
+        return ""
+    head = _class_header(label, everything)
+    k = _OPEN_CARDS.get(rel, 0)
+    show = (
+        f'<span class="map-show" aria-label="Show all {len(everything)} {_SHOW_ALL.get(rel, "passages")}">'
+        f"Show all {len(everything)}</span>"
+        if not k
+        else ""
+    )
+    body = f'<p class="ev map-note">{_e(MAP_NOTE_TEXT)}</p>' if unsettled else ""
+    body += "".join(_entry(e, reasons, names, False) for e in settled[:k])
+    rest = settled[k:]
+    if rest and k:
+        body += (
+            f'<details class="map-more"><summary>Show {_weight(rest)} more</summary>'
+            f'{"".join(_entry(e, reasons, names, False) for e in rest)}</details>'
+        )
+    else:
+        body += "".join(_entry(e, reasons, names, False) for e in rest)
+    if unsettled:
+        opened = " open" if k and not settled else ""  # a lone contradiction or weakening is never folded away
+        body += (
+            f'<details class="map-unsettled"{opened}><summary>{_weight(unsettled)} not settled by a second read of the quote alone'
+            f'</summary>{"".join(_entry(e, reasons, names, True) for e in unsettled)}</details>'
+        )
+    return (
+        f'<details class="map-group {_e(rel)}" data-part="{_e(part.id)}" data-rel="{_e(rel)}"{" open" if k else ""}>'
+        f'<summary><span class="map-head" aria-label="{_e(head)}">{_e(head)}</span>{show}'
+        f'<span class="map-sum">{_e(_summary(settled + unsettled, names))}</span></summary>{body}</details>'
+    )
+
+
+def _map(part: Part, cards: dict[str, Card], names: dict[str, str], reasons: dict[str, str | None]) -> str:
+    """Evidence map under a part (flag on only): one <details> per relation, counted and linked, dates inferred."""
+    n = (part.map_counts or {}).get("examined", 0)
+    view = _map_items(part, cards)
+    groups = "".join(_group(part, rel, label, view, reasons, names) for rel, label in _MAP_GROUPS)
     limit = MAP_LIMIT_TEXT.format(n=n, m=len(names))
     skipped = n - (part.map_counts or {}).get("relevant", 0)
     if skipped > 0:
         limit += f" {skipped} matched passages were judged not to bear on this part by the labelling step."
     summary = f'<p class="ev ev-summary">{_e(_part_summary(part, cards, names))}</p>'
-    return f'{summary}<p class="ev ev-limit">{_e(limit)} {_e(MAP_DATE_TEXT)}</p><ol class="map">{"".join(items)}</ol>'
+    return f'{summary}<p class="ev ev-limit">{_e(limit)} {_e(MAP_DATE_TEXT)}</p><div class="map">{groups}</div>'
 
 
-def _part(part: Part, reason_kind: str | None = None, names: dict[str, str] | None = None, extra: str = "") -> str:
-    conflict = (
-        '<p class="conflict">Sources disagree on this part.</p>' if part.conflict else ""
-    )
+def _packet_refs(parts: list[Part], names: dict[str, str]) -> str:
+    """One marker per distinct unsupplied reference for the whole packet, with where it is cited."""
+    refs: dict[str, tuple[str, set]] = {}
+    for p in parts:
+        for it in p.evidence_map or []:
+            if it.kind == "referenced":
+                refs.setdefault(_ref_key(it.ref_text), (it.ref_text or "", set()))[1].add((it.ref_doc, it.ref_page))
+    out = []
+    for text, places in refs.values():
+        where = ", ".join(f"{names.get(d, d)} p{pg}" for d, pg in sorted(places, key=str) if d)
+        cite = f" (cited in {_n(len(places), 'place')}{': ' + where if where else ''})"
+        out.append(f'<p class="map-ref">Referenced, not supplied: {_e(text)}{_e(cite)}</p>')
+    return f'<section class="map-refs" aria-label="Referenced, not supplied">{"".join(out)}</section>' if out else ""
+
+
+_DECIDES = {"contradicted": "contradicts", "weakened": "weakens", "supported": "supports"}
+
+
+def _verdict_parts(review: Review, cards: dict[str, Card], names: dict[str, str]) -> str:
+    """Under the overall verdict: each part's verdict and its deciding passages. Facts only."""
+    mapped = [p for p in review.parts if p.evidence_map is not None]
+    if not mapped:
+        return ""
+    items = []
+    for i, p in enumerate(review.parts, 1):
+        out = f"Part {i} of {len(review.parts)}: {STATUS_LABEL[p.status]}"
+        rel = _DECIDES.get(p.status)
+        if p.evidence_map is not None and rel:
+            v = _map_items(p, cards)
+            ds = [c for e in v.entries + v.disagreeing for c in (e.card, *e.also) if c.relation == rel]
+            if ds:
+                open_ = sum(c.check == "disagrees" for c in ds)
+                out += f" by {_n(len(ds), 'passage')}"
+                if open_ == len(ds):
+                    out += ", second read not settled"
+                elif open_:
+                    out += f", {open_} of {len(ds)} with second read not settled"
+                if rel != "supports":
+                    links = ", ".join(
+                        f'<a href="#" data-reveal="{_e(c.id)}">{_e(names.get(c.doc, c.doc))}, p{c.page}</a>' for c in ds[:3]
+                    )
+                    out += f": {links}" + (f" and {len(ds) - 3} more" if len(ds) > 3 else "")
+        items.append(f"<li>{out}</li>")
+    return f'<ul class="ev verdict-parts" aria-label="Deciding passages by part">{"".join(items)}</ul>'
+
+
+def _part(
+    part: Part, reason_kind: str | None = None, names: dict[str, str] | None = None, extra: str = "", mapped: bool = False
+) -> str:
+    said = "Sources point different ways on this part." if mapped else "Sources disagree on this part."
+    conflict = f'<p class="conflict">{said}</p>' if part.conflict else ""
     reason = f'<p class="reason">{_e(part.reason)}</p>' if part.reason else ""
     help_ = ""
     if part.status in STATE_HELP:
@@ -308,7 +438,12 @@ def _part(part: Part, reason_kind: str | None = None, names: dict[str, str] | No
 
 
 def _card(
-    card: Card, reason_kind: str | None = None, doc_name: str | None = None, plain: bool = False, second_read: bool = False
+    card: Card,
+    reason_kind: str | None = None,
+    doc_name: str | None = None,
+    plain: bool = False,
+    second_read: bool = False,
+    brief: bool = False,
 ) -> str:
     unchecked = (
         f' <span class="not-double-checked">{NOT_DOUBLE_CHECKED_TEXT}</span>'
@@ -328,10 +463,11 @@ def _card(
             if saw and card.relation in _LABELLED
             else f"The second read of this quote alone is not available here. {_SEES}"
         )
-    answer = f'<p class="reason-line check-answer">{_e(line)}</p>' if line else ""
+    answer = f'<p class="reason-line check-answer">{_e(line)}</p>' if line and not brief else ""
     if second_read:
         text = _e(SECOND_READ[card.check])
-        badge = f'<span class="mark second-read" aria-label="{text}">{text}</span>'
+        tip = f' title="{_e(line)}"' if brief and line else ""
+        badge = f'<span class="mark second-read" aria-label="{text}"{tip}>{text}</span>'
     else:
         badge = f'<span class="mark {_e(card.check)}">{_e(CHECK_LABEL[card.check])}</span>'
     return (
@@ -355,13 +491,16 @@ def _cards(cards: list[Card], reasons: dict[str, str | None], names: dict[str, s
     return "".join(out)
 
 
-def _page(doc: Doc, page: Page, cards: list[Card], images: dict[tuple[str, int], bytes]) -> str:
+def _page(
+    doc: Doc, page: Page, cards: list[Card], images: dict[tuple[str, int], bytes], name: str | None = None
+) -> str:
+    name = name or doc.name
     data = images.get((doc.id, page.n))
     if data is None:
-        img = f'<div class="noimg">{_e(doc.name)} p{page.n}: image not available</div>'
+        img = f'<div class="noimg">{_e(name)} p{page.n}: image not available</div>'
     else:
         encoded = base64.b64encode(data).decode("ascii")
-        img = f'<img alt="{_e(doc.name)} page {page.n}" src="data:image/png;base64,{encoded}">'
+        img = f'<img alt="{_e(name)} page {page.n}" src="data:image/png;base64,{encoded}">'
     boxes = "".join(
         f'<div class="box {_e(c.box_status)}" data-box-for="{_e(c.id)}" '
         f'style="left:{_pct(x0)};top:{_pct(y0)};width:{_pct(x1 - x0)};height:{_pct(y1 - y0)}"></div>'
@@ -380,9 +519,9 @@ def _banner(banner: Banner) -> str:
     return f'<p class="banner {_e(banner.kind)}"><strong>{_e(head)}</strong> {_e(banner.text)} {_e(tip)}</p>'
 
 
-def _unreadable_notes(review: Review) -> str:
+def _unreadable_notes(review: Review, names: dict[str, str] | None = None) -> str:
     return "".join(
-        f'<p class="pagenote unreadable">{_e(d.name)} p{p.n}: image only, not transcribed, '
+        f'<p class="pagenote unreadable">{_e((names or {}).get(d.id, d.name))} p{p.n}: image only, not transcribed, '
         "so nothing on it was checked. Upload a text PDF or retype it.</p>"
         for d in review.docs
         for p in d.pages
@@ -396,22 +535,24 @@ def render(
     """The whole review as one self-contained page. replay=True adds the saved-run badge."""
     images = page_images or {}
     on = evidence_lines_on()
-    names = {d.id: d.name for d in review.docs}
-    cards = {c.id: c for c in review.cards}
     mapped = evidence_map_on()
-    notes = "".join(f'<p class="docnote">{_e(d.name)}: {_e(d.note)}</p>' for d in review.docs if d.note)
-    notes += _unreadable_notes(review)
+    names = _shown_names(review.docs) if mapped else {d.id: d.name for d in review.docs}
+    cards = {c.id: c for c in review.cards}
+    notes = "".join(f'<p class="docnote">{_e(names[d.id])}: {_e(d.note)}</p>' for d in review.docs if d.note)
+    notes += _unreadable_notes(review, names)
     banners = "".join(map(_banner, review.banners))
     badge = f'<p class="replay-badge" role="note">{REPLAY_TEXT}</p>' if replay else ""
     reasons = {p.id: supports_reason(c for c in review.cards if c.part == p.id) for p in review.parts}
-    pages = "".join(_page(d, p, review.cards, images) for d in review.docs for p in d.pages)
+    pages = "".join(_page(d, p, review.cards, images, names[d.id]) for d in review.docs for p in d.pages)
     maps = {p.id: _map(p, cards, names, reasons) if mapped and p.evidence_map is not None else "" for p in review.parts}
+    refs = _packet_refs(review.parts, names) if mapped else ""
+    why = _verdict_parts(review, cards, names) if mapped else ""
     # "<" escaped so the JSON can never close its script tag.
     data = review.model_dump_json().replace("<", "\\u003c")
     body = (
         f'<header><h1>{_e(STATUS_LABEL[review.status])}</h1><p class="claim">{_e(review.claim.text)}</p>'
-        f"{badge}{banners}</header>"
-        f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id], names if on else None, maps[p.id]) for p in review.parts)}</ul>{notes}{EVIDENCE_CSS if on or mapped else ""}</nav>'
+        f"{why}{badge}{banners}</header>"
+        f'<main><nav aria-label="Claim parts"><ul>{"".join(_part(p, reasons[p.id], names if on else None, maps[p.id], bool(maps[p.id])) for p in review.parts)}</ul>{refs}{notes}{EVIDENCE_CSS if on or mapped else ""}</nav>'
         f'<section aria-label="Evidence cards">{"" if mapped and any(p.evidence_map is not None for p in review.parts) else _cards(review.cards, reasons, names, on)}</section>'
         f'<section aria-label="Page">{pages}</section></main>'
         f'<script type="application/json" id="review">{data}</script>'
