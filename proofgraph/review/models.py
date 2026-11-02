@@ -20,6 +20,7 @@ WeakenerType = Literal[
 ]
 BoxStatus = Literal["pinned", "located", "approximate", "unpinned"]
 CheckName = Literal["agrees", "disagrees", "unavailable", "not_run"]
+CheckAnswer = Literal["entails", "contradicts", "not_mentioned"]
 PageKind = Literal["text_layer", "image_only", "image"]
 BannerKind = Literal["injection", "unreadable", "cap", "checker_unavailable"]
 
@@ -112,6 +113,7 @@ class Card(BaseModel):
     why: str
     computed: Computed | None = None
     check: CheckName
+    check_answer: CheckAnswer | None = None
     controls: bool = False
     superseded_by: str | None = None
 
