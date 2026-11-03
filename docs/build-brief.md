@@ -253,6 +253,19 @@ C5 (not_found) → B and C1 → C2 → A5, A6 and C3 → A2 to A4, then C4 → D
 
 F1–F5 (auth, server, live page, review page, tokens) do not depend on the gate and run in their own session. F6 (deploy host) still needs the owner's answer first.
 
+### Iteration 2 results (locked)
+
+Code evaluated: commit `a654dc1` (tag `iteration-2-evaluated`). No rule was changed after the run. Spend about $11.5 of the approved $15. Run files: `runs/review-off.jsonl` (flag off), `runs/review-on.jsonl` (run 1), `runs/review-on-2.jsonl` (run 2, after error analysis), `runs/clean-*.jsonl` (clean check and ablation). Full traces and candidate fixes: `results/run2-analysis.md`.
+
+| Slice | Flag off | Run-1 rules | Iteration 2 rules |
+| --- | --- | --- | --- |
+| Suite, 29 cases (labelled after error analysis) | 9/29 correct, 0/28 wrongly supported | 7/29, 0/28 | 14/29, 1/28 (TC17), +8 fixed / −3 broken |
+| Clean check, 30 unused ContractNLI pairs | 15/30, 2/20 | 9/30, 0/20 | 19/30, 1/20 (cnli-85), +7 fixed / −3 broken |
+
+- Gate rule: HOLD on the suite (wrongly supported 0 to 1), PASS on the clean check (2 to 1). The decision on the flag is the owner's and is not taken here.
+- Open weaknesses, none patched: S2 exceptions that agree with the claim (0/7 on the clean slice; the same pattern as TC37 and TC38), S5 override edges that miss the clashing statement's entities (2/7 on the suite), TC17's dismissed approval rule, valid quotes 91% to 79%.
+- Any further rule needs its principle written here first and a new held-out slice, since both slices are now used.
+
 ## Positioning
 
 ProofGraph is claim verification across a multi-document packet, led by contracts, governance documents and memos, and measured on ContractNLI and LegalReasonBench cases. Freight leaves the story and stays only as one pack in the evaluation suite.
