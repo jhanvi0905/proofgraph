@@ -39,6 +39,15 @@ _CARD = {"agrees": "supports", "conflicts": "contradicts", "qualifies": "weakens
 
 
 @dataclass(frozen=True)
+class DocStarted:
+    """Sent for every document before its reading starts, so the wait has something to show."""
+
+    doc: str
+    name: str
+    pages: int
+
+
+@dataclass(frozen=True)
 class DocRead:
     doc: str
     name: str
@@ -59,6 +68,7 @@ class EntityFound:
     name: str
     type: str
     docs: int
+    doc_ids: tuple[str, ...] = ()  # which documents it is named in, so a page can put it in the right column
 
 
 @dataclass(frozen=True)
@@ -99,6 +109,8 @@ def build_packet_graph(texts: Sequence[PageText], names: dict[str, str], words: 
     for t in texts:
         by_doc.setdefault(t.doc, []).append(t)
     reads = []
+    for doc in sorted(by_doc):
+        yield DocStarted(doc, names.get(doc, doc), len(by_doc[doc]))
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         futures = {pool.submit(extract_document, doc, pages, muse): doc for doc, pages in sorted(by_doc.items())}
         for fut in as_completed(futures):
@@ -134,7 +146,7 @@ def _ready(g: nx.MultiDiGraph, cached: bool = False):
     ents = sorted(((n, d) for n, d in g.nodes(data=True) if d["kind"] == "entity"),
                   key=lambda nd: (-len(nd[1]["docs"]), nd[1]["name"]))
     for _, d in ents[:12]:
-        yield EntityFound(d["name"], d["type"], len(d["docs"]))
+        yield EntityFound(d["name"], d["type"], len(d["docs"]), tuple(sorted(d["docs"])))
     s = g.graph["stats"]
     yield GraphReady(s["pages"], s["rules"], s["entities"], cached)
 
@@ -177,9 +189,9 @@ def run_part_graph(part: Part, built: Built, texts: list[PageText], muse: MuseCl
         walk = paths(g, list(linked.entities), max_hops=3 if typed_walk else 1, hub_brake=hub_brake)
         ranked = rank_paths(g, walk.paths, part.text, top=MAX_STATEMENTS)  # the comparator judges relevance
         ids = [i for i in statements(ranked, g) if g.nodes[i]["kind"] == "rule"]
-        result = compare(part.text, ids, g, muse)
-        apply_effects(g, result.effects)
         read = read_future.result()
+        result = compare(part.text, _judged(ids, read), g, muse)  # D2: what the full read cites is judged too
+        apply_effects(g, result.effects)
     if result.injection_quote:
         banners.append(Banner(kind="injection", text=f"A page contains an instruction aimed at the reviewer: {result.injection_quote}"))
     items = list(result.labels.values())
@@ -202,6 +214,11 @@ def run_part_graph(part: Part, built: Built, texts: list[PageText], muse: MuseCl
     events = [PartLinked(part.id, [g.nodes[e]["name"] for e in linked.entities]),
               PathFound(part.id, _labels(g, decision.path, names), decision.scenario)]
     return GraphOutcome(done, cards, banners, info, events)
+
+
+def _judged(ids: Sequence[str], read) -> list[str]:
+    """D2: the statements the walk found, then any the full read cited that the walk did not."""
+    return list(dict.fromkeys([*ids, *read.cited]))
 
 
 def _cards(part: Part, g: nx.MultiDiGraph, labels: dict, checks: dict, decision: Decision) -> list[Card]:

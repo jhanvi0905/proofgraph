@@ -50,7 +50,7 @@ def test_graph_flow_decides_from_the_graph_and_emits_every_event(monkeypatch, tm
     transport = RoutedTransport()
     events, result = _drain(run_review(CLAIM, [PDF], _muse(tmp_path, transport), checker=_checker))
     kinds = [type(e).__name__ for e in events]
-    assert kinds[:2] == ["DocRead", "PageRead"] and "GraphReady" in kinds
+    assert kinds[:3] == ["DocStarted", "DocRead", "PageRead"] and "GraphReady" in kinds
     assert kinds[-3:] == ["PartLinked", "PathFound", "PartDone"]
     review = Review.model_validate_json(result.review.model_dump_json())
     part = review.parts[0]
@@ -141,3 +141,28 @@ def test_c2_a_supported_part_is_second_read_even_when_the_claim_budget_is_spent(
 
     _, result = _drain(run_review(CLAIM, [PDF], _muse(tmp_path, RoutedTransport("agrees")), checker=checker))
     assert seen and result.review.parts[0].status == "cannot_tell"
+
+
+def test_d2_statements_the_full_read_cites_go_to_the_comparator_too():
+    from proofgraph.review.full_read import ReadResult
+    from proofgraph.review.graph_run import _judged
+
+    ids = ["a", "b"]
+    read = ReadResult(cited=("b", "c", "c", "d"))
+    assert _judged(ids, read) == ["a", "b", "c", "d"]
+
+
+def test_every_document_announces_its_start_and_entities_carry_their_document_ids(monkeypatch, tmp_path):
+    monkeypatch.setenv("PROOFGRAPH_GRAPH", "1")
+    events, _ = _drain(run_review(CLAIM, [PDF], _muse(tmp_path, RoutedTransport()), checker=_checker))
+    kinds = [type(e).__name__ for e in events]
+    started = next(e for e in events if type(e).__name__ == "DocStarted")
+    assert kinds.index("DocStarted") < kinds.index("DocRead") and started.pages == 1 and started.name
+    read = next(e for e in events if type(e).__name__ == "DocRead")
+    assert started.doc == read.doc
+    entities = [e for e in events if type(e).__name__ == "EntityFound"]
+    assert entities and all(e.doc_ids and len(e.doc_ids) == e.docs and read.doc in e.doc_ids for e in entities)
+    # a cached graph has no reading to announce, but its entities still say which documents they are in
+    again, _ = _drain(run_review(CLAIM, [PDF], _muse(tmp_path, RoutedTransport()), checker=_checker))
+    assert "DocStarted" not in [type(e).__name__ for e in again]
+    assert all(e.doc_ids for e in again if type(e).__name__ == "EntityFound")

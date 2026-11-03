@@ -75,11 +75,13 @@ def test_hub_is_ranked_not_walked_through():
     assert braked == {"r0"} and len(open_) == 10
 
 
-def test_rank_prefers_short_strong_paths_and_puts_strongest_last():
+def test_rank_puts_the_path_with_least_decay_last_and_class_hops_are_free():
+    from proofgraph.review.query import CLASS_KINDS
+
     g = _graph()
     ps = paths(g, ["e:connors"]).paths
     ranked = rank_paths(g, ps, "Connors was authorized as Interim CMO", top=3)
-    assert len(ranked) == 3 and ranked[-1].hops == 1
+    assert len(ranked) == 3 and all(k in CLASS_KINDS for k in ranked[-1].kinds)  # D3: no decay on class hops
     assert ranked == rank_paths(g, ps, "Connors was authorized as Interim CMO", top=3)
 
 
@@ -123,3 +125,21 @@ def test_rank_takes_each_document_in_turn_and_one_path_per_statement():
     ranked = rank_paths(g, ps, "Connors authorized from May 7", top=2)
     assert {g.nodes[p.end]["doc"] for p in ranked} == {"res", "byl"}
     assert len({p.end for p in rank_paths(g, ps, "x", top=30)}) == len(rank_paths(g, ps, "x", top=30))
+
+
+def test_d3_class_hops_carry_no_decay_but_other_hops_do():
+    from proofgraph.review.query import Path, path_score
+
+    cls = Path(("e:a", "e:b", "e:c", "r1"), ("is_a", "holds_office", "mentions"), "page")
+    one = Path(("e:a", "r2"), ("mentions",), "page")
+    two = Path(("e:a", "e:b", "r3"), ("mentions", "mentions"), "page")
+    assert path_score(cls, 0.7) == path_score(one, 0.7) == 0.7  # two class hops are free, the last hop decays once
+    assert path_score(two, 0.7) == 0.7 ** 2 > path_score(Path(("e:a", "e:b", "r4"), ("mentions", "mentions"), "model"), 0.7)
+
+
+def test_d1_the_link_prompt_asks_for_names_events_and_the_predicates_concepts():
+    from pathlib import Path as P
+
+    text = (P(__file__).resolve().parents[1] / "prompts" / "link.md").read_text()
+    for word in ("event", "predicate", "concept"):
+        assert word in text

@@ -171,16 +171,22 @@ def statements(ps: Sequence[Path], g: nx.MultiDiGraph) -> list[str]:
     return list(seen)
 
 
+def path_score(p: Path, decay: float = HOP_DECAY) -> float:
+    """Trust of the path's weakest hop, times ``decay`` for each hop that is not a class hop (D3: is-a, holds-office
+    and defined-by hops say what something is, so they carry no decay)."""
+    return _TIER_WEIGHT[p.tier] * decay ** sum(1 for k in p.kinds if k not in CLASS_KINDS)
+
+
 def rank_paths(g: nx.MultiDiGraph, ps: Sequence[Path], part_text: str, *, top: int = TOP_PATHS,
                max_statements: int = MAX_STATEMENTS, decay: float = HOP_DECAY) -> list[Path]:
-    """Paths by weakest hop times ``decay`` per hop, BM25 on ties. One path per end statement (the best),
+    """Paths by weakest hop times ``decay`` per non-class hop, BM25 on ties. One path per end statement (the best),
     taken in turn from each document so no single document crowds out the others; strongest last.
     Ranking orders by trust, not relevance: the comparator judges relevance on what it is shown."""
     ps = [p for p in ps if p.tier != "unclear"]
     if not ps:
         return []
     bm = bm25_scores(part_text, [g.nodes[p.end].get("quote", "") + " " + g.nodes[p.end].get("action", "") for p in ps])
-    keyed = sorted(zip(ps, bm), key=lambda pb: (-_TIER_WEIGHT[pb[0].tier] * decay ** pb[0].hops, -pb[1], pb[0].nodes))
+    keyed = sorted(zip(ps, bm), key=lambda pb: (-path_score(pb[0], decay), -pb[1], pb[0].nodes))
     queues: dict[str, list[Path]] = {}
     seen: set[str] = set()
     for p, _ in keyed:
