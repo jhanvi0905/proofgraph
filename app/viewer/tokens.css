@@ -1,14 +1,19 @@
 /* Design tokens (F5). Six colours, two typefaces. Shared by the live page and the proof-path review page.
    Type carries meaning: Source Serif 4 only for what the documents say; Atkinson Hyperlegible for what ProofGraph says. */
 :root {
-  --paper: #EDF1EA;      /* ledger paper: page background */
-  --graphite: #262B2A;   /* text */
-  --rule: #B9C8B5;       /* dividers */
-  --red: #B42318;        /* red pencil: contradicted, conflict circles */
+  /* Three stones: a calm warm-grey ground, full-contrast ink, one sage action colour. Answers keep their pencil colours. */
+  --paper: #EEECEA;      /* ground */
+  --surface: #E4E1DD;    /* a step darker than the ground: bands, inputs at rest */
+  --graphite: #333231;   /* text, and the dark field */
+  --rule: #CDC3B6;       /* stone: tone fields, drop zones, dimmed threads */
+  --red: #B42318;        /* red pencil: contradicted, the circle */
   --blue: #1D4F91;       /* blue pencil: supported, ticks, links */
-  --ochre: #9A6A00;      /* qualified, exceptions */
-  --sheet: #FBFCF9;      /* a document: page images, quotes, and nothing else is this white */
-  --ink-soft: #5B6461;   /* secondary text: receipts, counts (5.3:1 on the ledger) */
+  --ochre: #8A5F00;      /* qualified, exceptions (4.8:1 on the ground) */
+  --sage: #4F5E48;       /* the one action colour: buttons, selected states (white on it 6.9:1) */
+  --on-dark: #EEECEA;
+  --on-dark-soft: #CDC3B6;
+  --sheet: #FBFAF8;      /* a document: page images, quotes, and nothing else is this white */
+  --ink-soft: #5F5B57;   /* secondary text: receipts, counts (5.7:1 on the ground) */
   --ledger: var(--paper);
   --says: "Source Serif 4", "Source Serif Pro", Georgia, "Times New Roman", serif;
   --ui: "Atkinson Hyperlegible", "Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -16,20 +21,18 @@
 }
 * { box-sizing: border-box; }
 html { background: var(--paper); color: var(--graphite); font: 1rem/1.55 var(--ui); -webkit-text-size-adjust: 100%; }
-/* faint ruled lines every 28px: working paper even when empty */
-body { margin: 0; background-color: var(--paper);
-  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, color-mix(in srgb, var(--rule) 35%, transparent) 27px 28px); }
+body { margin: 0; background-color: var(--paper); }
 ::selection { background: color-mix(in srgb, var(--blue) 22%, var(--paper)); color: var(--graphite); }
 :focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; border-radius: 2px; }
 .says { font-family: var(--says); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 a { color: var(--blue); text-underline-offset: .18em; }
 button { font: inherit; color: inherit; }
-.btn { min-height: 44px; padding: 0 1.1rem; border: 2px solid var(--graphite); background: var(--graphite); color: var(--paper);
+.btn { min-height: 44px; padding: 0 1.1rem; border: 2px solid var(--sage); background: var(--sage); color: #fff;
   border-radius: 4px; font-weight: 700; cursor: pointer; transition: background .15s, color .15s; }
-.btn:hover { background: var(--paper); color: var(--graphite); }
-.btn.quiet { background: transparent; color: var(--graphite); }
-.btn.quiet:hover { background: var(--graphite); color: var(--paper); }
+.btn:hover { background: transparent; color: var(--sage); }
+.btn.quiet { background: transparent; color: var(--sage); }
+.btn.quiet:hover { background: var(--sage); color: #fff; }
 .btn:disabled { opacity: .55; cursor: progress; }
 
 /* Answer marks. Colour is never the only carrier: each answer has a word, a mark and an underline style. */

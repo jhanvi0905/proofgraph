@@ -1,15 +1,19 @@
 /* Scale (1.25 ratio, 16px base): 13 / 16 / 20 / 25 / 31 / 39. */
 .shell { max-width: 72rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
 .wordmark { font-weight: 700; font-size: 1.25rem; letter-spacing: .01em; }
-.entrance { max-width: 44rem; padding-top: 3rem; }
-.entrance h1 { font-size: clamp(2rem, 5vw, 2.44rem); line-height: 1.1; margin: 0; letter-spacing: -.015em; }
-.lede { font-size: 1.25rem; line-height: 1.45; margin: .75rem 0 2rem; max-width: 38rem; }
+.wrap { max-width: 72rem; margin: 0 auto; padding: 0 1rem; }
+.hero { background: var(--graphite); color: var(--on-dark); padding: 4rem 0 4.5rem; margin-top: 1.5rem; }
+.hero h1 { font-size: clamp(2.6rem, 8vw, 6rem); line-height: 1; margin: 0; letter-spacing: -.03em; max-width: 14ch; }
+.lede { font-size: 1.25rem; line-height: 1.45; margin: 1.5rem 0 0; max-width: 36rem; color: var(--on-dark); }
+.hero .lede b { font-weight: 700; }
+.entrance-body { max-width: 44rem; padding: 2.5rem 0 0; margin: 0 0 0 max(1rem, calc((100% - 72rem) / 2 + 1rem)); }
+@media (max-width: 760px) { .entrance-body { margin-left: 1rem; margin-right: 1rem; } }
 .start { display: grid; gap: 1.25rem; }
 .field label, .checklist h2, .samples h2 { display: block; font-weight: 700; font-size: 1rem; margin: 0 0 .35rem; }
 .field textarea, .field input[type=password] { width: 100%; padding: .75rem; border: 2px solid var(--graphite); border-radius: 4px; background: var(--sheet); color: inherit; font: inherit; caret-color: var(--blue); }
 .field textarea { font-size: 1.25rem; line-height: 1.4; resize: vertical; }
-.drop { position: relative; border: 2px dashed var(--graphite); border-radius: 4px; background: var(--sheet); padding: 1.1rem; min-height: 5rem; display: grid; align-items: center; transition: background .15s; }
-.drop.over { background: color-mix(in srgb, var(--blue) 8%, var(--sheet)); border-style: solid; }
+.drop { position: relative; border: 0; border-radius: 0; background: var(--surface); padding: 1.1rem; min-height: 5rem; display: grid; align-items: center; transition: background .15s; }
+.drop.over { background: var(--rule); }
 .drop input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .drop:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; }
 .drop p { margin: 0; }
@@ -19,7 +23,7 @@
 .samples { margin-top: 2.5rem; }
 .samples h2 { font-size: 1.25rem; margin-bottom: .75rem; }
 .samples ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
-.slip { display: flex; flex-direction: column; gap: .5rem; height: 100%; padding: .9rem 1rem 1rem; background: var(--sheet); border: 1px solid var(--rule); border-top: 3px solid var(--graphite); border-radius: 0; }
+.slip { display: flex; flex-direction: column; gap: .5rem; height: 100%; padding: .9rem 1rem 1rem; background: var(--sheet); border: 0; border-radius: 0; }
 .slip h3 { margin: 0; font-size: 1rem; }
 .slip q { quotes: "\201C" "\201D"; font-size: 1rem; line-height: 1.4; flex: 1; }
 .slip .docs { font-size: .8125rem; color: var(--ink-soft); margin: 0; }
@@ -32,7 +36,7 @@
 .u.checking { text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--ink-soft); text-decoration-thickness: 2px; text-underline-offset: .22em; }
 .claim.reading { text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--rule); text-decoration-thickness: 2px; text-underline-offset: .22em; }
 
-.readgrid { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: 1.5rem; padding: 1rem 0; border-top: 2px solid var(--graphite); }
+.readgrid { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: 1.5rem; padding: 1.25rem 0; }
 @media (max-width: 760px) { .readgrid { grid-template-columns: 1fr; } }
 .checklist ul { list-style: none; margin: 0; padding: 0; font-size: .9rem; }
 .checklist .d { margin: 0 0 .75rem; font-weight: 700; }
@@ -49,7 +53,7 @@
 .col.reading .role::after { content: "Reading\2026"; }
 .labels { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem; }
 .col .labels { flex-direction: column; align-items: flex-start; }
-.pencil { display: inline-block; max-width: 100%; padding: .2rem .7rem; border: 1.5px solid var(--graphite); border-radius: 999px 1000px 999px 1000px / 1000px 999px 1000px 999px; font-size: .9rem; line-height: 1.3; background: var(--ledger); overflow-wrap: anywhere; }
+.pencil { display: inline-block; max-width: 100%; padding: .2rem .7rem; border: 2px solid var(--graphite); border-radius: 999px 1000px 999px 1000px / 1000px 999px 1000px 999px; font-size: .9rem; line-height: 1.3; background: var(--ledger); overflow-wrap: anywhere; }
 .pencil .n { color: var(--ink-soft); font-size: .8125rem; margin-left: .35rem; }
 .map.deciding .pencil { border-color: var(--rule); color: var(--ink-soft); }
 .map.deciding .pencil.on { border-color: var(--graphite); color: var(--graphite); font-weight: 700; border-width: 2px; }
@@ -62,13 +66,13 @@
 .linkish { background: none; border: 0; padding: .5rem 0; min-height: 44px; color: var(--blue); text-decoration: underline; cursor: pointer; font-weight: 700; }
 .receipt { font-weight: 700; margin: .5rem 0 1rem; }
 .plist, .notes { list-style: none; margin: 0 0 1rem; padding: 0; max-width: 46rem; }
-.plist li, .notes li { padding: .5rem 0; border-bottom: 1px solid var(--rule); overflow-wrap: anywhere; }
+.plist li, .notes li { padding: .65rem 0; overflow-wrap: anywhere; }
 .plist .st { display: inline-flex; align-items: center; font-weight: 700; margin-right: .5rem; text-decoration-line: underline; text-decoration-thickness: 2px; text-underline-offset: .22em; text-decoration-skip-ink: none; }
 .plist .sub, .plist .path { display: block; font-size: .9rem; }
 .plist .path { font-weight: 700; margin-top: .2rem; }
 .notes li.error { outline: 2px solid var(--red); border: 0; padding: .6rem .8rem; margin: .4rem 0; border-radius: 4px; font-weight: 700; }
 .result { margin-top: 1.5rem; }
-.result iframe { width: 100%; height: 90vh; min-height: 40rem; border: 0; border-top: 2px solid var(--graphite); background: transparent; }
+.result iframe { width: 100%; height: 90vh; min-height: 40rem; border: 0; background: transparent; }
 
 @media (prefers-reduced-motion: no-preference) {
   .pencil, .checklist .tk { animation: fade .15s ease-out both; }
