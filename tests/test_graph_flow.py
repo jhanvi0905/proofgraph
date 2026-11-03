@@ -125,3 +125,19 @@ def test_graph_cache_key_changes_with_the_extraction_prompt(monkeypatch, tmp_pat
     other.write_text("a different prompt")
     monkeypatch.setattr(graph_run, "_EXTRACT_PROMPT", other)
     assert graph_run.extraction_version() != before
+
+
+def test_c2_a_supported_part_is_second_read_even_when_the_claim_budget_is_spent(monkeypatch, tmp_path):
+    from proofgraph.review import graph_run
+
+    monkeypatch.setenv("PROOFGRAPH_GRAPH", "1")
+    monkeypatch.setattr(graph_run, "MAX_SECOND_READS", 0)
+    monkeypatch.setitem(EXTRACT["rules"][0], "stype", "fact")  # a rule cannot support an instance claim (C1)
+    seen = []
+
+    def checker(quote, part):
+        seen.append(quote)
+        return "not_mentioned"
+
+    _, result = _drain(run_review(CLAIM, [PDF], _muse(tmp_path, RoutedTransport("agrees")), checker=checker))
+    assert seen and result.review.parts[0].status == "cannot_tell"

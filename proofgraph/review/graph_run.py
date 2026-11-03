@@ -26,7 +26,7 @@ from proofgraph.review import precedence as precedence_mod
 from proofgraph.review.check import Checker
 from proofgraph.review.compare import attached_exceptions, compare
 from proofgraph.review.full_read import full_read, relevant_agreement
-from proofgraph.review.graph_check import MAX_SECOND_READS, second_reads
+from proofgraph.review.graph_check import confirm_support, MAX_SECOND_READS, second_reads
 from proofgraph.review.graph_decide import Decision, graph_status
 from proofgraph.review.graph_extract import _PROMPT as _EXTRACT_PROMPT, Extraction, extract_document
 from proofgraph.review.models import Banner, Card, Part
@@ -190,6 +190,10 @@ def run_part_graph(part: Part, built: Built, texts: list[PageText], muse: MuseCl
     agree = relevant_agreement(result.labels, read)
     decision = graph_status(part.text, g, ranked, result.labels, checks, agree, linked,
                             receipt_complete=receipt_complete, precedence_on=precedence_on)
+    if decision.status == "supported":  # C2: support is never taken on trust, whatever the claim budget
+        checks = confirm_support(decision.deciding, result.labels, checks, part.text, g, checker=checker)
+        decision = graph_status(part.text, g, ranked, result.labels, checks, agree, linked,
+                                receipt_complete=receipt_complete, precedence_on=precedence_on)
     cards = _cards(part, g, result.labels, checks, decision)
     done = part.model_copy()
     done.status, done.conflict, done.reason = decision.status, decision.conflict, decision.reason
