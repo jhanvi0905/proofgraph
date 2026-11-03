@@ -6,20 +6,27 @@
   var NS = "http://www.w3.org/2000/svg";
 
   // Answer encoding: a word, a mark and an underline style. Colour is never the only carrier.
-  var ANSWER = {
-    supported: { word: "Supported", cls: "blue", d: "M2.5 8.5l3.5 3.5 7.5-8" },
-    contradicted: { word: "Contradicted", cls: "red", d: "M8 2a6 6 0 1 0 .01 0z" },
-    weakened: { word: "Qualified", cls: "ochre", d: "M2.5 13L8 4l5.5 9" },
-    not_found: { word: "Not in these documents", cls: "dashed", d: "M11 2H5v12h6" },
-    cannot_tell: { word: "Not mentioned anywhere", cls: "dotted", d: "M5.5 6a2.5 2.5 0 1 1 3.6 2.2C8.4 8.6 8 9.2 8 10M8 13v.01" },
-    error: { word: "Error", cls: "red", d: "M4 4l8 8M12 4l-8 8" }
+  var STROKES = {
+    tick: "M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8",
+    circle: "M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8",
+    caret: "M3.8 19.6C7.2 14 9.6 9.6 12 5.4c2.6 4.6 5.2 9.2 8.2 14.2",
+    bracket: "M15.4 3.6H8.6c-.7 0-1.1.3-1.1.9v15c0 .6.4.9 1.1.9h6.8",
+    question: "M8.4 9.2C8.2 5.6 15.8 5.4 15.6 9.4c-.1 2.8-3.7 3-3.6 6.2M12 19.6v.1"
   };
-  var TICK = "M2.5 8.5l3.5 3.5 7.5-8";
+  var ANSWER = {
+    supported: { word: "Supported", cls: "green", m: "tick" },
+    contradicted: { word: "Contradicted", cls: "red", m: "circle" },
+    weakened: { word: "Qualified", cls: "amber", m: "caret" },
+    not_found: { word: "Not in these documents", cls: "slate", m: "bracket" },
+    cannot_tell: { word: "Not mentioned anywhere", cls: "grey", m: "question" },
+    error: { word: "Could not check", cls: "grey", m: "question" }
+  };
+  var TICK = "M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8";
 
   function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
   function svg(d, cls) {
     var s = document.createElementNS(NS, "svg"), p = document.createElementNS(NS, "path");
-    s.setAttribute("viewBox", "0 0 16 16"); s.setAttribute("width", "16"); s.setAttribute("height", "16"); s.setAttribute("aria-hidden", "true");
+    s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("width", "20"); s.setAttribute("height", "20"); s.setAttribute("aria-hidden", "true");
     if (cls) s.setAttribute("class", cls);
     p.setAttribute("d", d); p.setAttribute("fill", "none"); p.setAttribute("stroke", "currentColor");
     p.setAttribute("stroke-width", "2"); p.setAttribute("stroke-linecap", "round"); p.setAttribute("stroke-linejoin", "round");
@@ -162,7 +169,7 @@
       var a = ANSWER[d.status] || ANSWER.error, li = $("parts").querySelector('[data-key="' + d.part_id + '"]');
       var path = li && li.querySelector(".path"), text = state.parts[d.part_id] || "";
       li.textContent = "";
-      var st = el("strong", "st " + a.cls); st.appendChild(svg(a.d, "mark")); st.appendChild(document.createTextNode(a.word));
+      var st = el("strong", "st " + a.cls); st.appendChild(svg(STROKES[a.m], "mark m-" + a.m)); st.appendChild(document.createTextNode(a.word));
       li.appendChild(st); li.appendChild(document.createTextNode(text));
       if (d.reason) li.appendChild(el("span", "sub", d.reason));
       if (path) li.appendChild(path);

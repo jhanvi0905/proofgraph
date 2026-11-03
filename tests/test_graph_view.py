@@ -1,6 +1,5 @@
-"""F4: the proof-path review page. Flag off stays byte-identical; flag on draws the graph page."""
+"""F4: the audit tick-and-tie review page. Flag off stays byte-identical; flag on draws the workpaper."""
 
-import json
 import re
 from pathlib import Path
 
@@ -22,16 +21,18 @@ def _graphed(review: Review, **info) -> Review:
     r = review.model_copy(deep=True)
     doc = r.docs[0].id
     r.graph = {"stats": {"pages": 3, "rules": 38, "entities": 14}, "docs": {doc: {"role": "contract", "date": None}},
+               "scenario_names": {"S1": "A rule on the thing the claim names"},
                "parts": {p.id: {"scenario": "S1", "tier": "page", "agreement": "partial", "read_only": ["x-r7"],
-                                "path": ["e:consultants", f"{doc}-r2"], "extra_key": 1, **info} for p in r.parts}}
+                                "path": ["e:consultants", f"{doc}-r2"], "extra_key": 1,
+                                "second_reads": {"agrees": 3, "disagrees": 1, "not_run": 2},
+                                "rejected": {"link": 1, "compare": 2}, **info} for p in r.parts}}
     return r
 
 
 def test_flag_off_is_byte_identical_even_with_a_graph(review, monkeypatch):
     monkeypatch.delenv(FLAG, raising=False)
-    golden = (FIX / "review_tc40_render_golden.html").read_text()
-    assert render(review) == golden
-    assert "class=\"grid\"" not in render(_graphed(review))
+    assert render(review) == (FIX / "review_tc40_render_golden.html").read_text()
+    assert 'class="grid"' not in render(_graphed(review))
 
 
 def test_flag_on_without_graph_is_the_old_page(review, monkeypatch):
@@ -39,29 +40,57 @@ def test_flag_on_without_graph_is_the_old_page(review, monkeypatch):
     assert render(review) == (FIX / "review_tc40_render_golden.html").read_text()
 
 
-def test_flag_on_draws_the_proof_path_page(review, monkeypatch):
+def test_flag_on_draws_the_workpaper(review, monkeypatch):
     monkeypatch.setenv(FLAG, "1")
     r = _graphed(review)
     html = render(r, ask=True)
-    assert 'class="u ' in html and r.claim.text.split()[0] in html
-    assert '<ol class="crumbs"' in html and "consultants" in html
+    assert '<ol class="trail"' in html and "consultants" in html
     assert html.count('<button type="button" class="cell') == len(r.cards)
+    assert re.search(r'class="ref">A-\d+<', html)  # document letter and page
     assert "The full read also cites 1 passage the walk did not reach." in html
-    assert "read from the page" in html and 'id="ask"' in html and 'id="download"' in html
     assert "Read 3 pages: 38 rules about 14 things." in html
-    if any(c.relation == "contradicts" and c.controls for c in r.cards):
-        assert 'class="circle"' in html
-    assert 'id="ask"' not in render(r)
+    assert "3 agree, 1 disagree, 2 not run" in html and "Set aside: 3" in html
+    assert "A rule on the thing the claim names" in html
+    for word in ("Read from the page", "Model's reading", "Unclear, never decides"):
+        assert word in html
+    assert 'id="ask"' in html and 'id="download"' in html and 'id="ask"' not in render(r)
     assert not re.search(r"<script[^>]*src=", html)
+
+
+def test_every_answer_has_a_mark_and_a_word(review, monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    r = _graphed(review)
+    r.parts[0].status = "not_found"
+    html = render(r)
+    assert "Not in these documents" in html and 'data-mark="bracket"' in html
+    r.parts[0].status = "cannot_tell"
+    assert "Not mentioned anywhere" in render(r) and 'data-mark="question"' in render(r)
+    r.graph["parts"][r.parts[0].id]["documents_disagree"] = True
+    html = render(r)
+    assert "The documents disagree" in html and 'data-mark="clash"' in html
+
+
+def test_date_strip_counts_the_days_between_deciding_dates(review, monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    r = _graphed(review, deciding=["a-r1", "b-r2"])
+    r.graph["dates"] = {"docs": {}, "statements": {"a-r1": {"effective": "2026-05-07", "event": None},
+                                                    "b-r2": {"effective": None, "event": "2026-05-13"}}}
+    html = render(r)
+    assert "6 days" in html and "7 May 2026" in html and "13 May 2026" in html
+    r.graph["dates"]["statements"]["b-r2"]["event"] = None
+    assert 'class="strip"' not in render(r)
 
 
 def test_path_labels_and_cited_are_used_when_present(review, monkeypatch):
     monkeypatch.setenv(FLAG, "1")
     r = _graphed(review, path_labels=["Connors", "CMO <b>", "Bylaws p2"])
-    r.graph["cited"] = [{"phrase": "the CEO letter of May 7"}, "the CEO letter of May 7 "]
+    r.graph["cited"] = [{"phrase": "the CEO letter of May 7", "date": "2026-05-07", "status": "not supplied", "doc": "x", "page": 1},
+                        {"phrase": "the CEO letter of May 7", "date": "2026-05-07", "status": "not supplied", "doc": "y", "page": 2},
+                        {"phrase": "the bylaws", "date": "2025-03-12", "status": "supplied"}]
     html = render(r)
-    assert "CMO &lt;b&gt;" in html and "<b>" not in html.split("<main>")[0].replace("<br>", "")
-    assert html.count("the CEO letter of May 7") == 1 and "Cited, not supplied" in html
+    assert "CMO &lt;b&gt;" in html and "<b>" not in html
+    assert html.count("the CEO letter of May 7") == 1 and "Cited, not in the packet" in html
+    assert "the bylaws" not in html.split("Cited, not in the packet")[1][:400]
 
 
 def test_missing_or_odd_graph_keys_do_not_break(review, monkeypatch):
@@ -69,5 +98,6 @@ def test_missing_or_odd_graph_keys_do_not_break(review, monkeypatch):
     r = review.model_copy(deep=True)
     r.graph = {"parts": {"nope": {}}}
     assert 'class="grid"' in render(r)
-    r.graph = {"stats": {}, "parts": {p.id: {"read_only": None, "path": None} for p in r.parts}}
+    r.graph = {"stats": {}, "parts": {p.id: {"read_only": None, "path": None, "rejected": None, "second_reads": None} for p in r.parts},
+               "cited": [None, 3, {"phrase": None}], "dates": {"statements": None}}
     assert 'class="grid"' in render(r)

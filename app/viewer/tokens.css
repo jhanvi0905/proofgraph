@@ -1,45 +1,50 @@
-/* Design tokens (F5). Six colours, two typefaces. Shared by the live page and the proof-path review page.
-   Type carries meaning: Source Serif 4 only for what the documents say; Atkinson Hyperlegible for what ProofGraph says. */
+/* Audit tick-and-tie: design tokens shared by the live page and the review page.
+   Type carries meaning: Source Serif 4 only for what the documents say; Schibsted Grotesk for everything ProofGraph says.
+   Colour is never the only carrier of an answer: each has a word, a pencil mark and an underline style. */
 :root {
-  /* Three stones: a calm warm-grey ground, full-contrast ink, one sage action colour. Answers keep their pencil colours. */
-  --paper: #EEECEA;      /* ground */
-  --surface: #E4E1DD;    /* a step darker than the ground: bands, inputs at rest */
-  --graphite: #333231;   /* text, and the dark field */
-  --rule: #CDC3B6;       /* stone: tone fields, drop zones, dimmed threads */
-  --red: #B42318;        /* red pencil: contradicted, the circle */
-  --blue: #1D4F91;       /* blue pencil: supported, ticks, links */
-  --ochre: #8A5F00;      /* qualified, exceptions (4.8:1 on the ground) */
-  --sage: #4F5E48;       /* the one action colour: buttons, selected states (white on it 6.9:1) */
-  --on-dark: #EEECEA;
-  --on-dark-soft: #CDC3B6;
-  --sheet: #FBFAF8;      /* a document: page images, quotes, and nothing else is this white */
-  --ink-soft: #5F5B57;   /* secondary text: receipts, counts (5.7:1 on the ground) */
-  --ledger: var(--paper);
+  --sheet: #F7F8FA;      /* the workpaper: page ground */
+  --ink: #0E1A2B;        /* text, 16.5:1 on the sheet */
+  --cyan: #CFE3EE;       /* column rules */
+  --stamp: #1636C9;      /* stamp ink: the one saturated field and the primary action; white text only (8.7:1) */
+  --pen-red: #C8222D;    /* exceptions: contradicted (5.3:1) */
+  --pen-green: #1B7F4B;  /* tied out: supported (4.7:1) */
+  --amber: #9A5B00;      /* qualified (5.1:1) */
+  --slate: #4A5668;      /* not in these documents (7.0:1) */
+  --grey: #5B6678;       /* not mentioned anywhere; secondary text (5.5:1) */
+  --paper: #FFFFFF;      /* a document: page images and quotes, and nothing else is this white */
   --says: "Source Serif 4", "Source Serif Pro", Georgia, "Times New Roman", serif;
-  --ui: "Atkinson Hyperlegible", "Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ui: "Schibsted Grotesk", "Helvetica Neue", Arial, system-ui, sans-serif;
   --ease: cubic-bezier(.16, 1, .3, 1);
+  /* type scale, 1.25 ratio on 16px */
+  --t-13: .8125rem; --t-16: 1rem; --t-20: 1.25rem; --t-25: 1.5625rem; --t-31: 1.9375rem; --t-39: 2.4375rem;
 }
 * { box-sizing: border-box; }
-html { background: var(--paper); color: var(--graphite); font: 1rem/1.55 var(--ui); -webkit-text-size-adjust: 100%; }
-body { margin: 0; background-color: var(--paper); }
-::selection { background: color-mix(in srgb, var(--blue) 22%, var(--paper)); color: var(--graphite); }
-:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; border-radius: 2px; }
+html { background: var(--sheet); color: var(--ink); font: 1rem/1.55 var(--ui); -webkit-text-size-adjust: 100%; }
+body { margin: 0; background-color: var(--sheet);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 31px, color-mix(in srgb, var(--cyan) 70%, transparent) 31px 32px); }
+::selection { background: var(--ink); color: var(--sheet); }
+:focus-visible { outline: 3px solid var(--stamp); outline-offset: 2px; border-radius: 2px; }
 .says { font-family: var(--says); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-a { color: var(--blue); text-underline-offset: .18em; }
+a { color: var(--stamp); text-underline-offset: .18em; }
 button { font: inherit; color: inherit; }
-.btn { min-height: 44px; padding: 0 1.1rem; border: 2px solid var(--sage); background: var(--sage); color: #fff;
-  border-radius: 4px; font-weight: 700; cursor: pointer; transition: background .15s, color .15s; }
-.btn:hover { background: transparent; color: var(--sage); }
-.btn.quiet { background: transparent; color: var(--sage); }
-.btn.quiet:hover { background: var(--sage); color: #fff; }
-.btn:disabled { opacity: .55; cursor: progress; }
+.num { font-variant-numeric: tabular-nums; }
+.btn { min-height: 44px; padding: 0 1.2rem; border: 2px solid var(--stamp); background: var(--stamp); color: #fff; border-radius: 0;
+  font-weight: 700; cursor: pointer; transition: background .15s, color .15s; }
+.btn:hover { background: #fff; color: var(--stamp); }
+.btn.quiet { background: transparent; color: var(--stamp); }
+.btn.quiet:hover { background: var(--stamp); color: #fff; }
+.btn:disabled { opacity: .6; cursor: progress; }
 
-/* Answer marks. Colour is never the only carrier: each answer has a word, a mark and an underline style. */
+/* The pencil marks. A mark takes its answer's pen colour; the underline style is the second carrier. */
+.mark { flex: none; vertical-align: -.2em; margin-right: .35em; overflow: visible; }
+.m-tick { color: var(--pen-green); } .m-circle { color: var(--pen-red); } .m-caret { color: var(--amber); }
+.m-bracket { color: var(--slate); } .m-question { color: var(--grey); }
+.m-clash .c1 { stroke: var(--pen-green); } .m-clash .c2 { stroke: var(--pen-red); }
 .u, .st { text-decoration-line: underline; text-decoration-thickness: 2px; text-underline-offset: .22em; text-decoration-skip-ink: none; }
-.u.blue, .blue .st, .st.blue { text-decoration-style: solid; text-decoration-color: var(--blue); }
-.u.red, .red .st, .st.red { text-decoration-style: solid; text-decoration-color: var(--red); }
-.u.ochre, .ochre .st, .st.ochre { text-decoration-style: wavy; text-decoration-color: var(--ochre); }
-.u.dashed, .dashed .st, .st.dashed { text-decoration-style: dashed; text-decoration-color: var(--graphite); }
-.u.dotted, .dotted .st, .u.none, .none .st, .st.dotted { text-decoration-style: dotted; text-decoration-color: var(--ink-soft); }
-.mark { flex: none; vertical-align: -.15em; margin-right: .3em; }
+.u.green, .green .st, .st.green { text-decoration-style: solid; text-decoration-color: var(--pen-green); }
+.u.red, .red .st, .st.red { text-decoration-style: solid; text-decoration-color: var(--pen-red); }
+.u.amber, .amber .st, .st.amber { text-decoration-style: wavy; text-decoration-color: var(--amber); }
+.u.slate, .slate .st, .st.slate { text-decoration-style: dashed; text-decoration-color: var(--slate); }
+.u.grey, .grey .st, .st.grey { text-decoration-style: dotted; text-decoration-color: var(--grey); }
+.u.clash, .clash .st, .st.clash { text-decoration-style: double; text-decoration-color: var(--pen-red); }
