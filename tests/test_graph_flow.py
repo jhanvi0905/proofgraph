@@ -27,7 +27,8 @@ class RoutedTransport:
         elif "You read a whole packet" in p:
             kind, out = "read", {"cited": [RULE], "extra": []}
         elif "You compare ONE claim part" in p:
-            kind, out = "compare", {"items": [{"id": RULE, "label": self.label, "why": "The rate is $75, not $100."}]}
+            kind, out = "compare", {"part_kind": "instance", "items": [{"id": RULE, "addresses": True, "relation": self.label,
+                                                           "exceptions": [], "why": "The rate is $75, not $100."}]}
         else:
             kind, out = "split", {"parts": [{"text": CLAIM}]}
         self.calls.append(kind)

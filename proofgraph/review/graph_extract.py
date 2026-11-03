@@ -44,6 +44,7 @@ Role = Literal["contract", "amendment", "bylaws", "resolution", "memo", "other"]
 Deontic = Literal["must", "may", "must_not", "is"]
 Level = Literal["exact", "normalised", "fuzzy", "unmatched"]
 Tier = Literal["page", "model", "unclear"]
+StatementType = Literal["rule", "fact", "event"]
 
 
 class DefinedTerm(Strict):
@@ -69,6 +70,7 @@ class Relation(Strict):
 
 class Rule(Strict):
     id: str
+    stype: StatementType = "rule"
     bearer: str
     deontic: Deontic
     action: str

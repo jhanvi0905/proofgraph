@@ -267,7 +267,7 @@ def edges(reads: list[DocRead], ents: Entities, merged: Merged, locator: Locator
         for gr in read.rules:
             r = gr.rule
             ev = [_evidence(gr, locator)]
-            g.add_node(r.id, kind="rule", doc=gr.doc, page=gr.alignment.page, quote=r.quote, deontic=r.deontic,
+            g.add_node(r.id, kind="rule", stype=r.stype, doc=gr.doc, page=gr.alignment.page, quote=r.quote, deontic=r.deontic,
                        action=r.action, value=r.value, value_status=r.value_status, link_kind=r.link_kind,
                        effective_from=r.effective_from, tier=gr.tier, level=gr.alignment.level,
                        box=ev[0].get("box", []), box_status=ev[0].get("box_status", "unpinned"))

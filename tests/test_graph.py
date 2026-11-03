@@ -99,3 +99,13 @@ def test_singular_and_plural_are_one_entity_but_other_near_misses_are_not():
     assert m.canon["e:principal officers"] == m.canon["e:principal officer"]
     assert next(l for l in m.links if l.rule == "plural").kind == "same_as"
     assert m.canon["e:disclosing party"] != m.canon["e:disclosing parties"]  # "ies" is not a plural of "y" here
+
+
+def test_a1_statement_type_reaches_the_graph_node_and_defaults_to_rule():
+    from graph_fixtures import _g, _graph, _reads
+
+    reads = _reads()
+    reads[0].rules[0].rule.stype = "fact"
+    g = _graph(reads)
+    assert g.nodes["res-r1"]["stype"] == "fact" and g.nodes["byl-r2"]["stype"] == "rule"
+    assert _g("d", "x", "B", "q").rule.stype == "rule"

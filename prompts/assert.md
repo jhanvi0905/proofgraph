@@ -13,6 +13,7 @@ HEADER
 
 RULES: one entry per stated obligation, permission, prohibition or fact. For each:
 - id: "r1", "r2", ... unique in your answer
+- stype: "rule" for a general obligation, permission, prohibition or definition that applies to anyone in a class (a term, a policy, a clause); "fact" for a statement about one specific instance (this order, this person, this load, this figure, a decision about named people); "event" for something that happened (an appointment, approval, filing, delivery, payment)
 - bearer: who it binds or who it is about, as a SHORT name of at most 6 words (a person, party, office or defined term), never a clause or a whole phrase. Resolve a pronoun or short form ("the Recipient", "she") to the full defined name and set bearer_inferred true. Otherwise false.
 - deontic: must, may, must_not, or is (a plain fact, definition or effect)
 - action: what is required, allowed, forbidden or stated, in at most 20 words
