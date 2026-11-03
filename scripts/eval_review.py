@@ -48,7 +48,9 @@ def pack_case(key: str, packs: Path) -> tuple[str, str, list[Path]]:
     return key, pack["claim"], sorted((folder / "upload").iterdir())
 
 
-def cases(dataset: Path, packs: Path) -> list[tuple[str, str, list[Path]]]:
+def cases(dataset: Path, packs: Path, manifest: Path | None = None) -> list[tuple[str, str, list[Path]]]:
+    if manifest:  # e.g. runs/clean30.json from scripts/build_clean_check.py
+        return [(r["case"], r["claim"], [Path(f) for f in r["files"]]) for r in json.loads(manifest.read_text())]
     return [suite_case(n, dataset) for n in SUITE] + [pack_case(k, packs) for k in BAR_PACKS]
 
 
@@ -62,6 +64,7 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--dataset", type=Path, default=DATASET)
     ap.add_argument("--packs", type=Path, default=PACKS)
+    ap.add_argument("--manifest", type=Path, help="run the cases in this manifest instead of the 29 gate cases")
     ap.add_argument("--only", nargs="*", help="case ids to run, e.g. TC17 frt-03")
     ap.add_argument("--budget", type=float, default=5.0, help="stop once this many dollars were spent this run")
     args = ap.parse_args()
@@ -74,7 +77,7 @@ def main() -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     start = spent(cache)
 
-    for case, claim, files in cases(args.dataset, args.packs):
+    for case, claim, files in cases(args.dataset, args.packs, args.manifest):
         if case in done or (args.only and case not in args.only):
             continue
         missing = [p for p in files if not p.exists()]
