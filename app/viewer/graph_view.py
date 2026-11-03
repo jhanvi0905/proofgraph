@@ -26,7 +26,7 @@ ANSWER = {
     "contradicted": ("Contradicted", "circle", "red"),
     "weakened": ("Qualified", "caret", "amber"),
     "not_found": ("Not in these documents", "bracket", "slate"),
-    "cannot_tell": ("Not mentioned anywhere", "question", "grey"),
+    "cannot_tell": ("Can't tell", "question", "grey"),
     "error": ("Could not check", "question", "grey"),
     "checking": ("Still checking", "question", "grey"),
 }
@@ -44,7 +44,7 @@ _STROKES = {
 TIER = {"pinned": "tick", "located": "tick", "approximate": "model", "unpinned": "unclear"}
 TIER_WORD = {"tick": "Quote found on the page", "model": "Read by the model, box approximate", "unclear": "Not placed on the page, never decides"}
 TIER_LEVEL = {"page": "a quote found on the page", "model": "the model's reading of the text", "unclear": "a quote not placed on the page"}
-RELATION = {"contradicts": "Goes against it", "weakens": "Qualifies it", "supports": "Ties out", "set_aside": "Set aside"}
+RELATION = {"contradicts": "Goes against it", "weakens": "Qualifies it", "supports": "Supports it", "set_aside": "Set aside"}
 RELATION_MARK = {"contradicts": "circle", "weakens": "caret", "supports": "tick", "set_aside": "bracket"}
 ARROW = ('<svg class="ar" viewBox="0 0 28 12" width="28" height="12" aria-hidden="true"><path d="M1 6h24M19 1.5l6 4.5-6 4.5" '
          'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>')
@@ -216,8 +216,8 @@ def _signoff(graph: dict, infos: dict, replay: bool) -> str:
 
 
 def _legend() -> str:
-    items = [("tick", "Ties out"), ("circle", "Goes against it"), ("caret", "Qualified"), ("bracket", "Not in these documents"),
-             ("question", "Not mentioned anywhere"), ("clash", "The documents disagree")]
+    items = [("tick", "Supported"), ("circle", "Contradicted"), ("caret", "Qualified"), ("bracket", "Not in these documents"),
+             ("question", "Can't tell, the reason is written beside it"), ("clash", "The documents disagree")]
     marks = "".join(f'<li>{mark(m)}<span>{w}</span></li>' for m, w in items)
     tiers = "".join(f"<li><span>{w}</span></li>" for w in TIER_WORD.values())
     return (f'<section class="legend" aria-label="Legend"><h2>Legend</h2><ul class="marks">{marks}</ul>'

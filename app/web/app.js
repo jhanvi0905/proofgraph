@@ -18,7 +18,7 @@
     contradicted: { word: "Contradicted", cls: "red", m: "circle" },
     weakened: { word: "Qualified", cls: "amber", m: "caret" },
     not_found: { word: "Not in these documents", cls: "slate", m: "bracket" },
-    cannot_tell: { word: "Not mentioned anywhere", cls: "grey", m: "question" },
+    cannot_tell: { word: "Can't tell", cls: "grey", m: "question" },
     error: { word: "Could not check", cls: "grey", m: "question" }
   };
   var TICK = "M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8";
@@ -110,7 +110,7 @@
         d1.appendChild(ul); $("ticks").appendChild(d1);
         if (f.note) note("fn" + i, f.name + ": " + f.note);
       });
-      latest("Reading each document once. Later claims on this packet skip this step.");
+      latest("Reading each document once. Later claims on these documents skip this step.");
       say("Files accepted: " + plural(n, "document") + ", " + plural(pages, "page") + ".");
     },
     docstarted: function (d) {

@@ -64,7 +64,7 @@ def test_every_answer_has_a_mark_and_a_word(review, monkeypatch):
     html = render(r)
     assert "Not in these documents" in html and 'data-mark="bracket"' in html
     r.parts[0].status = "cannot_tell"
-    assert "Not mentioned anywhere" in render(r) and 'data-mark="question"' in render(r)
+    assert "Can't tell" in render(r) and 'data-mark="question"' in render(r)
     r.graph["parts"][r.parts[0].id]["documents_disagree"] = True
     html = render(r)
     assert "The documents disagree" in html and 'data-mark="clash"' in html
