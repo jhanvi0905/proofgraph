@@ -1,70 +1,69 @@
-"""The deploy ships a seed cache, so a fresh instance answers the sample packet with no model call."""
+"""The deploy warms the sample packet once, on the machine it runs on, so the cache key matches that machine.
+
+A seed built on another platform cannot be shipped: the cache key of a scanned page's transcription depends on
+the rendered pixels, which differ between a Mac and Linux, and every legal pack has a scan. So the container
+runs the sample itself on first start (`app/warm.py`) and leaves a marker on the persistent disk.
+"""
 
 import json
 import shutil
-import subprocess
 from pathlib import Path
 
-import pytest
+from test_review_run import CLAIM, GOOD, PDF, SPLIT1, FakeTransport, _muse
 
-from proofgraph.clients import checker as checker_mod
-from proofgraph.clients.muse import MuseClient
-from proofgraph.config import load_settings
-from proofgraph.review.run import AllDone, run_review
+from app.warm import marker_for, warm
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLES = ROOT / "examples" / "samples"
 
 
-class NoNetwork:
-    def __init__(self):
-        self.calls = []
-
-    def create(self, body):
-        self.calls.append(body)
-        text = json.dumps(body, default=str)
-        raise AssertionError(f"a model call was made: {text[:160]!r} image={'image' in text} chars={len(text)}")
+def _manifest(tmp_path) -> Path:
+    shutil.copy(PDF, tmp_path / "packet.pdf")
+    path = tmp_path / "samples.json"
+    path.write_text(json.dumps({"note": "SYNTHETIC test packet", "samples": [
+        {"id": "t1", "title": "t", "claim": CLAIM, "files": ["packet.pdf"]}]}))
+    return path
 
 
-def _manifest():
-    return json.loads((SAMPLES / "samples.json").read_text())
-
-
-def test_the_manifest_names_only_synthetic_files_that_exist():
-    manifest = _manifest()
+def test_the_shipped_manifest_names_only_synthetic_files_that_exist():
+    manifest = json.loads((SAMPLES / "samples.json").read_text())
     assert "SYNTHETIC" in manifest["note"] and manifest["samples"]
     for sample in manifest["samples"]:
         assert sample["id"] and sample["title"] and sample["claim"] and sample["files"]
         assert all((SAMPLES / f).is_file() for f in sample["files"])
 
 
-@pytest.mark.parametrize("graph", ["1", "0"])
-def test_a_cache_seeded_from_the_repo_answers_every_sample_without_a_model_call(tmp_path, monkeypatch, graph):
-    cache = tmp_path / "cache"
-    shutil.copytree(SAMPLES / "seed", cache)
-    env = {"MODEL_API_KEY": "k", "CACHE_DIR": str(cache), "SPEND_LIMIT_USD": "5", "PROOFGRAPH_GRAPH": graph}  # a real cap, as on the deploy: at 0 the server refuses even cached answers
-    for key, value in env.items():
-        monkeypatch.setenv(key, value)
-    muse_net, chat_net, image_net = NoNetwork(), NoNetwork(), NoNetwork()  # the blind second reader has its own clients
-    monkeypatch.setattr(checker_mod.OpenAIChatTransport, "create", lambda self, body: chat_net.create(body))
-    monkeypatch.setattr(checker_mod.OpenAIImageTransport, "create", lambda self, body: image_net.create(body))
-    muse = MuseClient(load_settings(env), transport=muse_net)
-    for sample in _manifest()["samples"]:
-        done = [e for e in run_review(sample["claim"], [SAMPLES / f for f in sample["files"]], muse) if isinstance(e, AllDone)]
-        review = done[0].result.review
-        banners = [b.text for b in review.banners]
-        assert review.status not in ("error", "checking") and not [b for b in review.banners if b.kind == "checker_unavailable"], banners
-    assert muse_net.calls == chat_net.calls == image_net.calls == []
+def test_warming_runs_each_sample_once_and_leaves_a_marker(tmp_path):
+    manifest, cache = _manifest(tmp_path), tmp_path / "cache"
+    transport = FakeTransport(SPLIT1, GOOD)
+    assert warm(manifest, cache, _muse(tmp_path / "m", transport)) == 1
+    assert len(transport.bodies) == 2 and marker_for(manifest, cache).is_file()
 
 
-def test_the_seed_script_copies_without_overwriting_what_the_disk_already_holds(tmp_path):
-    src, dst = tmp_path / "seed", tmp_path / "disk" / "cache"
-    (src / "graphs").mkdir(parents=True)
-    (src / "a.json").write_text("seed a")
-    (src / "graphs" / "g.json").write_text("seed g")
-    dst.mkdir(parents=True)
-    (dst / "a.json").write_text("kept")
-    subprocess.run(["sh", str(ROOT / "docker" / "seed.sh"), str(src), str(dst)], check=True)
-    assert (dst / "a.json").read_text() == "kept" and (dst / "graphs" / "g.json").read_text() == "seed g"
-    subprocess.run(["sh", str(ROOT / "docker" / "seed.sh"), str(src), str(tmp_path / "new" / "cache")], check=True)
-    assert (tmp_path / "new" / "cache" / "a.json").read_text() == "seed a"  # a missing destination is created
+def test_an_existing_marker_means_no_model_call(tmp_path):
+    manifest, cache = _manifest(tmp_path), tmp_path / "cache"
+    warm(manifest, cache, _muse(tmp_path / "m", FakeTransport(SPLIT1, GOOD)))
+    again = FakeTransport()  # any call would pop from an empty list
+    assert warm(manifest, cache, _muse(tmp_path / "m2", again)) == 0 and again.bodies == []
+
+
+def test_a_failed_warm_up_leaves_no_marker_so_the_next_start_tries_again(tmp_path):
+    manifest, cache = _manifest(tmp_path), tmp_path / "cache"
+
+    class Down:
+        def create(self, body):
+            raise RuntimeError("down")
+
+    assert warm(manifest, cache, _muse(tmp_path / "m", Down())) == 0
+    assert not marker_for(manifest, cache).exists()
+
+
+def test_the_marker_changes_with_the_manifest_and_the_graph_flag(tmp_path, monkeypatch):
+    manifest, cache = _manifest(tmp_path), tmp_path / "cache"
+    monkeypatch.setenv("PROOFGRAPH_GRAPH", "1")
+    on = marker_for(manifest, cache)
+    monkeypatch.setenv("PROOFGRAPH_GRAPH", "0")
+    assert marker_for(manifest, cache) != on
+    monkeypatch.setenv("PROOFGRAPH_GRAPH", "1")
+    manifest.write_text(manifest.read_text().replace("t1", "t2"))
+    assert marker_for(manifest, cache) != on
