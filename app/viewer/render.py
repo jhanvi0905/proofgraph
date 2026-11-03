@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 
 from proofgraph.review.models import Banner, Card, Doc, Page, Part, Review
-from proofgraph.review.evidence import evidence_lines_on, evidence_map_on
+from proofgraph.review.evidence import evidence_lines_on, evidence_map_on, graph_on
 from proofgraph.review.qualifiers import qualifier_phrase
 from proofgraph.review.reasons import check_reason
 from proofgraph.review.status import supports_reason
@@ -851,9 +851,16 @@ def _ledger_body(review: Review, cards: dict[str, Card], names: dict[str, str], 
 
 
 def render(
-    review: Review, page_images: dict[tuple[str, int], bytes] | None = None, replay: bool = False
+    review: Review, page_images: dict[tuple[str, int], bytes] | None = None, replay: bool = False, ask: bool = False
 ) -> str:
-    """The whole review as one self-contained page. replay=True adds the saved-run badge."""
+    """The whole review as one self-contained page. replay=True adds the saved-run badge.
+
+    With PROOFGRAPH_GRAPH=1 and a graph on the review, the proof-path page is drawn instead (ask=True adds the
+    Ask another claim form for the served page)."""
+    if graph_on() and review.graph:
+        from app.viewer.graph_view import render_graph
+
+        return render_graph(review, page_images or {}, replay, ask)
     images = page_images or {}
     on = evidence_lines_on()
     mapped = evidence_map_on()
