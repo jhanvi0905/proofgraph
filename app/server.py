@@ -97,8 +97,8 @@ def _disagreements(review) -> list[dict]:
         read_only = info.get("read_only") or []
         if info.get("agreement") in ("partial", "disagree") and read_only:
             n = len(read_only)
-            out.append({"part_id": pid, "text": f"The full read also cites {n} passage{'s' if n != 1 else ''} "
-                                                "the walk did not reach; open the review to compare."})
+            out.append({"part_id": pid, "text": f"Reading every page also points at {n} passage{'s' if n != 1 else ''} "
+                                                "that following the links did not reach; open the review to compare."})
     return out
 
 

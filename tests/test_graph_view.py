@@ -47,11 +47,11 @@ def test_flag_on_draws_the_workpaper(review, monkeypatch):
     assert '<ol class="trail"' in html and "consultants" in html
     assert html.count('<button type="button" class="cell') == len(r.cards)
     assert re.search(r'class="ref">A-\d+<', html)  # document letter and page
-    assert "The full read also cites 1 passage the walk did not reach." in html
-    assert "Read 3 pages: 38 rules about 14 things." in html
-    assert "3 agree, 1 disagree, 2 not run" in html and "Set aside: 3" in html
+    assert "Reading every page also points at 1 passage that following the links did not reach." in html
+    assert "Read 3 pages: 38 statements about who must, may or must not do what, naming 14 people, offices, sections and terms." in html
+    assert "3 confirm, 1 do not confirm, 2 not re-checked" in html and "3 that could not be checked against the page" in html
     assert "A rule on the thing the claim names" in html
-    for word in ("Read from the page", "Model's reading", "Unclear, never decides"):
+    for word in ("Quote found on the page", "Read by the model, box approximate", "Not placed on the page, never decides"):
         assert word in html
     assert 'id="ask"' in html and 'id="download"' in html and 'id="ask"' not in render(r)
     assert not re.search(r"<script[^>]*src=", html)
@@ -89,8 +89,8 @@ def test_path_labels_and_cited_are_used_when_present(review, monkeypatch):
                         {"phrase": "the bylaws", "date": "2025-03-12", "status": "supplied"}]
     html = render(r)
     assert "CMO &lt;b&gt;" in html and "<b>" not in html
-    assert html.count("the CEO letter of May 7") == 1 and "Cited, not in the packet" in html
-    assert "the bylaws" not in html.split("Cited, not in the packet")[1][:400]
+    assert html.count("the CEO letter of May 7") == 1 and "Cited, not in your documents" in html
+    assert "the bylaws" not in html.split("Cited, not in your documents")[1][:400]
 
 
 def test_missing_or_odd_graph_keys_do_not_break(review, monkeypatch):

@@ -142,7 +142,7 @@
     },
     graphready: function (d) {
       var r = $("receipt"); r.hidden = false;
-      r.textContent = (d.cached ? "Packet already read. " : "") + "Read " + plural(d.pages, "page") + ": " + d.rules + " rules about " + plural(d.entities, "thing") + ".";
+      r.textContent = (d.cached ? "These documents were already read. " : "") + "Read " + plural(d.pages, "page") + ". Found " + plural(d.rules, "statement") + " about who must, may or must not do what, naming " + d.entities + " people, offices, sections and terms.";
       drawThreads(); say(r.textContent);
     },
     parts: function (d) {
@@ -151,8 +151,8 @@
         state.parts[p.id] = p.text;
         var li = el("li"); li.dataset.key = p.id; li.textContent = "Checking: " + p.text; $("parts").appendChild(li);
       });
-      latest("Checking " + plural(d.parts.length, "part") + ".");
-      say("Checking " + plural(d.parts.length, "part") + ".");
+      latest("Checking " + plural(d.parts.length, "part") + " of the claim.");
+      say("Checking " + plural(d.parts.length, "part") + " of the claim.");
     },
     linked: function () {},
     path: function (d) {

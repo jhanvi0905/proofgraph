@@ -42,8 +42,8 @@ _STROKES = {
              '<path class="c2" d="M12.6 17.8 20.6 5.2M12.8 5.6l7.4 11.6"/>',
 }
 TIER = {"pinned": "tick", "located": "tick", "approximate": "model", "unpinned": "unclear"}
-TIER_WORD = {"tick": "Read from the page", "model": "Model's reading", "unclear": "Unclear, never decides"}
-TIER_LEVEL = {"page": "read from the page", "model": "model's reading", "unclear": "unclear"}
+TIER_WORD = {"tick": "Quote found on the page", "model": "Read by the model, box approximate", "unclear": "Not placed on the page, never decides"}
+TIER_LEVEL = {"page": "a quote found on the page", "model": "the model's reading of the text", "unclear": "a quote not placed on the page"}
 RELATION = {"contradicts": "Goes against it", "weakens": "Qualifies it", "supports": "Ties out", "set_aside": "Set aside"}
 RELATION_MARK = {"contradicts": "circle", "weakens": "caret", "supports": "tick", "set_aside": "bracket"}
 ARROW = ('<svg class="ar" viewBox="0 0 28 12" width="28" height="12" aria-hidden="true"><path d="M1 6h24M19 1.5l6 4.5-6 4.5" '
@@ -108,7 +108,8 @@ def _trail(info: dict, docs: dict[str, str]) -> str:
     labels = [str(x) for x in (_l(info.get("path_labels")) or [_label(str(n), docs) for n in _l(info.get("path"))])]
     if len(labels) < 2:
         return ""
-    return f'<ol class="trail" aria-label="Tie-out trail">{"".join(f"<li>{_e(x)}</li>" for x in labels)}</ol>'
+    return (f'<p class="trail-label">How the claim reaches the clause</p>'
+            f'<ol class="trail" aria-label="How the claim reaches the clause">{"".join(f"<li>{_e(x)}</li>" for x in labels)}</ol>')
 
 
 def _strip(review: Review, info: dict, dates: dict) -> str:
@@ -126,10 +127,12 @@ def _strip(review: Review, info: dict, dates: dict) -> str:
 def _agreement(info: dict) -> str:
     read_only, flag = _l(info.get("read_only")), info.get("agreement")
     if flag == "disagree":
-        return "The walk and the full read cite different evidence. Compare both before relying on this answer."
+        return "The two checks cite different evidence. Compare both before relying on this answer."
     if read_only and flag == "partial":
         n = len(read_only)
-        return f"The full read also cites {n} passage{'s' if n != 1 else ''} the walk did not reach."
+        return f"Reading every page also points at {n} passage{'s' if n != 1 else ''} that following the links did not reach."
+    if flag == "agree":
+        return "Both checks cite the same passages."
     return ""
 
 
@@ -164,7 +167,7 @@ def _open_items(review: Review, graph: dict) -> str:
     if not seen:
         return ""
     lis = "".join(f'<li><span class="says">{_e(t)}</span></li>' for t in seen.values())
-    return (f'<section class="open"><h2>Cited, not in the packet</h2>'
+    return (f'<section class="open"><h2>Cited, not in your documents</h2>'
             f'<p>The documents refer to these; they were not supplied, so nothing here rests on them.</p><ul>{lis}</ul></section>')
 
 
@@ -173,7 +176,7 @@ def _row(part: Part, cards: list[Card], docs: list, names: dict, codes: dict, in
     cells = []
     for d in docs:
         mine = [c for c in cards if c.part == part.id and c.doc == d.id]
-        body = "".join(_cell(c, codes) for c in mine) or '<span class="none">Nothing relevant</span>'
+        body = "".join(_cell(c, codes) for c in mine) or '<span class="none">Nothing here bears on this part.</span>'
         cells.append(f"<td>{body}</td>")
     note = _agreement(info)
     trail = "" if driver else _trail(info, {d.id: names[d.id] for d in docs})
@@ -200,12 +203,13 @@ def _signoff(graph: dict, infos: dict, replay: bool) -> str:
     if stats.get("pages") is not None:
         p = stats["pages"]
         lines.append(f'<li><span>Prepared by ProofGraph</span> <span class="num">Read {_e(p)} page{"s" if p != 1 else ""}: '
-                     f'{_e(stats.get("rules", 0))} rules about {_e(stats.get("entities", 0))} things.</span></li>')
+                     f'{_e(stats.get("rules", 0))} statements about who must, may or must not do what, naming {_e(stats.get("entities", 0))} people, offices, sections and terms.</span></li>')
     if reads:
-        parts = [f"{reads[k]} {w}" for k, w in (("agrees", "agree"), ("disagrees", "disagree"), ("not_run", "not run")) if reads.get(k)]
+        parts = [f"{reads[k]} {w}" for k, w in (("agrees", "confirm"), ("disagrees", "do not confirm"), ("not_run", "not re-checked")) if reads.get(k)]
         if parts:
-            lines.append(f'<li><span>Second reader (Muse Spark Open)</span> <span class="num">{_e(", ".join(parts))}</span></li>')
-    lines.append(f'<li><span>Statements</span> <span class="num">Set aside: {set_aside}</span></li>')
+            lines.append(f'<li><span>Re-checked by a second reader (Muse Spark Open)</span> <span class="num">{_e(", ".join(parts))}</span></li>')
+    lines.append('<li><span>Two checks</span> <span>Following links from the claim to the rules, and reading every page start to finish.</span></li>')
+    lines.append(f'<li><span>Left out</span> <span class="num">{set_aside} that could not be checked against the page</span></li>')
     if replay:
         lines.append("<li><span>Saved run</span> <span>Replayed, not a live check.</span></li>")
     return f'<section class="signoff" aria-label="Sign-off"><ul>{"".join(lines)}</ul></section>'
