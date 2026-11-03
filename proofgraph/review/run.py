@@ -180,8 +180,13 @@ def run_review(
     ordered = [outcomes[p.id] for p in parts]
     graph = None
     if built is not None:
-        graph = {"stats": built.g.graph.get("stats", {}), "docs": built.g.graph["docs"],
-                 "parts": {o.part.id: o.graph for o in ordered if o.graph}}
+        from proofgraph.review import graph_run
+
+        parts_ = {o.part.id: o.graph for o in ordered if o.graph}
+        deciding = [i for info in parts_.values() for i in info.get("deciding", [])]
+        graph = {"stats": built.g.graph.get("stats", {}), "docs": built.g.graph["docs"], "parts": parts_,
+                 "cited": graph_run.cited_payload(built.g), "dates": graph_run.dates_payload(built.g, deciding),
+                 "scenario_names": graph_run.SCENARIO_NAMES}
     yield finish([o.part for o in ordered], [c for o in ordered for c in o.cards],
                  [b for o in ordered for b in o.banners], graph)
 

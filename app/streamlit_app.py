@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hmac
 import html
 import json
 import re
@@ -15,6 +14,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from app.auth import NO_PASSCODE_MESSAGE, WRONG_PASSCODE_MESSAGE, passcode_ok  # noqa: F401
 from proofgraph.adapters.base import for_engine
 from proofgraph.engine.route import run_program
 from proofgraph.engine.spans import propose_spans
@@ -91,11 +91,6 @@ COST_LIMIT_MESSAGE = (
     "That is a spend stop, not a finding on the claim, so there is no verdict. "
     "Your inputs are still here."
 )
-NO_PASSCODE_MESSAGE = (
-    "Live checks are off: this app has no passcode set. "
-    "Reviewing a packet offline still works."
-)
-WRONG_PASSCODE_MESSAGE = "Enter the passcode to run a live check. Offline review needs none."
 
 VERDICT_GLOSS = {
     "SUPPORTED": "The checked links hold.",
@@ -264,14 +259,6 @@ def check_claim(
 def _announce(on_stage: Callable[[str], None] | None, stage: str) -> None:
     if on_stage is not None:
         on_stage(stage)
-
-
-def passcode_ok(entered: object, configured: object) -> bool:
-    """Constant-time match. No configured passcode means no match."""
-
-    if not configured:
-        return False
-    return hmac.compare_digest(str(entered or "").encode(), str(configured).encode())
 
 
 def _configured_passcode(st) -> str | None:

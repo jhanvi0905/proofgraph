@@ -50,7 +50,7 @@ def test_graph_flow_decides_from_the_graph_and_emits_every_event(monkeypatch, tm
     transport = RoutedTransport()
     events, result = _drain(run_review(CLAIM, [PDF], _muse(tmp_path, transport), checker=_checker))
     kinds = [type(e).__name__ for e in events]
-    assert kinds[:2] == ["DocRead", "PageRead"] and "GraphReady" in kinds
+    assert kinds[:3] == ["DocStarted", "DocRead", "PageRead"] and "GraphReady" in kinds
     assert kinds[-3:] == ["PartLinked", "PathFound", "PartDone"]
     review = Review.model_validate_json(result.review.model_dump_json())
     part = review.parts[0]
@@ -150,3 +150,63 @@ def test_d2_statements_the_full_read_cites_go_to_the_comparator_too():
     ids = ["a", "b"]
     read = ReadResult(cited=("b", "c", "c", "d"))
     assert _judged(ids, read) == ["a", "b", "c", "d"]
+
+
+def test_every_document_announces_its_start_and_entities_carry_their_document_ids(monkeypatch, tmp_path):
+    monkeypatch.setenv("PROOFGRAPH_GRAPH", "1")
+    events, _ = _drain(run_review(CLAIM, [PDF], _muse(tmp_path, RoutedTransport()), checker=_checker))
+    kinds = [type(e).__name__ for e in events]
+    started = next(e for e in events if type(e).__name__ == "DocStarted")
+    assert kinds.index("DocStarted") < kinds.index("DocRead") and started.pages == 1 and started.name
+    read = next(e for e in events if type(e).__name__ == "DocRead")
+    assert started.doc == read.doc
+    entities = [e for e in events if type(e).__name__ == "EntityFound"]
+    assert entities and all(e.doc_ids and len(e.doc_ids) == e.docs and read.doc in e.doc_ids for e in entities)
+    # a cached graph has no reading to announce, but its entities still say which documents they are in
+    again, _ = _drain(run_review(CLAIM, [PDF], _muse(tmp_path, RoutedTransport()), checker=_checker))
+    assert "DocStarted" not in [type(e).__name__ for e in again]
+    assert all(e.doc_ids for e in again if type(e).__name__ == "EntityFound")
+
+
+def _tiny_graph():
+    import networkx as nx
+
+    g = nx.MultiDiGraph()
+    g.graph["docs"] = {"a": {"role": "memo", "date": "May 14, 2026"}, "b": {"role": "resolution", "date": "May 13, 2026"},
+                       "c": {"role": "other", "date": None}}
+    g.add_node("a-r1", kind="rule", doc="a", page=2, quote="Per the CEO letter dated May 7, 2026, she served.", tier="page",
+               effective="2026-05-07", event_date="May 13, 2026", stype="event")
+    g.add_node("x:2026-05-07:the CEO letter", kind="external", phrase="the CEO letter", date="2026-05-07", status="not supplied")
+    g.add_edge("a-r1", "x:2026-05-07:the CEO letter", "cites", kind="cites", tier="page", made_by="code", evidence=[])
+    return g
+
+
+def test_graph_payload_lists_cited_but_not_supplied_documents():
+    from proofgraph.review.graph_run import cited_payload
+
+    assert cited_payload(_tiny_graph()) == [
+        {"phrase": "the CEO letter", "date": "2026-05-07", "status": "not supplied", "doc": "a", "page": 2,
+         "quote": "Per the CEO letter dated May 7, 2026, she served.", "rule": "a-r1"}]
+
+
+def test_graph_payload_resolves_document_and_statement_dates_to_iso():
+    from proofgraph.review.graph_run import dates_payload
+
+    out = dates_payload(_tiny_graph(), ["a-r1"])
+    assert out["docs"] == {"a": "2026-05-14", "b": "2026-05-13", "c": None}
+    assert out["statements"] == {"a-r1": {"effective": "2026-05-07", "event": "2026-05-13"}}
+
+
+def test_scenario_names_are_plain_words_for_every_code_the_decision_can_return():
+    from proofgraph.review.graph_decide import SCENARIO_NAMES
+
+    assert set(SCENARIO_NAMES) == {f"S{i}" for i in range(1, 9)}
+    assert SCENARIO_NAMES["S5"] == "Override or precedence across documents" and SCENARIO_NAMES["S6"] == "Timing and sequence"
+
+
+def test_flow_review_carries_the_new_display_fields_and_flags_a_documents_clash(monkeypatch, tmp_path):
+    monkeypatch.setenv("PROOFGRAPH_GRAPH", "1")
+    _, result = _drain(run_review(CLAIM, [PDF], _muse(tmp_path, RoutedTransport()), checker=_checker))
+    graph = result.review.graph
+    assert graph["cited"] == [] and graph["scenario_names"]["S1"] == "Direct statement"
+    assert set(graph["dates"]) == {"docs", "statements"} and graph["parts"]["p1"]["documents_disagree"] is False

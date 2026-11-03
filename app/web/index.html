@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProofGraph: where does it say that?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<link rel="stylesheet" href="/web/tokens.css">
+<link rel="stylesheet" href="/web/app.css">
+</head>
+<body>
+<div class="shell">
+  <section id="entrance" class="entrance">
+    <div class="hero">
+      <div class="hero-in">
+        <div class="hero-copy">
+          <span class="wordmark">ProofGraph</span>
+          <h1>Where does it say that?</h1>
+          <p class="lede">Paste a sentence you've been asked to trust and drop in the documents behind it. ProofGraph opens the clause that decides it, on its page.</p>
+          <form id="start" class="start" autocomplete="off">
+            <div class="field">
+              <label for="claim">The claim</label>
+              <textarea id="claim" name="claim" rows="3" required placeholder="Paste the sentence you've been asked to trust"></textarea>
+            </div>
+            <div class="field">
+              <label for="files">The documents</label>
+              <div class="drop" id="drop">
+                <input id="files" name="files" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" multiple required>
+                <p id="drop-text">Drop contracts, bylaws, resolutions or memos here, or choose files. PDF, PNG or JPG, up to 10.</p>
+              </div>
+            </div>
+            <div class="field narrow" id="passcode-field" hidden>
+              <label for="passcode">Passcode, needed to run a check</label>
+              <input id="passcode" name="passcode" type="password" autocomplete="current-password">
+            </div>
+            <button class="btn inv" type="submit" id="go">Check claim</button>
+            <p id="problem" class="problem" role="alert" hidden></p>
+          </form>
+        </div>
+        <figure class="sheet" aria-label="A synthetic example of a checked claim">
+          <p class="sheet-tag">Synthetic example, not a real packet</p>
+          <p class="sheet-claim">The supplier may subcontract the work <span class="u red">without the customer's consent.</span></p>
+          <p class="sheet-answer"><svg class="mark m-circle" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg><span class="st red">Contradicted</span></p>
+          <p class="sheet-quote says"><span class="ref">A-1</span><q>Supplier shall not subcontract any part of the Services without the Customer's prior written consent.</q></p>
+          <p class="sheet-part"><svg class="mark m-tick" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span class="st green">Supported</span> Payment is due within 30 days.</p>
+          <ul class="sheet-signoff" aria-label="Sign-off"><li><span>Prepared by ProofGraph</span><span>Synthetic</span></li><li><span>Re-checked by a second reader</span><span>Synthetic</span></li></ul>
+          <ul class="sheet-legend" aria-label="Marks">
+            <li><svg class="mark m-tick" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg>Supported</li>
+            <li><svg class="mark m-circle" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg>Contradicted</li>
+            <li><svg class="mark m-caret" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 19.6C7.2 14 9.6 9.6 12 5.4c2.6 4.6 5.2 9.2 8.2 14.2"/></svg>Qualified</li>
+          </ul>
+        </figure>
+      </div>
+    </div>
+
+    <section id="samples" class="samples band" aria-label="Example packets" hidden>
+      <h2>Or try an example packet</h2>
+      <p class="note">These are synthetic documents written for the demo.</p>
+      <ul id="sample-list"></ul>
+    </section>
+
+    <section class="band how">
+      <h2><span class="wp">N-1</span>How a claim gets checked</h2>
+      <div class="frames">
+        <div><h3>Read once</h3><p>Each document is read once into statements about who must, may or must not do what, each with its exact quote and its page.</p></div>
+        <div><h3>Check part by part</h3><p>The claim is split into parts. Each part is followed from the things it names to the statements that govern them.</p></div>
+        <div><h3>Decide and show</h3><p>Code decides from the structure, which document takes precedence, and the dates. Each answer shows its path, and an answer that rests on a quote opens it on its page.</p></div>
+      </div>
+    </section>
+
+    <section class="band beyond">
+      <h2><span class="wp">N-2</span>Beyond a citation</h2>
+      <p class="big">A citation points at text that agrees with a claim. ProofGraph shows the text that decides it, including the clause that disagrees, which document overrides which, and what the documents do not say.</p>
+      <ul class="pillars">
+        <li><strong>See the clause.</strong> An answer that rests on a quote opens it on its page.</li>
+        <li><strong>Know which document wins.</strong> Amendments, bylaws and dates are applied, and the override is shown.</li>
+        <li><strong>Trust the silence.</strong> When the documents don't say, ProofGraph says so, and says what is missing.</li>
+      </ul>
+    </section>
+
+    <section class="band states">
+      <h2><span class="wp">N-3</span>When the documents don't settle it</h2>
+      <ul class="cases">
+        <li><span class="st slate"><svg class="mark m-bracket" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.4 3.6H8.6c-.7 0-1.1.3-1.1.9v15c0 .6.4.9 1.1.9h6.8"/></svg>Not in these documents</span><p>These documents discuss payment terms but never set a late fee.</p></li>
+        <li><span class="st grey"><svg class="mark m-question" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.4 9.2C8.2 5.6 15.8 5.4 15.6 9.4c-.1 2.8-3.7 3-3.6 6.2M12 19.6v.1"/></svg>Can't tell</span><p>Two documents clash and nothing decides which one wins. The reason is written beside the answer.</p></li>
+        <li><span class="st amber"><svg class="mark m-caret" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 19.6C7.2 14 9.6 9.6 12 5.4c2.6 4.6 5.2 9.2 8.2 14.2"/></svg>Qualified</span><p>The claim holds, but an exception or condition is attached to it.</p></li>
+      </ul>
+    </section>
+
+    <section class="band faq">
+      <h2><span class="wp">N-4</span>Questions</h2>
+      <details><summary>Is this another chatbot?</summary><p>No. You paste a claim, not a question. ProofGraph answers each part of the claim and shows where in the documents it comes from.</p></details>
+      <details><summary>What if an answer is wrong?</summary><p>An answer that rests on a quote opens it on its page so you can check it yourself. Quotes that cannot be placed on a page are marked and never decide an answer.</p></details>
+      <details><summary>Which documents work?</summary><p>PDF, PNG or JPG, up to 10 files. Pages without a text layer are transcribed by the model and shown with approximate boxes.</p></details>
+      <details><summary>Does it replace my lawyer?</summary><p>No. It checks a claim against the documents you give it. It does not give legal advice.</p></details>
+    </section>
+
+    <section class="band close">
+      <p class="big">Check the claim, not the summary.</p>
+      <a class="btn inv-dark" href="#claim">Check a claim</a>
+      <ul class="signoff trust" aria-label="Who did what"><li><span>Prepared by</span><span>Muse Spark reads the documents.</span></li><li><span>Re-checked by</span><span>A second model, Muse Spark Open, re-checks some of the statements an answer rests on. The review lists how many it did not.</span></li><li><span>Quotes</span><span>They open on their page. Any that cannot be placed are marked and never decide an answer.</span></li></ul>
+    </section>
+    <footer class="bigname" aria-hidden="true">ProofGraph</footer>
+  </section>
+
+  <section id="live" class="live" aria-label="Progress" hidden>
+    <p id="claim-line" class="claim"></p>
+    <div id="status" class="sr" role="status" aria-live="polite"></div>
+    <div id="readgrid" class="readgrid">
+      <aside class="checklist" aria-label="Pages read"><h2>Reading</h2><ul id="ticks"></ul></aside>
+      <div class="map" id="map" aria-label="Packet map">
+        <div class="cols" id="cols"></div>
+        <svg class="threads" id="threads" aria-hidden="true"></svg>
+        <ul class="labels shared" id="shared" aria-label="Found in the packet"></ul>
+        <p class="latest" id="latest"></p>
+      </div>
+    </div>
+    <button type="button" class="linkish" id="reopen" hidden>Show what was read</button>
+    <p id="receipt" class="receipt" hidden></p>
+    <ul id="parts" class="plist" aria-label="Parts of the claim"></ul>
+    <ul id="notes" class="notes" aria-label="Notes"></ul>
+  </section>
+
+  <section id="result" class="result" aria-label="Review" hidden>
+    <iframe id="review" title="Review"></iframe>
+  </section>
+</div>
+<script src="/web/app.js"></script>
+</body>
+</html>

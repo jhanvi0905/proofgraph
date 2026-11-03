@@ -139,7 +139,7 @@ from pathlib import Path  # noqa: E402
 import pytest  # noqa: E402
 
 import app.streamlit_app as screen  # noqa: E402
-
+from app import auth  # noqa: E402
 _SCRIPT = "from app.streamlit_app import main\nmain()\n"
 _LOAD = "Load the export-button packet"
 _VERDICT_WORDS = ("SUPPORTED", "CONTRADICTED", "UNRESOLVED")
@@ -342,8 +342,9 @@ def test_passcode_compare_is_constant_time_and_fails_closed():
     assert screen.passcode_ok("", "") is False
     assert screen.passcode_ok("x", None) is False
     assert screen.passcode_ok("é", "e") is False
-    source = (Path(screen.__file__)).read_text(encoding="utf-8")
+    source = (Path(screen.__file__).with_name("auth.py")).read_text(encoding="utf-8")  # moved there by F1
     assert "hmac.compare_digest" in source
+    assert screen.passcode_ok is auth.passcode_ok
     assert hmac is not None
 
 

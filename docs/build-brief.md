@@ -150,11 +150,11 @@ Thirty-two tasks, grouped by the specialist whose screening shaped them. Each on
 
 | # | Change | Where (graphify) | Tech | In → out | Done when | Tests |
 | --- | --- | --- | --- | --- | --- | --- |
-| F1 | Passcode helper | move `streamlit_app.py::passcode_ok` L269 into `app/auth.py` | `hmac.compare_digest`, env `APP_PASSCODE` | passcode → ok or refusal | the old app imports it from there | `test_claim_journey` |
-| F2 | Server | new `app/server.py`, replacing `streamlit_app.py::review_events` L2042 | FastAPI: `GET /`; `POST /api/review` (multipart: claim, files, passcode) as a `text/event-stream`; `POST /api/review/{id}/ask` reuses the cached graph; `GET /api/review/{id}` | A8 events → named server-sent events | the stream ends with a review id | new `test_server.py`; `test_app` kept for the old app |
-| F3 | Start and live page | new `app/web/index.html`, `app.js`, `app.css` | vanilla JS, `fetch` with a streamed body, `aria-live="polite"` | form → live list of what is read and found | each event updates one line | none |
-| F4 | Review page | `render.py::render` L853, `_ledger_body` L822 | HTML, CSS, inline SVG | Review plus graph → underlined claim, proof-path breadcrumb, evidence grid, tier legend, agreement note, "cited, not supplied", red-pencil circle, override arrow, Ask another claim, Download review | golden page unchanged with the flag off | `test_viewer_render`, `test_evidence_map`, `test_evidence_lines` |
-| F5 | Design tokens | `app/viewer/viewer.html` styles | Source Serif 4, Atkinson Hyperlegible, 6 colour tokens | none | contrast meets WCAG AA | none |
+| ✅ F1 | Passcode helper | move `streamlit_app.py::passcode_ok` L269 into `app/auth.py` | `hmac.compare_digest`, env `APP_PASSCODE` | passcode → ok or refusal | the old app imports it from there | `test_claim_journey` |
+| ✅ F2 | Server | new `app/server.py`, replacing `streamlit_app.py::review_events` L2042 | FastAPI: `GET /`; `POST /api/review` (multipart: claim, files, passcode) as a `text/event-stream`; `POST /api/review/{id}/ask` reuses the cached graph; `GET /api/review/{id}` | A8 events → named server-sent events | the stream ends with a review id | new `test_server.py`; `test_app` kept for the old app |
+| ✅ F3 | Start and live page | new `app/web/index.html`, `app.js`, `app.css` | vanilla JS, `fetch` with a streamed body, `aria-live="polite"` | form → live list of what is read and found | each event updates one line | none |
+| ✅ F4 | Review page | `render.py::render` L853, `_ledger_body` L822 | HTML, CSS, inline SVG | Review plus graph → underlined claim, proof-path breadcrumb, evidence grid, tier legend, agreement note, "cited, not supplied", red-pencil circle, override arrow, Ask another claim, Download review | golden page unchanged with the flag off | `test_viewer_render`, `test_evidence_map`, `test_evidence_lines` |
+| ✅ F5 | Design tokens | `app/viewer/viewer.html` styles | Source Serif 4, Atkinson Hyperlegible, 6 colour tokens | none | contrast meets WCAG AA | none |
 | F6 | Deploy | new `Dockerfile` (python:3.11-slim, `uv sync`, `uvicorn app.server:app`) | a host with a public URL | env secrets → live URL | one cached and one live packet run on the public URL | smoke test |
 | F7 | Judge entrance | `README.md` | none | none | the README points at the new URL; Streamlit stays in the repo | none |
 
