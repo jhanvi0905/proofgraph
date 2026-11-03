@@ -177,9 +177,9 @@ def run_part_graph(part: Part, built: Built, texts: list[PageText], muse: MuseCl
         walk = paths(g, list(linked.entities), max_hops=3 if typed_walk else 1, hub_brake=hub_brake)
         ranked = rank_paths(g, walk.paths, part.text, top=MAX_STATEMENTS)  # the comparator judges relevance
         ids = [i for i in statements(ranked, g) if g.nodes[i]["kind"] == "rule"]
-        result = compare(part.text, ids, g, muse)
-        apply_effects(g, result.effects)
         read = read_future.result()
+        result = compare(part.text, _judged(ids, read), g, muse)  # D2: what the full read cites is judged too
+        apply_effects(g, result.effects)
     if result.injection_quote:
         banners.append(Banner(kind="injection", text=f"A page contains an instruction aimed at the reviewer: {result.injection_quote}"))
     items = list(result.labels.values())
@@ -202,6 +202,11 @@ def run_part_graph(part: Part, built: Built, texts: list[PageText], muse: MuseCl
     events = [PartLinked(part.id, [g.nodes[e]["name"] for e in linked.entities]),
               PathFound(part.id, _labels(g, decision.path, names), decision.scenario)]
     return GraphOutcome(done, cards, banners, info, events)
+
+
+def _judged(ids: Sequence[str], read) -> list[str]:
+    """D2: the statements the walk found, then any the full read cited that the walk did not."""
+    return list(dict.fromkeys([*ids, *read.cited]))
 
 
 def _cards(part: Part, g: nx.MultiDiGraph, labels: dict, checks: dict, decision: Decision) -> list[Card]:

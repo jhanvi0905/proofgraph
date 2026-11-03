@@ -141,3 +141,12 @@ def test_c2_a_supported_part_is_second_read_even_when_the_claim_budget_is_spent(
 
     _, result = _drain(run_review(CLAIM, [PDF], _muse(tmp_path, RoutedTransport("agrees")), checker=checker))
     assert seen and result.review.parts[0].status == "cannot_tell"
+
+
+def test_d2_statements_the_full_read_cites_go_to_the_comparator_too():
+    from proofgraph.review.full_read import ReadResult
+    from proofgraph.review.graph_run import _judged
+
+    ids = ["a", "b"]
+    read = ReadResult(cited=("b", "c", "c", "d"))
+    assert _judged(ids, read) == ["a", "b", "c", "d"]
