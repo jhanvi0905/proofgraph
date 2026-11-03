@@ -48,3 +48,6 @@ That skill is the authoritative workflow for feature research, planning, user ap
 | Is this in scope? | `docs/02-scope.md`, `docs/11-decision-log.md` |
 
 Ask before changing a rule above, adding a dependency, or spending more than $50 in a run. If something isn't covered, write it in `QUESTIONS.md` and move to the next task.
+### Code graph
+
+Before changing a shared model or function (`Card`, `Part`, `Review`, `Receipt`, `run_review`, `check_cards`, `part_status`, `MuseClient.structured`), run `graphify explain "<file>::<symbol>"` to see its callers and tests. `graphify hook install` rebuilds the graph on commit.
