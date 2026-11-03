@@ -1,6 +1,6 @@
 .wrap { max-width: 1320px; margin: 0 auto; padding: 1.75rem 1rem 3rem; }
 .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem 2rem; grid-template-areas: "head" "pane" "main" "foot"; }
-@media (min-width: 1100px) { .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 22rem); grid-template-areas: "head pane" "main pane" "foot foot"; } }
+@media (min-width: 1100px) { .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 24rem); grid-template-areas: "head pane" "main pane" "foot foot"; } }
 .head { grid-area: head; } main { grid-area: main; min-width: 0; } .foot { grid-area: foot; } .pane { grid-area: pane; align-self: start; }
 @media (min-width: 1100px) { .pane { position: sticky; top: 1rem; } }
 
