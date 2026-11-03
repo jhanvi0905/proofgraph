@@ -54,10 +54,19 @@ def test_refusals_build_no_client(client, kw, code):
     assert client.calls == []
 
 
+def test_config_says_whether_the_blind_second_reader_can_run(client, monkeypatch):
+    monkeypatch.setenv("BASETEN_API_KEY", "k")
+    assert client.get("/api/config").json()["second_reader"] is True
+    monkeypatch.setenv("BASETEN_API_KEY", "  ")
+    assert client.get("/api/config").json()["second_reader"] is False
+    monkeypatch.delenv("BASETEN_API_KEY")
+    assert client.get("/api/config").json()["second_reader"] is False  # no key: support would pass with no second read
+
+
 def test_no_configured_passcode_means_open_and_the_page_is_told(client, monkeypatch):
-    assert client.get("/api/config").json() == {"passcode_required": True}
+    assert client.get("/api/config").json()["passcode_required"] is True
     monkeypatch.delenv("APP_PASSCODE")
-    assert client.get("/api/config").json() == {"passcode_required": False}
+    assert client.get("/api/config").json()["passcode_required"] is False
     r = post(client, passcode="")
     assert r.status_code == 200 and events(r.text)[-1][0] == "done"
     assert post(client, claim=" ", passcode="").status_code == 400  # input checks still apply

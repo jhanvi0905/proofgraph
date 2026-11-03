@@ -77,6 +77,8 @@ def main() -> int:
     ok = check(get(base + "/")[0] == 200, "entrance page loads")
     code, body = get(base + "/api/config")
     ok &= check(code == 200, "/api/config", body.strip())
+    reader = code == 200 and json.loads(body).get("second_reader") is True
+    ok &= check(reader, "second reader key is set", "" if reader else "BASETEN_API_KEY missing: supported answers would pass with no second read")
     code, body = get(base + "/api/samples")
     samples = json.loads(body) if code == 200 else []
     ok &= check(bool(samples), "samples are offered", ", ".join(s["id"] for s in samples))

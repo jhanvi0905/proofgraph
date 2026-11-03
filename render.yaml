@@ -18,6 +18,8 @@ services:
         value: "10"          # the cap on model spend for this public instance
       - key: MODEL_API_KEY
         sync: false          # secret: paste it in the Render dashboard, never into the repository
+      - key: BASETEN_API_KEY
+        sync: false          # secret: the blind second reader runs on Baseten; without it supported answers go unchecked
       - key: PROOFGRAPH_GRAPH
         sync: false          # "1" shows the evidence graph, "0" or empty runs the original pipeline
       - key: APP_PASSCODE
