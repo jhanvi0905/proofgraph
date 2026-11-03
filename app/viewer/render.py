@@ -851,7 +851,8 @@ def _ledger_body(review: Review, cards: dict[str, Card], names: dict[str, str], 
 
 
 def render(
-    review: Review, page_images: dict[tuple[str, int], bytes] | None = None, replay: bool = False, ask: bool = False
+    review: Review, page_images: dict[tuple[str, int], bytes] | None = None, replay: bool = False, ask: bool = False,
+    share: bool = False, share_url: str | None = None,
 ) -> str:
     """The whole review as one self-contained page. replay=True adds the saved-run badge.
 
@@ -860,7 +861,7 @@ def render(
     if graph_on() and review.graph:
         from app.viewer.graph_view import render_graph
 
-        return render_graph(review, page_images or {}, replay, ask)
+        return render_graph(review, page_images or {}, replay, ask, share, share_url)
     images = page_images or {}
     on = evidence_lines_on()
     mapped = evidence_map_on()

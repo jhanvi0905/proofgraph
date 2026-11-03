@@ -224,7 +224,8 @@ def _legend() -> str:
             f'<ul class="tiers">{tiers}</ul></section>')
 
 
-def render_graph(review: Review, images: dict, replay: bool = False, ask: bool = False) -> str:
+def render_graph(review: Review, images: dict, replay: bool = False, ask: bool = False,
+                 share: bool = False, share_url: str | None = None) -> str:
     graph = review.graph or {}
     infos = _d(graph.get("parts"))
     names = _short_names(review.docs)
@@ -247,21 +248,30 @@ def render_graph(review: Review, images: dict, replay: bool = False, ask: bool =
                    for p in review.parts)
     pages = "".join(_page(d, p, review.cards, images, names[d.id]) for d in review.docs for p in d.pages)
     asker = ""
-    if ask:
+    if ask and not share:
         asker = ('<form class="ask" id="ask" hidden><label for="ask-claim">Ask another claim about this packet</label>'
                  '<div><input id="ask-claim" name="claim" autocomplete="off"><button class="btn" type="submit">Check claim</button></div></form>')
+    claim_first = (f'<p class="claim"><span class="sr">Your claim: </span>{_claim(review, infos)}</p>' if not share else
+                   f'<p class="claim small"><span class="was">The claim that was checked</span>{_claim(review, infos)}</p>')
+    copy = (f'<button class="btn quiet" type="button" id="copylink" data-url="{_e(share_url)}">Copy review link</button>'
+            if share_url and not share else "")
+    when = _day(review.run.recorded_at)
+    n = len(review.docs)
+    sharenote = (f'<p class="sharenote">Checked with ProofGraph against {n} document{"s" if n != 1 else ""}'
+                 f'{f" on {_long(when)}" if when else ""}. <a href="/">Check your own claim</a></p>' if share else "")
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         '<title>ProofGraph review</title><link rel="preconnect" href="https://fonts.googleapis.com">'
         f'<link rel="stylesheet" href="{FONTS}"><style>{TOKENS.read_text()}{CSS.read_text()}</style></head><body>'
-        f'<div class="wrap"><div class="layout"><header class="head"><p class="claim"><span class="sr">Your claim: </span>{_claim(review, infos)}</p>'
-        f'{answer}{_trail(dinfo, docs_by_id) if driver else ""}{_strip(review, dinfo, _d(graph.get("dates"))) if driver else ""}{notes}</header>'
+        f'<div class="wrap"><div class="layout{" share" if share else ""}"><header class="head">{claim_first if not share else ""}'
+        f'{answer}{_trail(dinfo, docs_by_id) if driver else ""}{_strip(review, dinfo, _d(graph.get("dates"))) if driver else ""}'
+        f'{claim_first if share else ""}{notes}</header>'
         f'<aside class="pane" aria-label="Page"><p class="hint" id="hint">Open a quote to see its page.</p>{pages}</aside>'
         f'<main><div class="gridwrap" tabindex="0" role="region" aria-label="What the documents say">'
         f'<table class="grid"><caption class="sr">What the documents say, by part of the claim</caption>'
         f'<thead><tr><th scope="col"><span>Part of the claim</span></th>{cols}</tr></thead><tbody>{rows}</tbody></table></div>'
         f'{_open_items(review, graph)}</main>'
         f'<footer class="foot">{_signoff(graph, infos, replay)}{_legend()}{asker}'
-        '<div class="actions"><button class="btn quiet" type="button" id="download">Download review</button></div></footer></div></div>'
+        f'<div class="actions"><button class="btn quiet" type="button" id="download">Download review</button>{copy}</div>{sharenote}</footer></div></div>'
         f'<div id="live" class="sr" role="status" aria-live="polite"></div><script>{JS.read_text()}</script></body></html>'
     )

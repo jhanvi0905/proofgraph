@@ -133,3 +133,21 @@ def test_graph_events_pass_through_with_doc_ids(client, monkeypatch):
     evs = events(post(client).text)
     assert ("docstarted", {"doc": "d1", "name": "rate.pdf", "pages": 1}) in evs
     assert ("entity", {"name": "Board", "type": "office", "docs": 2, "doc_ids": ["d1", "d2"]}) in evs
+
+
+def test_review_is_saved_and_shared_read_only(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("CACHE_DIR", str(tmp_path / "c"))
+    rid = events(post(client).text)[-1][1]["review_id"]
+    saved = tmp_path / "c" / "reviews"
+    assert (saved / f"{rid}.json").is_file() and list(saved.glob(f"{rid}-*.png"))
+    page = client.get(f"/r/{rid}")
+    assert page.status_code == 200 and CLAIM in page.text  # flag off: the old page; the graph page adds the share footer
+    # the shared link survives a restart: a fresh app reads the saved file
+    fresh = TestClient(create_app(lambda: None))
+    assert fresh.get(f"/r/{rid}").status_code == 200
+    assert fresh.get(f"/api/review/{rid}").status_code == 200
+
+
+@pytest.mark.parametrize("bad", ["nope", "..%2f..%2fetc", "0" * 12, "ABCDEF123456"])
+def test_share_route_rejects_unknown_and_unsafe_ids(client, bad):
+    assert client.get(f"/r/{bad}").status_code == 404

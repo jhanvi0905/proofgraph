@@ -8,6 +8,9 @@
 .answer .mark { width: 30px; height: 30px; margin-right: .5rem; }
 .answer .st { font-size: var(--t-25); }
 .line { font-size: var(--t-20); line-height: 1.4; margin: .5rem 0 0; max-width: 38rem; }
+.claim.small { font-size: var(--t-20); font-weight: 400; margin: 1.5rem 0 0; } .claim .was { display: block; font-size: var(--t-13); color: var(--grey); margin-bottom: .2rem; }
+.share .answer { font-size: var(--t-39); } .share .answer .mark { width: 40px; height: 40px; } .share .line { font-size: var(--t-25); }
+.sharenote { grid-column: 1 / -1; margin: 0; font-size: .95rem; }
 .trail-label { margin: 1rem 0 .3rem; font-size: var(--t-13); color: var(--grey); }
 .trail { display: flex; flex-wrap: wrap; gap: .3rem .5rem; list-style: none; margin: 0; padding: 0; font-weight: 700; }
 .trail li { padding: .1rem .55rem; border: 1.5px solid var(--ink); background: var(--paper); }

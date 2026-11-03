@@ -101,3 +101,13 @@ def test_missing_or_odd_graph_keys_do_not_break(review, monkeypatch):
     r.graph = {"stats": {}, "parts": {p.id: {"read_only": None, "path": None, "rejected": None, "second_reads": None} for p in r.parts},
                "cited": [None, 3, {"phrase": None}], "dates": {"statements": None}}
     assert 'class="grid"' in render(r)
+
+
+def test_share_page_leads_with_the_answer_and_has_no_ask(review, monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    r = _graphed(review)
+    html = render(r, share=True)
+    assert html.index('class="answer') < html.index('class="claim')
+    assert "Checked with ProofGraph against 1 document" in html and "Check your own claim" in html
+    assert 'id="ask"' not in html
+    assert "Copy review link" in render(r, ask=True, share_url="/r/abc123def456")

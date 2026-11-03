@@ -30,6 +30,13 @@
       if (v) window.parent.postMessage({ type: "proofgraph-ask", claim: v }, location.origin);
     });
   }
+  var copyBtn = document.getElementById("copylink");
+  if (copyBtn) copyBtn.addEventListener("click", function () {
+    var url = location.origin + copyBtn.dataset.url;
+    var done = function () { copyBtn.textContent = "Link copied"; live.textContent = "Link copied"; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, function () { window.prompt("Copy this link", url); });
+    else window.prompt("Copy this link", url);
+  });
   document.getElementById("download").addEventListener("click", function () {
     var copy = document.documentElement.cloneNode(true);
     var f = copy.querySelector("#ask"); if (f) f.hidden = true;

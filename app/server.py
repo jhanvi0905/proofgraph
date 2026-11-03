@@ -20,6 +20,7 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 
 from fastapi import FastAPI, Form, UploadFile
+from proofgraph.review.models import Review
 from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -36,6 +37,42 @@ ALLOWED = {".pdf", ".png", ".jpg", ".jpeg"}
 
 _EVENT = {"DocStarted": "docstarted", "DocRead": "docread", "PageRead": "pageread", "EntityFound": "entity", "GraphReady": "graphready",
           "PartLinked": "linked", "PathFound": "path"}
+
+
+REVIEW_ID = re.compile(r"^[0-9a-f]{12}$")
+
+
+def reviews_dir() -> Path:
+    return Path(os.environ.get("CACHE_DIR") or "cache") / "reviews"
+
+
+def save_review(rid: str, review: Review, images: dict) -> bool:
+    """Keep the finished review and its page images on disk so a shared link outlives the process. Never on the model path."""
+    try:
+        folder = reviews_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        for (doc, page), data in images.items():
+            (folder / f"{rid}-{doc}-{page}.png").write_bytes(data)
+        (folder / f"{rid}.json").write_text(review.model_dump_json(), encoding="utf-8")
+        return True
+    except OSError:
+        return False
+
+
+def load_review(rid: str) -> tuple[Review, dict] | None:
+    if not REVIEW_ID.match(rid):
+        return None
+    folder = reviews_dir()
+    try:
+        review = Review.model_validate_json((folder / f"{rid}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    images = {}
+    for png in folder.glob(f"{rid}-*.png"):
+        doc, _, page = png.stem[len(rid) + 1:].rpartition("-")
+        if page.isdigit():
+            images[(doc, int(page))] = png.read_bytes()
+    return review, images
 
 
 def sse(name: str, data: object) -> str:
@@ -66,8 +103,8 @@ class Store:
     def paths(self, pid: str) -> list[Path]:
         return [next((self.dirs[pid] / d.name).iterdir()) for d in sorted(self.dirs[pid].iterdir(), key=lambda d: int(d.name))]
 
-    def add(self, packet: str, html: str) -> str:
-        rid = uuid.uuid4().hex[:12]
+    def add(self, packet: str, html: str, rid: str | None = None) -> str:
+        rid = rid or uuid.uuid4().hex[:12]
         self.items[rid] = {"packet": packet, "html": html}
         return rid
 
@@ -123,9 +160,11 @@ def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
                     for pid, info in ((review.graph or {}).get("parts") or {}).items():
                         if pid in labels and "path_labels" not in info:
                             info["path_labels"] = labels[pid]
+                    rid = uuid.uuid4().hex[:12]
+                    saved = save_review(rid, review, ev.result.page_images)
                     page = render(review, ev.result.page_images, replay=review.run.mode == "replayed",
-                                  ask=True)
-                    rid = store.add(packet, page)
+                                  ask=True, share_url=f"/r/{rid}" if saved else None)
+                    store.add(packet, page, rid)
                     for note in _disagreements(review):
                         yield sse("disagreement", note)
                     yield sse("done", {"review_id": rid, "status": review.status,
@@ -206,9 +245,21 @@ def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
     @app.get("/api/review/{review_id}", response_class=HTMLResponse)
     def get_review(review_id: str):
         item = store.items.get(review_id)
-        if item is None:
+        if item is not None:
+            return item["html"]
+        loaded = load_review(review_id)
+        if loaded is None:
             return HTMLResponse("<p>That review is no longer here.</p>", status_code=404)
-        return item["html"]
+        review, images = loaded
+        return render(review, images, replay=review.run.mode == "replayed", share_url=f"/r/{review_id}")
+
+    @app.get("/r/{review_id}", response_class=HTMLResponse)
+    def shared_review(review_id: str):
+        loaded = load_review(review_id)
+        if loaded is None:
+            return HTMLResponse("<p>That review is not available.</p>", status_code=404)
+        review, images = loaded
+        return render(review, images, replay=review.run.mode == "replayed", share=True)
 
     @app.get("/web/tokens.css")
     def tokens():
