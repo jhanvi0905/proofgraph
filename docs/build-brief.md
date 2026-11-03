@@ -1,4 +1,4 @@
-<!-- Task progress (tick as each lands): [x] A1 [x] A2 [x] N1 [x] N3 [x] M1 [x] M2 [x] A3 [x] A4 [x] A6 [x] I1 [x] I2 [x] I3 [x] I4 [x] N4 [x] N5 [x] A5 [x] A7 [x] A8 [~] M3 (scorer built; gate run awaits owner) -->
+<!-- Task progress: [x] A1 A2 N1 N3 M1 M2 A3 A4 A6 I1 I2 I3 I4 N4 N5 A5 A7 A8 | [~] M3 scorer built, gate run waiting on the owner | [ ] everything after M3 -->
 
 # ProofGraph: Final Build Brief
 
