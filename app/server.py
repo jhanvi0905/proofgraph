@@ -1,6 +1,6 @@
 """One server, one page (F2): the review runs behind a streamed POST and ends on the review page.
 
-``POST /api/review`` takes a multipart form (claim, files, passcode) and answers with a ``text/event-stream``;
+``POST /api/review`` takes a multipart form (claim, files, and a passcode only when APP_PASSCODE is set) and answers with a ``text/event-stream``;
 every event of ``run_review`` becomes one named server-sent event, and the last one (``done``) carries the review id.
 ``POST /api/review/{id}/ask`` runs another claim on the same files (the graph is cached by packet hash, so it is
 read once). ``GET /api/review/{id}`` is the review page. The only model path is ``run_review``.
@@ -139,7 +139,8 @@ def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
             yield sse("failed", {"text": f"The check stopped: {type(exc).__name__}. Nothing after this point was read."})
 
     def start(claim: str, passcode: str, packet: str | None, uploads: list[tuple[str, bytes]] | None):
-        refusal = passcode_refusal(passcode, os.environ.get("APP_PASSCODE"))
+        configured = os.environ.get("APP_PASSCODE")  # no passcode set: open; the spend cap still applies
+        refusal = passcode_refusal(passcode, configured) if configured else None
         if refusal is None and not claim.strip():
             refusal = "Write the claim before running the check."
         if refusal is None and packet is None and not uploads:
@@ -168,6 +169,10 @@ def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
         base = Path(manifest).parent
         return [s for s in json.loads(Path(manifest).read_text())["samples"]
                 if all((base / f).is_file() for f in s["files"])]
+
+    @app.get("/api/config")
+    def config():
+        return {"passcode_required": bool(os.environ.get("APP_PASSCODE"))}
 
     @app.get("/api/samples")
     def list_samples():

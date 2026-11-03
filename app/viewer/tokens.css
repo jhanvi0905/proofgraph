@@ -21,7 +21,7 @@
 * { box-sizing: border-box; }
 html { background: var(--sheet); color: var(--ink); font: 1rem/1.55 var(--ui); -webkit-text-size-adjust: 100%; }
 body { margin: 0; background-color: var(--sheet);
-  background-image: repeating-linear-gradient(to bottom, transparent 0 31px, color-mix(in srgb, var(--cyan) 70%, transparent) 31px 32px); }
+  background-image: repeating-linear-gradient(to bottom, transparent 0 31px, color-mix(in srgb, var(--cyan) 45%, transparent) 31px 32px); }
 ::selection { background: var(--ink); color: var(--sheet); }
 :focus-visible { outline: 3px solid var(--stamp); outline-offset: 2px; border-radius: 2px; }
 .says { font-family: var(--says); }

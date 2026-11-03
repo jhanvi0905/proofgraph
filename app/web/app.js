@@ -236,6 +236,10 @@
     var f = this.files; $("drop-text").textContent = f.length ? Array.prototype.map.call(f, function (x) { return x.name; }).join(", ") : "Drop contracts, bylaws, resolutions or memos here, or choose files. PDF, PNG or JPG, up to 10.";
   });
 
+  fetch("/api/config").then(function (r) { return r.json(); }).then(function (c) {
+    state.needPass = !!c.passcode_required; $("passcode-field").hidden = !state.needPass; $("passcode").required = state.needPass;
+  }).catch(function () {});
+
   fetch("/api/samples").then(function (r) { return r.json(); }).then(function (list) {
     if (!list.length) return;
     list.forEach(function (s) {
@@ -246,7 +250,7 @@
       var b = el("button", "btn quiet", "Check it"); b.type = "button";
       b.addEventListener("click", function () {
         state.passcode = $("passcode").value;
-        if (!state.passcode) { $("passcode").focus(); problem.textContent = "Enter the passcode to open a packet."; problem.hidden = false; return; }
+        if (state.needPass && !state.passcode) { $("passcode").focus(); problem.textContent = "Enter the passcode to open a packet."; problem.hidden = false; return; }
         var fd = new FormData(); fd.append("passcode", state.passcode);
         run("/api/sample/" + s.id, fd, s.claim);
       });

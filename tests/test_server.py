@@ -54,10 +54,13 @@ def test_refusals_build_no_client(client, kw, code):
     assert client.calls == []
 
 
-def test_no_configured_passcode_refuses(client, monkeypatch):
+def test_no_configured_passcode_means_open_and_the_page_is_told(client, monkeypatch):
+    assert client.get("/api/config").json() == {"passcode_required": True}
     monkeypatch.delenv("APP_PASSCODE")
-    r = post(client)
-    assert r.status_code == 401 and "no passcode set" in r.json()["refusal"]
+    assert client.get("/api/config").json() == {"passcode_required": False}
+    r = post(client, passcode="")
+    assert r.status_code == 200 and events(r.text)[-1][0] == "done"
+    assert post(client, claim=" ", passcode="").status_code == 400  # input checks still apply
 
 
 def test_stream_ends_on_a_review_page(client):
