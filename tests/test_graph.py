@@ -130,3 +130,23 @@ def test_a5_overrides_edge_is_verified_against_its_quote_and_unverified_is_uncle
     g = build("This Resolution", "the employment contract")  # the object is not in the quote
     assert [d["tier"] for _, _, d in g.edges(data=True) if d["kind"] == "overrides"] == ["unclear"]
     assert g.graph["rejected"]["relation_not_in_quote"] == 1
+
+
+def test_a2_a3_events_and_event_anchors_are_carried_on_the_node():
+    import pytest
+    from graph_fixtures import _graph, _reads
+    from pydantic import ValidationError
+
+    from proofgraph.review.graph_extract import Rule
+
+    reads = _reads()
+    ev = reads[0].rules[0].rule  # res-r1
+    ev.stype, ev.event_type, ev.event_date, ev.actor = "event", "approve_or_adopt", "May 13, 2026", "Board"
+    cond = reads[1].rules[2].rule  # byl-r3, the exception to byl-r2
+    cond.awaits, cond.awaits_actor = "approve_or_adopt", "Board"
+    g = _graph(reads)
+    assert (g.nodes["res-r1"]["event_type"], g.nodes["res-r1"]["event_date"], g.nodes["res-r1"]["actor"]) == ("approve_or_adopt", "May 13, 2026", "Board")
+    assert (g.nodes["byl-r3"]["awaits"], g.nodes["byl-r3"]["awaits_actor"]) == ("approve_or_adopt", "Board")
+    assert g.nodes["byl-r2"]["event_type"] is None
+    with pytest.raises(ValidationError):  # the event types are a fixed list the model chooses from, never a code synonym list
+        Rule(id="x", bearer="b", deontic="is", action="a", page=1, quote="q", event_type="ratify")

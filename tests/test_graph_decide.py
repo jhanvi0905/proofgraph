@@ -129,3 +129,29 @@ def test_c3_no_role_name_is_special_cased_in_code():
     src = inspect.getsource(mod)
     for word in ('"bylaws"', '"resolution"', '"memo"', '"contract"', '"amendment"'):
         assert word not in src
+
+
+def _c4(*, event=True, event_date="May 13, 2026", tier="page", etype="approve_or_adopt", actor="Board",
+        part="Connors was authorized from May 7, 2026"):
+    """byl-r2 qualifies because byl-r3 (exception) waits on a Board approval; res-r1 may be that approval."""
+    g, ranked, linked = _setup()
+    g.nodes["byl-r3"].update(awaits="approve_or_adopt", awaits_actor="Board")
+    g.nodes["res-r1"].update(stype="event" if event else "fact", event_type=etype, event_date=event_date, actor=actor, tier=tier)
+    items = {"byl-r2": Item(id="byl-r2", label="qualifies", why="needs Board approval")}
+    return graph_status(part, g, ranked, items, {}, Agreement("agree"), linked)
+
+
+def test_c4_condition_met_after_the_claimed_date_turns_qualifies_into_contradicted():
+    d = _c4()
+    assert (d.status, d.scenario, d.deciding) == ("contradicted", "S6", ("byl-r2",))
+    assert d.reason.endswith("from 2026-05-13, not 2026-05-07")
+
+
+def test_c4_keeps_qualifies_when_the_anchor_cannot_be_resolved_or_is_not_later():
+    assert _c4(event=False).status == "weakened"  # a fact, not an event
+    assert _c4(event_date=None).status == "weakened"  # no date to compare
+    assert _c4(etype="appoint").status == "weakened"  # not the event the condition waits on
+    assert _c4(actor="the CEO").status == "weakened"  # not the actor it waits on
+    assert _c4(tier="unclear").status == "weakened"  # an unaligned quote never decides
+    assert _c4(event_date="May 5, 2026").status == "weakened"  # satisfied before the claimed date: no new rule
+    assert _c4(part="Connors was authorized.").status == "weakened"  # the claim gives no date to compare

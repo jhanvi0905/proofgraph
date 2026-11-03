@@ -23,7 +23,7 @@ from proofgraph.review.bm25 import bm25_scores
 from proofgraph.review.graph import canon_name
 
 CLASS_KINDS = frozenset({"is_a", "holds_office", "defined_by"})
-WALK_KINDS = CLASS_KINDS | {"mentions", "refers_to_section", "excepts", "conditions", "supersedes"}
+WALK_KINDS = CLASS_KINDS | {"mentions", "refers_to_section", "defeats", "conditions", "supersedes"}
 MAX_HOPS = 3
 HUB_SHARE = 0.25
 HUB_MIN_STATEMENTS = 8  # below this a share of 25% means nothing

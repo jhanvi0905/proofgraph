@@ -72,7 +72,7 @@ class CompareResult:
 
 
 def attached_exceptions(g: nx.MultiDiGraph, rule: str) -> list[str]:
-    return sorted(u for u, _, d in g.in_edges(rule, data=True) if d["kind"] in ("excepts", "conditions"))
+    return sorted(u for u, _, d in g.in_edges(rule, data=True) if d["kind"] in ("defeats", "conditions"))
 
 
 def _final(j: Judged, g: nx.MultiDiGraph, part_kind: str) -> tuple[Item, int]:

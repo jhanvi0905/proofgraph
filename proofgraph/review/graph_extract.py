@@ -45,6 +45,7 @@ Deontic = Literal["must", "may", "must_not", "is"]
 Level = Literal["exact", "normalised", "fuzzy", "unmatched"]
 Tier = Literal["page", "model", "unclear"]
 StatementType = Literal["rule", "fact", "event"]
+EventType = Literal["appoint", "approve_or_adopt", "start", "terminate", "amend", "deliver", "pay", "notify", "file", "other"]
 
 
 class DefinedTerm(Strict):
@@ -81,6 +82,11 @@ class Rule(Strict):
     link_kind: Literal["rule", "exception", "condition"] = "rule"
     excepts: str | None = None
     effective_from: str | None = None
+    event_type: EventType | None = None  # A2: for an event, chosen by the model from the fixed list
+    event_date: str | None = None
+    actor: str | None = None
+    awaits: EventType | None = None  # A3: the event a condition or exception waits on ("until approved by the Board")
+    awaits_actor: str | None = None
     concepts: list[str] = Field(default_factory=list)
     relations: list[Relation] = Field(default_factory=list)
     page: int

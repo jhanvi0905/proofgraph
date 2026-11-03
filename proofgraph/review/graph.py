@@ -269,7 +269,8 @@ def edges(reads: list[DocRead], ents: Entities, merged: Merged, locator: Locator
             ev = [_evidence(gr, locator)]
             g.add_node(r.id, kind="rule", stype=r.stype, doc=gr.doc, page=gr.alignment.page, quote=r.quote, deontic=r.deontic,
                        action=r.action, value=r.value, value_status=r.value_status, link_kind=r.link_kind,
-                       effective_from=r.effective_from, tier=gr.tier, level=gr.alignment.level,
+                       effective_from=r.effective_from, event_type=r.event_type, event_date=r.event_date,
+                       actor=r.actor, awaits=r.awaits, awaits_actor=r.awaits_actor, tier=gr.tier, level=gr.alignment.level,
                        box=ev[0].get("box", []), box_status=ev[0].get("box_status", "unpinned"))
             g.add_edge(r.id, ent(ents.subject[r.id]), "mentions", kind="mentions", role="bearer", tier=gr.tier,
                        made_by="code", evidence=ev)
@@ -307,8 +308,8 @@ def edges(reads: list[DocRead], ents: Entities, merged: Merged, locator: Locator
                                tier=gr.tier if checked else "unclear", made_by="model-checked", evidence=ev)
             if r.link_kind != "rule" and r.excepts:
                 if r.excepts in rule_doc:
-                    g.add_edge(r.id, r.excepts, "excepts" if r.link_kind == "exception" else "conditions",
-                               kind="excepts" if r.link_kind == "exception" else "conditions",
+                    g.add_edge(r.id, r.excepts, "defeats" if r.link_kind == "exception" else "conditions",
+                               kind="defeats" if r.link_kind == "exception" else "conditions",
                                tier=_weakest(gr.tier, rule_doc[r.excepts].tier), made_by="model-extracted", evidence=ev)
                 else:
                     g.graph["rejected"]["dangling_exception"] += 1

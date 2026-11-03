@@ -14,11 +14,12 @@ from dataclasses import dataclass
 
 import networkx as nx
 
-from proofgraph.review.compare import Item
+from proofgraph.review.compare import Item, attached_exceptions
 from proofgraph.review.full_read import Agreement
 from proofgraph.review.models import PartStatus
 from proofgraph.review.precedence import governance_rank
 from proofgraph.review.query import Linked, Path
+from proofgraph.review.graph import canon_name
 from proofgraph.review.timeline import _first_date
 
 _TIER_RANK = {"page": 0, "model": 1, "unclear": 2}
@@ -135,6 +136,10 @@ def _decide(g, live, checks, done, scenario, part_text, overridden_n):
     if late:
         return done("contradicted", f"The statement takes effect {g.nodes[late[0]]['effective']}, after the date the claim gives.",
                     late, False, "S6")
+    waiting = [(i, d) for i in by("qualifies") if asked and (d := _anchor_date(g, i)) and d > asked]
+    if waiting:  # C4: the condition the statement waits on is only met after the date the claim gives
+        i, d = waiting[0]
+        return done("contradicted", f"{g.nodes[i]['action']} from {d}, not {asked}", [i], False, "S6")
     if by("qualifies"):
         ids = by("qualifies")
         return done("weakened", live[ids[0]].why or "An exception or condition qualifies the claim.", ids, False, scenario)
@@ -145,6 +150,26 @@ def _decide(g, live, checks, done, scenario, part_text, overridden_n):
     return done("cannot_tell", "The second read did not confirm the supporting statement.", ids, False, scenario)
 
 
+def _anchor_date(g: nx.MultiDiGraph, rule: str) -> str | None:
+    """C4: the date of the event an attached condition or exception waits on, or None when it cannot be resolved.
+
+    The event is a statement the model typed as an event of the same type (and the same actor, when the anchor
+    names one) whose quote aligned and whose date was written in full. The earliest such date is the one that
+    satisfies the condition."""
+    found = []
+    for e in attached_exceptions(g, rule):
+        anchor, actor = g.nodes[e].get("awaits"), g.nodes[e].get("awaits_actor")
+        if not anchor:
+            continue
+        for i, d in g.nodes(data=True):
+            if d.get("kind") == "rule" and d.get("stype") == "event" and d.get("event_type") == anchor and d["tier"] != "unclear":
+                if actor and canon_name(actor) not in canon_name(d.get("actor") or ""):
+                    continue
+                if date := _first_date(d.get("event_date") or ""):
+                    found.append(date)
+    return min(found) if found else None
+
+
 def _scenario(g: nx.MultiDiGraph, paths: Sequence[Path], deciding: Sequence[str]) -> str:
     kinds = {k for p in paths for k in p.kinds}
     if any(d["kind"] in ("supersedes", "outranks", "overrides") for i in deciding for _, _, d in g.edges(i, data=True)):
@@ -153,7 +178,7 @@ def _scenario(g: nx.MultiDiGraph, paths: Sequence[Path], deciding: Sequence[str]
         return "S4"
     if "defined_by" in kinds:
         return "S3"
-    if kinds & {"excepts", "conditions"} or any(g.in_edges(i) and any(d["kind"] in ("excepts", "conditions")
+    if kinds & {"defeats", "conditions"} or any(g.in_edges(i) and any(d["kind"] in ("defeats", "conditions")
                                                                           for _, _, d in g.in_edges(i, data=True)) for i in deciding):
         return "S2"
     if any(g.nodes[i].get("value_status") == "blank" for i in deciding):

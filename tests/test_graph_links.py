@@ -28,7 +28,7 @@ def test_every_edge_has_tier_and_evidence_list():
 
 def test_exception_links_and_dangling_exception_is_counted():
     g = _graph()
-    assert _kinds(g, "byl-r3", "byl-r2") == {"excepts"}
+    assert _kinds(g, "byl-r3", "byl-r2") == {"defeats"}
     assert g.graph["rejected"]["dangling_exception"] == 1
 
 
