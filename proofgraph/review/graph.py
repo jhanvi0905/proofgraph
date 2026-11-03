@@ -192,6 +192,9 @@ def merge(ents: Entities, reads: list[DocRead]) -> Merged:
     for i, a in enumerate(named):
         for b in named[i + 1 :]:
             ka, kb = canon_name(a.name), canon_name(b.name)
+            if a.scope == b.scope and len(ka) > 3 and (ka + "s" == kb or kb + "s" == ka):
+                link(a, b, "same_as", "plural", "")  # one entity, singular or plural
+                continue
             if a.type == b.type and ka != kb and JaroWinkler.normalized_similarity(ka, kb) >= NEAR_MISS:
                 link(a, b, "unclear", "near_miss", "")
 
@@ -232,7 +235,8 @@ def _weakest(*tiers: str) -> str:
 
 
 def _in_quote(name: str, quote: str) -> bool:
-    return bool(canon_name(name)) and re.search(rf"\b{re.escape(canon_name(name))}\b", canon_name(quote)) is not None
+    """The name appears in the quote as a whole phrase; a plural counts ("principal officers")."""
+    return bool(canon_name(name)) and re.search(rf"\b{re.escape(canon_name(name))}(?:s|es)?\b", canon_name(quote)) is not None
 
 
 def _evidence(g: GroundedRule, locator: Locator | None) -> dict:
@@ -324,8 +328,9 @@ def edges(reads: list[DocRead], ents: Entities, merged: Merged, locator: Locator
 # ---- store and cache (A6) -----------------------------------------------------------------
 
 
-def packet_hash(texts: Iterable[PageText]) -> str:
-    h = hashlib.sha256()
+def packet_hash(texts: Iterable[PageText], version: str = "") -> str:
+    """Content hash of the packet; ``version`` (the extraction prompt and schema) keeps a stale graph from being served."""
+    h = hashlib.sha256(version.encode())
     for p in sorted(texts, key=lambda p: (p.doc, p.page)):
         h.update(f"{p.doc}\x00{p.page}\x00{p.text}\x01".encode())
     return h.hexdigest()

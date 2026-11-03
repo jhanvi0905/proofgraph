@@ -14,9 +14,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import networkx as nx
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from proofgraph.clients.muse import MuseClient
+from proofgraph.review.graph_extract import Strict
 from proofgraph.review.graph_extract import Alignment, ground_quote
 from proofgraph.review.relate import PageText, _safe
 
@@ -25,13 +26,13 @@ _MARK = "| "
 _PROMPT = Path(__file__).resolve().parents[2] / "prompts" / "full_read.md"
 
 
-class _Extra(BaseModel):
+class _Extra(Strict):
     doc: str
     page: int
     quote: str
 
 
-class _Read(BaseModel):
+class _Read(Strict):
     cited: list[str] = Field(default_factory=list)
     extra: list[_Extra] = Field(default_factory=list)
 

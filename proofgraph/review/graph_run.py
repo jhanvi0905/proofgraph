@@ -9,6 +9,7 @@ per claim. Never imported when the flag is off.
 
 from __future__ import annotations
 
+import json
 import threading
 from collections import Counter
 from collections.abc import Generator, Sequence
@@ -18,16 +19,19 @@ from dataclasses import dataclass, field
 import networkx as nx
 
 from proofgraph.clients.muse import MuseClient
+from pathlib import Path
+
 from proofgraph.review import graph as G
+from proofgraph.review import precedence as precedence_mod
 from proofgraph.review.check import Checker
 from proofgraph.review.compare import attached_exceptions, compare
 from proofgraph.review.full_read import agreement, full_read
 from proofgraph.review.graph_check import MAX_SECOND_READS, second_reads
 from proofgraph.review.graph_decide import Decision, graph_status
-from proofgraph.review.graph_extract import extract_document
+from proofgraph.review.graph_extract import _PROMPT as _EXTRACT_PROMPT, Extraction, extract_document
 from proofgraph.review.models import Banner, Card, Part
 from proofgraph.review.precedence import amendments, apply_effects, precedence, resolve_dates
-from proofgraph.review.query import link_parts, paths, rank_paths, statements
+from proofgraph.review.query import MAX_STATEMENTS, link_parts, paths, rank_paths, statements
 from proofgraph.review.relate import PageText
 
 CLAIM_SECOND_READS = 12  # second reads allowed across one whole claim
@@ -86,7 +90,7 @@ class Built:
 
 def build_packet_graph(texts: Sequence[PageText], names: dict[str, str], words: dict, transcripts: dict, muse: MuseClient,
                        workers: int = 4) -> Generator[object, None, Built]:
-    key = G.packet_hash(texts)
+    key = G.packet_hash(texts, extraction_version())
     cached = G.load(key, muse.settings.cache_dir)
     if cached is not None:
         yield from _ready(cached, cached=True)
@@ -118,6 +122,12 @@ def build_packet_graph(texts: Sequence[PageText], names: dict[str, str], words: 
         g = G.load(key, muse.settings.cache_dir) or g
     yield from _ready(g)
     return Built(g, _injections(g))
+
+
+def extraction_version() -> str:
+    """Changes whenever the extraction prompt, its schema or the graph-building code does."""
+    code = "".join(Path(m.__file__).read_text(encoding="utf-8") for m in (G, precedence_mod))
+    return _EXTRACT_PROMPT.read_text(encoding="utf-8") + json.dumps(Extraction.model_json_schema(), sort_keys=True) + code
 
 
 def _ready(g: nx.MultiDiGraph, cached: bool = False):
@@ -165,7 +175,7 @@ def run_part_graph(part: Part, built: Built, texts: list[PageText], muse: MuseCl
         read_future = side.submit(full_read, part.text, texts, g, muse)
         linked = link_parts([(part.id, part.text)], g, muse)[part.id]
         walk = paths(g, list(linked.entities), max_hops=3 if typed_walk else 1, hub_brake=hub_brake)
-        ranked = rank_paths(g, walk.paths, part.text)
+        ranked = rank_paths(g, walk.paths, part.text, top=MAX_STATEMENTS)  # the comparator judges relevance
         ids = [i for i in statements(ranked, g) if g.nodes[i]["kind"] == "rule"]
         result = compare(part.text, ids, g, muse)
         apply_effects(g, result.effects)

@@ -13,9 +13,10 @@ from pathlib import Path
 from typing import Literal
 
 import networkx as nx
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from proofgraph.clients.muse import MuseClient
+from proofgraph.review.graph_extract import Strict
 from proofgraph.review.precedence import EFFECTS
 from proofgraph.review.relate import _safe
 
@@ -25,18 +26,18 @@ _PROMPT = Path(__file__).resolve().parents[2] / "prompts" / "neighbourhood.md"
 _MARK = "| "
 
 
-class Item(BaseModel):
+class Item(Strict):
     id: str
     label: Verdict
     why: str = ""
 
 
-class AmendEffect(BaseModel):
+class AmendEffect(Strict):
     id: str
     effect: str
 
 
-class Comparison(BaseModel):
+class Comparison(Strict):
     items: list[Item] = Field(default_factory=list)
     amendments: list[AmendEffect] = Field(default_factory=list)
     injection_quote: str | None = None

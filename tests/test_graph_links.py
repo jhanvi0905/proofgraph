@@ -79,3 +79,9 @@ def test_hash_and_pair_key_are_stable_and_order_sensitive():
     a, b = PageText("a", 1, "x"), PageText("b", 1, "y")
     assert packet_hash([a, b]) == packet_hash([b, a]) != packet_hash([a])
     assert pair_key("s1", "s2", "p") != pair_key("s2", "s1", "p")
+
+
+def test_plural_in_the_quote_still_checks_the_relation():
+    from proofgraph.review.graph import _in_quote
+    assert _in_quote("principal officer", "The principal officers shall be the CEO and the CMO.")
+    assert not _in_quote("principal officer", "The principally minded officer")

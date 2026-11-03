@@ -89,3 +89,13 @@ def test_helpers():
     assert entity_type("Chief Medical Officer", set()) == "office"
     assert entity_type("Board approval", set()) == "event"
     assert entity_type("Bosch Inc.", set()) == "organisation"
+
+
+def test_singular_and_plural_are_one_entity_but_other_near_misses_are_not():
+    reads = [_read("d", [_g("d", "r1", "principal officer"), _g("d", "r2", "principal officers"),
+                         _g("d", "r3", "Disclosing Party"), _g("d", "r4", "Disclosing Parties")])]
+    ents = build_entities(reads)
+    m = merge(ents, reads)
+    assert m.canon["e:principal officers"] == m.canon["e:principal officer"]
+    assert next(l for l in m.links if l.rule == "plural").kind == "same_as"
+    assert m.canon["e:disclosing party"] != m.canon["e:disclosing parties"]  # "ies" is not a plural of "y" here

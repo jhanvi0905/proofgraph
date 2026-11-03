@@ -115,3 +115,12 @@ def test_second_reads_are_capped_per_claim():
     from proofgraph.review.graph_run import SecondReadBudget
     b = SecondReadBudget(7)
     assert [b.take(6), b.take(6), b.take(6)] == [6, 1, 0]
+
+
+def test_graph_cache_key_changes_with_the_extraction_prompt(monkeypatch, tmp_path):
+    from proofgraph.review import graph_extract, graph_run
+    before = graph_run.extraction_version()
+    other = tmp_path / "assert.md"
+    other.write_text("a different prompt")
+    monkeypatch.setattr(graph_run, "_EXTRACT_PROMPT", other)
+    assert graph_run.extraction_version() != before

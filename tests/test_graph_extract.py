@@ -95,3 +95,23 @@ def test_empty_prompt_file_is_refused(monkeypatch, tmp_path):
     monkeypatch.setattr(graph_extract, "_PROMPT", empty)
     with pytest.raises(ValueError):
         extract_document("d1", [PageText("d1", 1, "x")], FakeMuse(Extraction()))
+
+
+def test_wire_schemas_forbid_extra_keys_and_require_every_field():
+    from proofgraph.review.compare import Comparison
+    from proofgraph.review.full_read import _Read
+    from proofgraph.review.query import _Linking
+
+    def walk(node):
+        if isinstance(node, dict):
+            if node.get("type") == "object" and "properties" in node:
+                assert node.get("additionalProperties") is False, node.get("title")
+                assert set(node["required"]) == set(node["properties"]), node.get("title")
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+
+    for model in (Extraction, Comparison, _Read, _Linking):
+        walk(model.model_json_schema())

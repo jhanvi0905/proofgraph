@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from rapidfuzz import fuzz
 
 from proofgraph.clients.muse import MuseClient
@@ -29,19 +29,30 @@ MIN_FUZZY_CHARS = 20  # a shorter quote must match exactly; a near match on a fe
 _PROMPT = Path(__file__).resolve().parents[2] / "prompts" / "assert.md"
 _MARK = "| "
 
+def _all_required(schema: dict) -> None:
+    schema["required"] = list(schema.get("properties", {}))
+
+
+class Strict(BaseModel):
+    """Wire model for Muse's JSON schema: no extra keys, every field required (code keeps its defaults).
+    Without this the model filled documents with junk keys and no rules (live smoke, 3 Nov)."""
+
+    model_config = ConfigDict(extra="forbid", json_schema_extra=_all_required)
+
+
 Role = Literal["contract", "amendment", "bylaws", "resolution", "memo", "other"]
 Deontic = Literal["must", "may", "must_not", "is"]
 Level = Literal["exact", "normalised", "fuzzy", "unmatched"]
 Tier = Literal["page", "model", "unclear"]
 
 
-class DefinedTerm(BaseModel):
+class DefinedTerm(Strict):
     term: str
     quote: str
     page: int = 1
 
 
-class Header(BaseModel):
+class Header(Strict):
     role: Role = "other"
     date: str | None = None
     parties: list[str] = Field(default_factory=list)
@@ -49,14 +60,14 @@ class Header(BaseModel):
     vocabulary: list[str] = Field(default_factory=list)
 
 
-class Relation(BaseModel):
+class Relation(Strict):
     kind: Literal["is_a", "holds_office"]
     subject: str
     object: str
     interim: bool = False
 
 
-class Rule(BaseModel):
+class Rule(Strict):
     id: str
     bearer: str
     deontic: Deontic
@@ -75,7 +86,7 @@ class Rule(BaseModel):
     bearer_inferred: bool = False
 
 
-class Extraction(BaseModel):
+class Extraction(Strict):
     header: Header = Field(default_factory=Header)
     rules: list[Rule] = Field(default_factory=list)
     injection_quote: str | None = None

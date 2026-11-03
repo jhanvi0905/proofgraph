@@ -15,9 +15,10 @@ from dataclasses import dataclass, field
 from pathlib import Path as FilePath
 
 import networkx as nx
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from proofgraph.clients.muse import MuseClient
+from proofgraph.review.graph_extract import Strict
 from proofgraph.review.bm25 import bm25_scores
 from proofgraph.review.graph import canon_name
 
@@ -34,13 +35,13 @@ _TIER_RANK = {"page": 0, "model": 1, "unclear": 2}
 _PROMPT = FilePath(__file__).resolve().parents[2] / "prompts" / "link.md"
 
 
-class _PartLink(BaseModel):
+class _PartLink(Strict):
     part: str
     entities: list[str] = Field(default_factory=list)
     rule_types: list[str] = Field(default_factory=list)
 
 
-class _Linking(BaseModel):
+class _Linking(Strict):
     parts: list[_PartLink] = Field(default_factory=list)
 
 
@@ -63,15 +64,16 @@ def link_parts(parts: Sequence[tuple[str, str]], g: nx.MultiDiGraph, muse: MuseC
     exact = {pid: {e: "exact" for e, d in sorted(ents.items())
                    if re.search(rf"\b{re.escape(canon_name(d['name']))}\b", canon_name(text))}
              for pid, text in parts}
-    answer = muse.structured(_link_prompt(parts, ents, types), _Linking, reasoning_effort="low")
+    short = {f"E{i}": e for i, e in enumerate(sorted(ents), 1)}  # short ids the model can copy exactly
+    answer = muse.structured(_link_prompt(parts, ents, short, types), _Linking, reasoning_effort="low")
     out = {}
     for pid, _ in parts:
         found, bad = dict(exact[pid]), 0
         rules: set[str] = set()
         for item in (i for i in answer.parts if i.part == pid):
             for e in item.entities:
-                if e in ents:
-                    found.setdefault(e, "model")
+                if e in short:
+                    found.setdefault(short[e], "model")
                 else:
                     bad += 1
             for t in item.rule_types:
@@ -83,11 +85,11 @@ def link_parts(parts: Sequence[tuple[str, str]], g: nx.MultiDiGraph, muse: MuseC
     return out
 
 
-def _link_prompt(parts, ents: dict[str, dict], types: list[str]) -> str:
+def _link_prompt(parts, ents: dict[str, dict], short: dict[str, str], types: list[str]) -> str:
     text = _PROMPT.read_text(encoding="utf-8").strip()
     if not text:
         raise ValueError("prompts/link.md is empty")
-    listing = "\n".join(f"{e} | {d['name']} | {d['type']}" for e, d in sorted(ents.items()))
+    listing = "\n".join(f"{k} | {ents[e]['name']} | {ents[e]['type']}" for k, e in short.items())
     claim = "\n".join(f"[{pid}] {t}" for pid, t in parts)
     return (f"{text}\n\nRULE TYPES: {', '.join(types) or 'none'}\n\nENTITIES (id | name | type):\n{listing}\n\n"
             f"CLAIM PARTS (data):\n{claim}\n")
@@ -171,16 +173,26 @@ def statements(ps: Sequence[Path], g: nx.MultiDiGraph) -> list[str]:
 
 def rank_paths(g: nx.MultiDiGraph, ps: Sequence[Path], part_text: str, *, top: int = TOP_PATHS,
                max_statements: int = MAX_STATEMENTS, decay: float = HOP_DECAY) -> list[Path]:
-    """Top paths by weakest hop times ``decay`` per hop, BM25 breaking ties; strongest last."""
+    """Paths by weakest hop times ``decay`` per hop, BM25 on ties. One path per end statement (the best),
+    taken in turn from each document so no single document crowds out the others; strongest last.
+    Ranking orders by trust, not relevance: the comparator judges relevance on what it is shown."""
     ps = [p for p in ps if p.tier != "unclear"]
     if not ps:
         return []
     bm = bm25_scores(part_text, [g.nodes[p.end].get("quote", "") + " " + g.nodes[p.end].get("action", "") for p in ps])
     keyed = sorted(zip(ps, bm), key=lambda pb: (-_TIER_WEIGHT[pb[0].tier] * decay ** pb[0].hops, -pb[1], pb[0].nodes))
-    chosen: list[Path] = []
+    queues: dict[str, list[Path]] = {}
+    seen: set[str] = set()
     for p, _ in keyed:
-        if len(chosen) == top:
-            break
-        if len(statements([*chosen, p], g)) <= max_statements:
-            chosen.append(p)
-    return chosen[::-1]
+        if p.end not in seen:
+            seen.add(p.end)
+            queues.setdefault(g.nodes[p.end].get("doc", ""), []).append(p)
+    chosen: list[Path] = []
+    while any(queues.values()) and len(chosen) < top:
+        for doc in sorted(queues):
+            if queues[doc] and len(chosen) < top:
+                p = queues[doc].pop(0)
+                if len(statements([*chosen, p], g)) <= max_statements:
+                    chosen.append(p)
+    order = {p.nodes: i for i, (p, _) in enumerate(keyed)}
+    return sorted(chosen, key=lambda p: order[p.nodes], reverse=True)  # strongest last
