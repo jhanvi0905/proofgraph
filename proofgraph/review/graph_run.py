@@ -27,7 +27,8 @@ from proofgraph.review.check import Checker
 from proofgraph.review.compare import attached_exceptions, compare
 from proofgraph.review.full_read import full_read, relevant_agreement
 from proofgraph.review.graph_check import confirm_support, MAX_SECOND_READS, second_reads
-from proofgraph.review.graph_decide import Decision, graph_status
+from proofgraph.review.graph_decide import SCENARIO_NAMES, Decision, graph_status
+from proofgraph.review.timeline import _first_date
 from proofgraph.review.graph_extract import _PROMPT as _EXTRACT_PROMPT, Extraction, extract_document
 from proofgraph.review.models import Banner, Card, Part
 from proofgraph.review.precedence import amendments, apply_effects, precedence, resolve_dates
@@ -216,6 +217,25 @@ def run_part_graph(part: Part, built: Built, texts: list[PageText], muse: MuseCl
     return GraphOutcome(done, cards, banners, info, events)
 
 
+def cited_payload(g: nx.MultiDiGraph) -> list[dict]:
+    """Documents the packet cites by phrase and date, with whether a supplied document matches (display only)."""
+    out = []
+    for u, v, d in g.edges(data=True):
+        if d["kind"] == "cites" and g.nodes[v].get("kind") == "external":
+            x, r = g.nodes[v], g.nodes[u]
+            out.append({"phrase": x["phrase"], "date": x["date"], "status": x["status"], "doc": r["doc"], "page": r["page"],
+                        "quote": r["quote"], "rule": u})
+    return sorted(out, key=lambda c: (c["date"], c["phrase"], c["rule"]))
+
+
+def dates_payload(g: nx.MultiDiGraph, rule_ids: Sequence[str]) -> dict:
+    """ISO dates for the document headers and for the given statements, so a page can draw a timeline."""
+    docs = {k: _first_date(v.get("date") or "") for k, v in g.graph["docs"].items()}
+    stm = {i: {"effective": g.nodes[i].get("effective"), "event": _first_date(g.nodes[i].get("event_date") or "")}
+           for i in rule_ids if i in g.nodes}
+    return {"docs": docs, "statements": stm}
+
+
 def _judged(ids: Sequence[str], read) -> list[str]:
     """D2: the statements the walk found, then any the full read cited that the walk did not."""
     return list(dict.fromkeys([*ids, *read.cited]))
@@ -247,6 +267,7 @@ def _labels(g: nx.MultiDiGraph, nodes: Sequence[str], names: dict[str, str]) -> 
 def _info(g, linked, ranked, decision: Decision, agree, read, result, checks) -> dict:
     return {
         "scenario": decision.scenario, "tier": decision.tier, "agreement": agree.flag,
+        "documents_disagree": decision.status == "cannot_tell" and decision.scenario == "S5",
         "walk_only": list(agree.walk_only), "read_only": list(agree.read_only),
         "deciding": list(decision.deciding), "path": list(decision.path),
         "linked": dict(linked.entities), "rejected": {"link": linked.rejected, "compare": result.dropped,
