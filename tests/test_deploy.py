@@ -22,7 +22,8 @@ class NoNetwork:
 
     def create(self, body):
         self.calls.append(body)
-        raise AssertionError("a model call was made")
+        text = json.dumps(body, default=str)
+        raise AssertionError(f"a model call was made: {text[:160]!r} image={'image' in text} chars={len(text)}")
 
 
 def _manifest():
