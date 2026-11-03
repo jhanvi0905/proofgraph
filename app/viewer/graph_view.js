@@ -8,7 +8,8 @@
       p.hidden = !(p.dataset.doc === cell.dataset.doc && p.dataset.page === cell.dataset.page);
     });
     var box = document.querySelectorAll('[data-box-for="' + cell.dataset.cardId + '"]');
-    box.forEach(function (b) { b.classList.add("active"); });
+    var rel = (cell.className.match(/\b(supports|weakens|contradicts|set_aside)\b/) || [])[1];
+    box.forEach(function (b) { b.classList.add("active"); if (rel) b.dataset.rel = rel; });
     var hint = document.getElementById("hint");
     if (hint) hint.hidden = true;
     var q = cell.querySelector("q");

@@ -34,6 +34,9 @@ html, body { overflow-x: clip; }
 .sheet-quote { margin: 0; padding: .8rem .9rem; border: 1px solid var(--cyan); background: var(--sheet); position: relative; }
 .sheet-quote q { quotes: "\201C" "\201D"; display: block; line-height: 1.5; }
 .sheet-quote .ref { position: absolute; top: -.7rem; right: .6rem; background: var(--paper); border: 1px solid var(--ink); padding: 0 .35rem; font-family: var(--ui); font-size: var(--t-13); }
+.sheet-part { display: flex; align-items: center; flex-wrap: wrap; gap: .1rem .5rem; margin: .9rem 0 0; font-size: 1rem; } .sheet-part .st { font-weight: 700; }
+.sheet-signoff { list-style: none; margin: 1rem 0 0; padding: 0; border: 1.5px solid var(--ink); font-size: var(--t-13); }
+.sheet-signoff li { display: flex; justify-content: space-between; gap: 1rem; padding: .35rem .6rem; } .sheet-signoff li + li { border-top: 1px solid var(--cyan); } .sheet-signoff li > span:last-child { color: var(--grey); }
 .sheet-legend { display: flex; flex-wrap: wrap; gap: .3rem 1rem; list-style: none; margin: 1rem 0 0; padding: .8rem 0 0; border-top: 2px solid var(--ink); font-size: var(--t-13); }
 .sheet-legend li { display: flex; align-items: center; gap: .3rem; }
 
@@ -42,7 +45,7 @@ html, body { overflow-x: clip; }
 .band h3 { font-size: var(--t-20); margin: 0 0 .4rem; }
 .band p { margin: 0; }
 .note { font-size: var(--t-13); color: var(--grey); margin: -.5rem 0 1rem !important; }
-.samples ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+.samples ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(15rem, 26rem)); }
 .slip { display: flex; flex-direction: column; gap: .5rem; height: 100%; padding: .9rem 1rem 1rem; background: var(--paper); border: 1px solid var(--cyan); border-top: 3px solid var(--ink); }
 .slip h3 { margin: 0; font-size: 1rem; }
 .slip q { quotes: "\201C" "\201D"; line-height: 1.4; flex: 1; }
@@ -59,16 +62,18 @@ html, body { overflow-x: clip; }
 .faq summary { font-weight: 700; cursor: pointer; min-height: 44px; display: flex; align-items: center; }
 .faq details p { margin-top: .4rem; max-width: 40rem; }
 .close .btn { margin-top: 1.5rem; }
-.trust { margin-top: 2rem !important; font-size: var(--t-13); color: var(--grey); max-width: 38rem; }
+.signoff.trust { list-style: none; margin: 2rem 0 0; padding: 0; border: 1.5px solid var(--ink); background: var(--paper); max-width: 38rem; font-size: .9rem; }
+.signoff li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .1rem 1rem; padding: .55rem .8rem; } .signoff li + li { border-top: 1px solid var(--cyan); } .signoff li > span:first-child { font-weight: 700; min-width: 9rem; }
+.wp { display: inline-grid; place-items: center; min-width: 1.9rem; height: 1.5rem; margin-right: .6rem; padding: 0 .3rem; border: 1.5px solid var(--ink); font-size: var(--t-13); font-weight: 400; vertical-align: .2em; }
 @media (min-width: 960px) {
   .beyond { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 0 4rem; align-items: start; }
   .beyond h2 { grid-column: 1 / -1; } .beyond .pillars { margin-top: .4rem; }
   .faq { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr); gap: 0 4rem; align-items: start; }
   .faq h2 { grid-row: 1 / span 4; position: sticky; top: 1.5rem; } .faq details { grid-column: 2; }
   .close { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 0 4rem; align-items: start; }
-  .close .big { grid-column: 1; } .close .btn { grid-column: 1; justify-self: start; } .close .trust { grid-column: 2; grid-row: 1 / span 2; margin-top: .6rem !important; }
+  .close .big { grid-column: 1; } .close .btn { grid-column: 1; justify-self: start; } .close .signoff { grid-column: 2; grid-row: 1 / span 2; margin-top: .6rem; }
 }
-.bigname { margin: 3rem 0 0; font-size: clamp(3rem, 16vw, 12rem); font-weight: 700; letter-spacing: -.04em; line-height: .9; color: var(--ink); overflow: hidden; white-space: nowrap; }
+.bigname { margin: 3rem 0 0; font-size: clamp(3rem, 10vw, 6rem); font-weight: 700; letter-spacing: -.04em; line-height: .9; color: var(--ink); overflow: hidden; white-space: nowrap; }
 
 .live { margin-top: 1.5rem; }
 .claim { font-size: clamp(1.4rem, 2.6vw, 1.94rem); line-height: 1.35; margin: 0 0 1.5rem; max-width: 56rem; text-wrap: pretty; }
