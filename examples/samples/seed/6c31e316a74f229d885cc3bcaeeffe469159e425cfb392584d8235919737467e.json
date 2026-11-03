@@ -1,0 +1,83 @@
+{
+  "key": "6c31e316a74f229d885cc3bcaeeffe469159e425cfb392584d8235919737467e",
+  "endpoint": "POST /v1/chat/completions",
+  "request": {
+    "model": "meta-models/muse-spark-open-1026",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Here is a passage and a statement. Answer with exactly one word:\nentails, contradicts, or not_mentioned.\nPassage: All of our customer and vendor contracts will continue as normal after the deal closes,\nStatement: After Brightline completes its acquisition of Corvid,"
+      }
+    ],
+    "response_format": {
+      "type": "json_schema",
+      "json_schema": {
+        "name": "WordingAnswer",
+        "strict": true,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "answer": {
+              "type": "string",
+              "enum": [
+                "entails",
+                "contradicts",
+                "not_mentioned"
+              ]
+            }
+          },
+          "required": [
+            "answer"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  "response": {
+    "id": "chatcmpl-b46af6739e8947a592fe4564e5d03902",
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": "{ \"answer\": \"not_mentioned\" }",
+          "refusal": null,
+          "role": "assistant",
+          "annotations": null,
+          "audio": null,
+          "function_call": null,
+          "tool_calls": null,
+          "reasoning_content": "User wants classification: entails, contradicts, or not_mentioned.\n\nPassage: All of our customer and vendor contracts will continue as normal after the deal closes,\nStatement: After Brightline completes its acquisition of Corvid,\n\nWe need to determine. Passage says all customer and vendor contracts will continue as normal after the deal closes. Statement: After Brightline completes its acquisition of Corvid,\n\nDoes passage entail statement? Passage doesn't mention Brightline or Corvid. So not_mentioned? Let's think.\n\nEntails means passage logically implies statement. Contradicts means opposite. Not mentioned means not enough info.\n\nPassage says \"All of our customer and vendor contracts will continue as normal after the deal closes\" – This implies after deal closes, contracts continue. Statement is incomplete: \"After Brightline completes its acquisition of Corvid,\" – That's a fragment. Does passage entail it? No. Does it contradict? No. So not_mentioned.\n\nBut maybe tricky: Passage says deal closes, statement says After Brightline completes its acquisition of Corvid, – Possibly the deal is Brightline acquisition of Corvid, but not mentioned in passage. So we cannot infer.\n\nWe must answer with exactly one word: entails, contradicts, or not_mentioned.\n\nThus answer: not_mentioned\n\nCheck format: exactly one word. Provide \"not_mentioned\"\n\nPossibly they want entailment about contracts continuing? But statement is incomplete. So not_mentioned.\n\nCould there be nuance: Passage: All contracts will continue as normal after deal closes. Statement: After Brightline completes its acquisition of Corvid, – Could be considered entails if we assume deal = Brightline acquisition of Corvid? But passage doesn't mention those entities, so not_mentioned is safe.\n\nWe must output exactly one word. No punctuation? Probably just not_mentioned\n\nWe should comply.\n\nPotential trick: The statement is incomplete, so we cannot determine entailment. So not_mentioned.\n\nAnswer: not_mentioned\n\nMake sure lowercase with underscore."
+        }
+      }
+    ],
+    "created": 1793746071,
+    "model": "meta-models/muse-spark-open-1026",
+    "object": "chat.completion",
+    "metadata": null,
+    "moderation": null,
+    "service_tier": null,
+    "system_fingerprint": null,
+    "usage": {
+      "completion_tokens": 437,
+      "prompt_tokens": 201,
+      "total_tokens": 638,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 314,
+        "audio_tokens": 0,
+        "reasoning_tokens": 414,
+        "rejected_prediction_tokens": 547,
+        "text_tokens": null
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cache_write_tokens": null,
+        "cached_tokens": 128,
+        "image_tokens": null,
+        "text_tokens": null
+      }
+    }
+  }
+}

@@ -4,7 +4,7 @@
 
 Runs every sample in `examples/samples/samples.json` once with the graph on and once with it off, into a clean
 cache directory (`examples/samples/seed/`), then drops the spend ledger and lock files. The container copies the
-seed onto its persistent disk at start (`docker/entrypoint.sh`). Needs MODEL_API_KEY; one run costs about $0.5.
+seed onto its persistent disk at start (`docker/entrypoint.sh`). Needs MODEL_API_KEY; one sample costs about $0.5.
 Only synthetic packets belong in the manifest: the seed holds the model's answers about their text.
 """
 
@@ -39,7 +39,8 @@ def main() -> int:
             print(f"{sample['id']} graph={'on' if flag == '1' else 'off'}: {done.status if done else 'no review'}")
     for junk in [*SEED.glob("spend.ledger*"), *SEED.glob("*.lock"), *SEED.glob(".*lock*")]:
         junk.unlink()
-    print(f"seed: {sum(1 for _ in SEED.rglob('*') if _.is_file())} files, {sum(f.stat().st_size for f in SEED.rglob('*') if f.is_file()) // 1024} KB")
+    files = [f for f in SEED.rglob("*") if f.is_file()]
+    print(f"seed: {len(files)} files, {sum(f.stat().st_size for f in files) // 1024} KB")
     return 0
 
 

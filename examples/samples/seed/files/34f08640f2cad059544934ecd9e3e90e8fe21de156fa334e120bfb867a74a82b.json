@@ -1,0 +1,11 @@
+{
+  "key": "34f08640f2cad059544934ecd9e3e90e8fe21de156fa334e120bfb867a74a82b",
+  "endpoint": "POST /v1/files",
+  "request": {
+    "purpose": "user_data",
+    "sha256": "34f08640f2cad059544934ecd9e3e90e8fe21de156fa334e120bfb867a74a82b"
+  },
+  "response": {
+    "id": "file-1825878548613839"
+  }
+}
