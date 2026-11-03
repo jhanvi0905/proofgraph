@@ -20,7 +20,7 @@ JS = HERE / "graph_view.js"
 FONTS = ("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400"
          "&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap")
 
-COLOUR = {"contradicted": "red", "weakened": "ochre", "supported": "blue"}
+COLOUR = {"contradicted": "red", "weakened": "ochre", "supported": "blue", "not_found": "dashed", "cannot_tell": "dotted"}
 WORD = {"contradicts": "Goes against it", "weakens": "Qualifies it", "supports": "Backs it up", "set_aside": "Set aside"}
 # Tier mark by how the quote was placed on its page: tick = read from the page, ~ = model's reading, ? = unclear.
 TIER = {"pinned": "tick", "located": "tick", "approximate": "model", "unpinned": "unclear"}
@@ -28,6 +28,12 @@ TIER_WORD = {"page": "read from the page", "model": "model's reading", "unclear"
 TIER_SR = {"tick": "read from the page", "model": "model's reading", "unclear": "unclear"}
 TICK = ('<svg class="tk" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8" '
         'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>')
+_M = '<svg class="mark" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="{}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+STATUS_MARK = {  # tick, circle, caret (an insertion mark), open bracket, question mark
+    "supported": _M.format("M2.5 8.5l3.5 3.5 7.5-8"), "contradicted": _M.format("M8 2a6 6 0 1 0 .01 0z"),
+    "weakened": _M.format("M2.5 13L8 4l5.5 9"), "not_found": _M.format("M11 2H5v12h6"),
+    "cannot_tell": _M.format("M5.5 6a2.5 2.5 0 1 1 3.6 2.2C8.4 8.6 8 9.2 8 10M8 13v.01"),
+}
 ARROW = ('<svg class="ar" viewBox="0 0 28 12" width="28" height="12" aria-hidden="true"><path d="M1 6h24M19 1.5l6 4.5-6 4.5" '
          'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>')
 CIRCLE = ('<svg class="circle" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" '
@@ -128,7 +134,7 @@ def _row(part: Part, review: Review, cards: list[Card], docs: list, names: dict[
     tier_line = f'<p class="tierline">Weakest evidence: {_e(TIER_WORD.get(tier, tier))}</p>' if tier else ""
     return (
         f'<tr data-part-id="{_e(part.id)}"><th scope="row" class="{colour}"><span class="says">{_e(part.text)}</span>'
-        f'<strong class="st">{_e(MAP_STATUS_LABEL.get(part.status, part.status))}</strong>{reason}{path}{notes}{tier_line}</th>{"".join(cells)}</tr>'
+        f'<strong class="st">{STATUS_MARK.get(part.status, "")}{_e(MAP_STATUS_LABEL.get(part.status, part.status))}</strong>{reason}{path}{notes}{tier_line}</th>{"".join(cells)}</tr>'
     )
 
 
@@ -169,7 +175,7 @@ def render_graph(review: Review, images: dict, replay: bool = False, ask: bool =
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         f'<title>ProofGraph review</title><link rel="preconnect" href="https://fonts.googleapis.com">'
         f'<link rel="stylesheet" href="{FONTS}"><style>{TOKENS.read_text()}{CSS.read_text()}</style></head><body>'
-        f'<div class="wrap"><header class="top"><p class="claim says"><span class="sr">Your claim: </span>{_claim(review)}</p>'
+        f'<div class="wrap"><header class="top"><p class="claim"><span class="sr">Your claim: </span>{_claim(review)}</p>'
         f'<h1 class="answer {COLOUR.get(status, "none")}">{head}</h1>{reason}{crumbs}{receipt}{badge}{notes}</header>'
         f'<div class="split"><main><div class="gridwrap" tabindex="0" role="region" aria-label="What the documents say">'
         f'<table class="grid"><caption class="sr">What the documents say, by part of the claim</caption>'

@@ -159,6 +159,29 @@ def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
         return StreamingResponse(stream(claim.strip(), packet, names), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
+    def samples() -> list[dict]:
+        """Packets offered on the entrance. A manifest in PROOFGRAPH_SAMPLES (samples.json) names each one's claim and
+        files; with none set the entrance simply shows no sample cards."""
+        manifest = os.environ.get("PROOFGRAPH_SAMPLES")
+        if not manifest or not Path(manifest).is_file():
+            return []
+        base = Path(manifest).parent
+        return [s for s in json.loads(Path(manifest).read_text())["samples"]
+                if all((base / f).is_file() for f in s["files"])]
+
+    @app.get("/api/samples")
+    def list_samples():
+        return [{"id": s["id"], "title": s["title"], "claim": s["claim"], "docs": [Path(f).stem for f in s["files"]]}
+                for s in samples()]
+
+    @app.post("/api/sample/{sample_id}")
+    def run_sample(sample_id: str, passcode: str = Form("")):
+        sample = next((s for s in samples() if s["id"] == sample_id), None)
+        if sample is None:
+            return JSONResponse({"refusal": "That packet is not available."}, status_code=404)
+        base = Path(os.environ["PROOFGRAPH_SAMPLES"]).parent
+        return start(sample["claim"], passcode, None, [(Path(f).name, (base / f).read_bytes()) for f in sample["files"]])
+
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
         return (WEB / "index.html").read_text(encoding="utf-8")

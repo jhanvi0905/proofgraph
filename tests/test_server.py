@@ -101,3 +101,17 @@ def test_bad_upload_type_and_page_served(client):
     assert home.status_code == 200 and 'aria-live="polite"' in home.text
     assert client.get("/web/app.js").status_code == 200 and client.get("/web/app.css").status_code == 200
     assert client.get("/api/review/none").status_code == 404
+
+
+def test_samples_listed_and_run_from_a_manifest(client, tmp_path, monkeypatch):
+    (tmp_path / "rate.pdf").write_bytes(PDF.read_bytes())
+    manifest = tmp_path / "samples.json"
+    manifest.write_text(json.dumps({"samples": [{"id": "a", "title": "Rate", "claim": CLAIM, "files": ["rate.pdf"]},
+                                                {"id": "b", "title": "Gone", "claim": CLAIM, "files": ["nope.pdf"]}]}))
+    assert client.get("/api/samples").json() == []
+    monkeypatch.setenv("PROOFGRAPH_SAMPLES", str(manifest))
+    assert client.get("/api/samples").json() == [{"id": "a", "title": "Rate", "claim": CLAIM, "docs": ["rate"]}]
+    r = client.post("/api/sample/a", data={"passcode": "open-sesame"})
+    assert events(r.text)[-1][0] == "done"
+    assert client.post("/api/sample/b", data={"passcode": "open-sesame"}).status_code == 404
+    assert client.post("/api/sample/a", data={"passcode": "bad"}).status_code == 401

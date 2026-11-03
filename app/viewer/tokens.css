@@ -7,14 +7,18 @@
   --red: #B42318;        /* red pencil: contradicted, conflict circles */
   --blue: #1D4F91;       /* blue pencil: supported, ticks, links */
   --ochre: #9A6A00;      /* qualified, exceptions */
-  --sheet: color-mix(in srgb, var(--paper) 40%, #fff); /* lighter paper for quotes and page images */
+  --sheet: #FBFCF9;      /* a document: page images, quotes, and nothing else is this white */
+  --ink-soft: #5B6461;   /* secondary text: receipts, counts (5.3:1 on the ledger) */
+  --ledger: var(--paper);
   --says: "Source Serif 4", "Source Serif Pro", Georgia, "Times New Roman", serif;
   --ui: "Atkinson Hyperlegible", "Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", sans-serif;
   --ease: cubic-bezier(.16, 1, .3, 1);
 }
 * { box-sizing: border-box; }
 html { background: var(--paper); color: var(--graphite); font: 1rem/1.55 var(--ui); -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--paper); }
+/* faint ruled lines every 28px: working paper even when empty */
+body { margin: 0; background-color: var(--paper);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, color-mix(in srgb, var(--rule) 35%, transparent) 27px 28px); }
 ::selection { background: color-mix(in srgb, var(--blue) 22%, var(--paper)); color: var(--graphite); }
 :focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; border-radius: 2px; }
 .says { font-family: var(--says); }
@@ -27,3 +31,12 @@ button { font: inherit; color: inherit; }
 .btn.quiet { background: transparent; color: var(--graphite); }
 .btn.quiet:hover { background: var(--graphite); color: var(--paper); }
 .btn:disabled { opacity: .55; cursor: progress; }
+
+/* Answer marks. Colour is never the only carrier: each answer has a word, a mark and an underline style. */
+.u, .st { text-decoration-line: underline; text-decoration-thickness: 2px; text-underline-offset: .22em; text-decoration-skip-ink: none; }
+.u.blue, .blue .st, .st.blue { text-decoration-style: solid; text-decoration-color: var(--blue); }
+.u.red, .red .st, .st.red { text-decoration-style: solid; text-decoration-color: var(--red); }
+.u.ochre, .ochre .st, .st.ochre { text-decoration-style: wavy; text-decoration-color: var(--ochre); }
+.u.dashed, .dashed .st, .st.dashed { text-decoration-style: dashed; text-decoration-color: var(--graphite); }
+.u.dotted, .dotted .st, .u.none, .none .st, .st.dotted { text-decoration-style: dotted; text-decoration-color: var(--ink-soft); }
+.mark { flex: none; vertical-align: -.15em; margin-right: .3em; }
