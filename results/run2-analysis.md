@@ -66,6 +66,18 @@ Overrides edges exist, but the decision cannot use them:
 3. Let a document with no governance role still win by being the later document of the same role on the same subject, so `other` is not a dead end.
 4. Extend entity linking to emails, table rows and image pages so the walk reaches them.
 
-## 7. Pending
+## 7. Clean check and ablation (30 ContractNLI pairs never used before; gold is the published label)
 
-Clean check on 30 unused ContractNLI pairs (flag off against run-2 rules) and the ablation (run-2 rules against run-1 rules) are still running. They are the only unbiased numbers and will be added here.
+| System (n = 30) | Correct | Wrongly supported | Fixed / broken vs flag off |
+|---|---|---|---|
+| Flag off | 15/30 (50%), CI 33–67% | 2/20 (10%) | none |
+| Run-1 rules (ablation) | 9/30 (30%), CI 17–48% | 0/20 | +1 / −7 |
+| **Iteration 2 rules** | **19/30 (63%), CI 45–78%** | **1/20 (5%)** | **+7 / −3** |
+
+- The Iteration 2 rules got 10 pairs right that the run-1 rules got wrong, and none the other way round.
+- The run-1 graph was worse than no graph (9 against 15). Iteration 2 is better than no graph (19 against 15), although at n = 30 the intervals overlap.
+- Fixed against flag off: cnli-41, 67, 129, 212, 213, 218, 225 (six are "not mentioned" cases). Broken: cnli-62, 157, 289, all S2.
+- Wrongly supported with the graph: cnli-85 (S8, a blank-template statement read as supporting "all information shall be expressly identified"). Flag off had two (cnli-65, cnli-77), which the graph turns into `weakened`.
+- **S2 (exception or condition) is 0/7 on this slice.** In five of the seven the comparator labels the exception "applies" and the code weakens the statement, but in these claims the exception is the thing the claim asserts (for example "may retain some Confidential Information after return", with the one-copy retention exception). An exception that applies and itself agrees with the claim should support it, not defeat it. This is evidence from a held-out slice for a fifth candidate fix, and it is also the over-qualification seen in TC37 and TC38 on the suite.
+
+Caveat: the suite was used for error analysis after run 1, so run 2 on the suite is labelled after error analysis. This clean slice was not looked at while building, so it is the unbiased number. Any fix chosen from these results needs a new held-out slice.
