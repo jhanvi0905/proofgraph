@@ -93,6 +93,7 @@
         var labels = el("ul", "labels");
         col.appendChild(h); col.appendChild(el("p", "role")); col.appendChild(labels); $("cols").appendChild(col);
         state.cols[f.name] = { col: col, ticks: {}, labels: labels };
+        if (f.id) state.byId[f.id] = state.cols[f.name];  // same ids as DocRead.doc, so a cached graph still finds its columns
         var d1 = el("li", "d"); d1.appendChild(document.createTextNode(tidy(f.name)));
         var ul = el("ul");
         for (var k = 1; k <= f.pages; k++) {
@@ -104,6 +105,10 @@
       });
       latest("Reading each document once. Later claims on this packet skip this step.");
       say("Files accepted: " + plural(n, "document") + ", " + plural(pages, "page") + ".");
+    },
+    docstarted: function (d) {
+      var c = state.cols[d.name]; if (c) state.byId[d.doc] = c;
+      latest("Reading " + tidy(d.name) + "\u2026");
     },
     docread: function (d) {
       var c = state.cols[d.name]; if (!c) return;

@@ -34,7 +34,7 @@ MAX_FILE_BYTES = 25 * 1024 * 1024
 KEEP_REVIEWS = 20
 ALLOWED = {".pdf", ".png", ".jpg", ".jpeg"}
 
-_EVENT = {"DocRead": "docread", "PageRead": "pageread", "EntityFound": "entity", "GraphReady": "graphready",
+_EVENT = {"DocStarted": "docstarted", "DocRead": "docread", "PageRead": "pageread", "EntityFound": "entity", "GraphReady": "graphready",
           "PartLinked": "linked", "PathFound": "path"}
 
 
@@ -82,7 +82,7 @@ def _file_lines(paths: list[Path], names: list[str]) -> list[dict]:
         note = None
         if scans:
             note = f"{scans} page{'s' if scans != 1 else ''} without a text layer will be transcribed; boxes there are approximate."
-        out.append({"name": name, "ok": True, "pages": len(doc.pages), "note": note})
+        out.append({"name": name, "id": doc.doc_id, "ok": True, "pages": len(doc.pages), "note": note})
     return out
 
 
