@@ -1,7 +1,7 @@
 """Tabulate cached blind-checker answers by card relation (second-check experiment).
 
 Read-only. Reads the disk cache (one JSON file per model call) and never writes to it, never calls a
-model, never touches the network. See docs/council/2026-11-02-second-check-experiment.md.
+model, never touches the network. Part of the second-check invariance experiment.
 
 How a cached answer is tied to a case and a relation. The checker cache holds only the prompt
 (quote, statement) and the raw answer; it does not hold the card relation. The relation lives in the

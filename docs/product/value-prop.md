@@ -1,6 +1,6 @@
 # Value proposition: ProofGraph
 
-Sources: `docs/01-product-brief.md`, section 2 of `docs/sprint/2026-10-29-mvp.md`.
+Sources: `docs/01-product-brief.md`.
 
 ## For anyone who must back a claim with evidence from documents
 
@@ -31,4 +31,4 @@ For anyone who must stand behind a conclusion drawn from documents, ProofGraph i
 - **Sales:** See which line holds, which line breaks the claim, and which question no document answers, before you sign off.
 - **Onboarding:** Paste one claim and its documents. Read the verdict, then open the link that set it.
 
-**Not claimed here:** fewer wrongly approved claims than a direct model answer. That is the North Star in the brief, and this sprint does not test it.
+**Not claimed here:** fewer wrongly approved claims than a direct model answer. That is the long-term goal, and this version does not test it.

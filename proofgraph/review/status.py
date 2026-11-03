@@ -5,7 +5,7 @@ from typing import Literal, get_args
 
 from proofgraph.review.models import BoxStatus, Card, PartStatus, Relation
 
-# Worst first (docs/council/reports/product-2.md, verdict banner order).
+# Worst first (verdict banner order).
 WORST_FIRST: tuple[PartStatus, ...] = (
     "contradicted", "weakened", "cannot_tell", "not_found", "supported",
 )

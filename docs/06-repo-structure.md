@@ -4,7 +4,7 @@ Repo name: **`proofgraph`** · public · MIT. Create files only where this tree 
 
 ```
 proofgraph/
-├── AGENTS.md · CLAUDE.md · README.md · BUILT_DURING_HACKATHON.md · LICENSE
+├── README.md · BUILT_DURING_HACKATHON.md · LICENSE
 ├── pyproject.toml · .env.example · .gitignore · Makefile
 ├── .github/workflows/ci.yml          pytest on push; no API keys; uses fixtures and cache only
 ├── docs/                             these build docs (01–11)
@@ -64,8 +64,6 @@ examples/demo-packs/                  frt-07, tc17, tc18 uploads + claim.txt + S
 examples/suite/manifest.json          case ids, claims, file names, sha256, citation, split, licence status (no evidence bytes for pointer-only sources)
 tests/fixtures/gold/                  gold-1 JSON per case (read only by scripts)
 tests/fixtures/packs/                 synthetic pack files used by offline tests
-docs/council/gold-review.md           human gold review and blind relabel agreement
-docs/council/2026-10-31-probes.md     probe numbers and triggered rulings
 ```
 
 `scripts/download_data.sh` gains a step that copies suite evidence from a local dataset folder into `data/suite/` (gitignored) and checks sha256.

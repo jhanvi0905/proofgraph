@@ -1,6 +1,6 @@
 # Journey map: one ProofGraph session
 
-Sources: `docs/product/icp.md`, section 3 of `docs/sprint/2026-10-29-mvp.md`. Scope is one web-app session, from landing on the screen to opening a source quote. Awareness, signup, marketing and advocacy are out of scope.
+Sources: `docs/product/icp.md`. Scope is one web-app session, from landing on the screen to opening a source quote. Awareness, signup, marketing and advocacy are out of scope.
 
 **Persona:** the hackathon ICP, a PM deciding whether the export button ships this week. They hold a usage note, a support-cost note and a release note that disagree.
 **Job:** see what supports the claim, what contradicts it and what is still open before committing.
