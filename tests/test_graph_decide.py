@@ -31,8 +31,8 @@ def test_same_rank_clash_is_documents_disagree_cannot_tell():
     d = _ask({"byl-r1": "agrees", "byl-r2": "conflicts"})  # same document: conflict wins
     assert d.status == "contradicted"
     g, ranked, linked = _setup()
-    g.graph["docs"]["res"]["role"] = "memo"
-    g.graph["docs"]["byl"]["role"] = "memo"
+    g.graph["docs"]["res"].update(role="memo", date=None)
+    g.graph["docs"]["byl"].update(role="other", date=None)
     items = {"res-r1": Item(id="res-r1", label="agrees"), "byl-r2": Item(id="byl-r2", label="conflicts")}
     d = graph_status("p", g, ranked, items, {}, Agreement("agree"), linked)
     assert (d.status, d.scenario) == ("cannot_tell", "S5") and "nothing decides" in d.reason
@@ -88,3 +88,70 @@ def test_amendment_override_removes_statement_only_with_known_effect_and_dates()
     assert not overridden(g, "byl-r2")
     next(iter(g.get_edge_data("amd-r1", "e:byl:section 5.2").values()))["effect"] = "replaces"
     assert overridden(g, "byl-r2")
+
+
+def _clash(g, ranked, linked):
+    items = {"res-r1": Item(id="res-r1", label="agrees"), "byl-r2": Item(id="byl-r2", label="conflicts")}
+    return graph_status("Connors authorized from May 7, 2026", g, ranked, items, {"res-r1": ("agrees", "entails")},
+                        Agreement("agree"), linked)
+
+
+def test_c3_an_extracted_overrides_edge_wins_before_any_ranking():
+    g, ranked, linked = _setup()
+    g.graph["docs"]["res"].update(role="other", date=None)
+    g.graph["docs"]["byl"].update(role="other", date=None)
+    assert _clash(g, ranked, linked).status == "cannot_tell"
+    g.add_edge("res-r1", "e:board", "overrides", kind="overrides", tier="page", made_by="model-checked", evidence=[])
+    g.add_edge("byl-r2", "e:board", "mentions", kind="mentions", tier="page", made_by="code", evidence=[])
+    d = _clash(g, ranked, linked)
+    assert (d.status, d.scenario, d.deciding) == ("supported", "S5", ("res-r1",))
+    next(iter(g.get_edge_data("res-r1", "e:board").values()))["tier"] = "unclear"  # an unclear edge never wins
+    assert _clash(g, ranked, linked).status == "cannot_tell"
+
+
+def test_c3_same_role_same_subject_the_later_document_wins():
+    g, ranked, linked = _setup()
+    g.graph["docs"]["res"].update(role="memo", date="May 13, 2026")
+    g.graph["docs"]["byl"].update(role="memo", date="March 12, 2025")
+    g.add_edge("byl-r2", "e:connors", "mentions", kind="mentions", tier="page", made_by="code", evidence=[])  # same subject
+    assert _clash(g, ranked, linked).status == "supported"
+    g.graph["docs"]["byl"]["date"] = "June 1, 2026"  # now the other document is later
+    assert _clash(g, ranked, linked).status == "contradicted"
+    g.graph["docs"]["byl"]["role"] = "other"  # different roles, none in the governance file: no winner
+    assert _clash(g, ranked, linked).status == "cannot_tell"
+
+
+def test_c3_no_role_name_is_special_cased_in_code():
+    import inspect
+
+    import proofgraph.review.graph_decide as mod
+
+    src = inspect.getsource(mod)
+    for word in ('"bylaws"', '"resolution"', '"memo"', '"contract"', '"amendment"'):
+        assert word not in src
+
+
+def _c4(*, event=True, event_date="May 13, 2026", tier="page", etype="approve_or_adopt", actor="Board",
+        part="Connors was authorized from May 7, 2026"):
+    """byl-r2 qualifies because byl-r3 (exception) waits on a Board approval; res-r1 may be that approval."""
+    g, ranked, linked = _setup()
+    g.nodes["byl-r3"].update(awaits="approve_or_adopt", awaits_actor="Board")
+    g.nodes["res-r1"].update(stype="event" if event else "fact", event_type=etype, event_date=event_date, actor=actor, tier=tier)
+    items = {"byl-r2": Item(id="byl-r2", label="qualifies", why="needs Board approval")}
+    return graph_status(part, g, ranked, items, {}, Agreement("agree"), linked)
+
+
+def test_c4_condition_met_after_the_claimed_date_turns_qualifies_into_contradicted():
+    d = _c4()
+    assert (d.status, d.scenario, d.deciding) == ("contradicted", "S6", ("byl-r2",))
+    assert d.reason.endswith("from 2026-05-13, not 2026-05-07")
+
+
+def test_c4_keeps_qualifies_when_the_anchor_cannot_be_resolved_or_is_not_later():
+    assert _c4(event=False).status == "weakened"  # a fact, not an event
+    assert _c4(event_date=None).status == "weakened"  # no date to compare
+    assert _c4(etype="appoint").status == "weakened"  # not the event the condition waits on
+    assert _c4(actor="the CEO").status == "weakened"  # not the actor it waits on
+    assert _c4(tier="unclear").status == "weakened"  # an unaligned quote never decides
+    assert _c4(event_date="May 5, 2026").status == "weakened"  # satisfied before the claimed date: no new rule
+    assert _c4(part="Connors was authorized.").status == "weakened"  # the claim gives no date to compare

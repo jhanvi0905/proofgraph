@@ -39,3 +39,15 @@ def test_cap_prefers_conflicts_and_skips_the_rest():
     labels = [Item(id="byl-r1", label="agrees"), Item(id="byl-r2", label="conflicts"), Item(id="res-r1", label="agrees")]
     out = second_reads("p", labels, g, checker=lambda q, p: "entails", cap=1)
     assert out["byl-r2"][0] == "disagrees" and out["byl-r1"] == ("not_run", None) == out["res-r1"]
+
+
+def test_c2_supported_deciding_statements_are_always_second_read_even_past_the_cap():
+    from proofgraph.review.graph_check import confirm_support
+
+    g = _graph()
+    labels = {"byl-r1": Item(id="byl-r1", label="agrees"), "res-r1": Item(id="res-r1", label="agrees")}
+    checks = {"byl-r1": ("agrees", "entails"), "res-r1": ("not_run", None)}
+    asked = []
+    out = confirm_support(["byl-r1", "res-r1"], labels, checks, "p", g,
+                          checker=lambda q, p: asked.append(q) or "not_mentioned")
+    assert len(asked) == 1 and out["res-r1"] == ("disagrees", "not_mentioned") and out["byl-r1"] == ("agrees", "entails")

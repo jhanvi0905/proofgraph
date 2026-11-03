@@ -29,10 +29,21 @@ def test_upon_adoption_without_doc_date_stays_unresolved():
     assert resolve_dates(_g(res_date=None))["res-r2"] is None
 
 
-def test_precedence_bylaws_over_resolution_only():
+def test_a6_precedence_comes_from_the_governance_data_file_only():
     g = _g()
-    assert precedence(g) == [("amd", "res"), ("byl", "res")]
-    assert not any(g.has_edge(f"doc:{a}", f"doc:{b}") for a, b in (("m", "res"), ("res", "m"), ("byl", "amd")))
+    assert precedence(g) == [("byl", "res")]  # amendment and other are not in the file: no edge
+    assert not any(g.has_edge(f"doc:{a}", f"doc:{b}") for a, b in (("m", "res"), ("res", "m"), ("amd", "res")))
+
+
+def test_a6_governance_order_is_a_data_file_not_code():
+    import json
+    from pathlib import Path
+
+    import proofgraph.review.precedence as mod
+
+    order = json.loads((Path(mod.__file__).parent / "governance.json").read_text())["order"]
+    assert order == ["statute", "articles", "bylaws", "resolution", "officer_act"]
+    assert not hasattr(mod, "RANK")
 
 
 def test_amendment_links_only_unambiguous_section_and_effect_comes_later():

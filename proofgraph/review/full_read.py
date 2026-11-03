@@ -9,9 +9,10 @@ every id against the graph and aligns every quote against its page; what fails i
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import networkx as nx
 from pydantic import Field
@@ -20,6 +21,9 @@ from proofgraph.clients.muse import MuseClient
 from proofgraph.review.graph_extract import Strict
 from proofgraph.review.graph_extract import Alignment, ground_quote
 from proofgraph.review.relate import PageText, _safe
+
+if TYPE_CHECKING:
+    from proofgraph.review.compare import Item
 
 MAX_CHARS = 100_000  # about 25k tokens; later pages are cut and the result says so
 _MARK = "| "
@@ -72,12 +76,30 @@ class Agreement:
     read_only: tuple[str, ...] = ()
 
 
-def agreement(walk_ids: Collection[str], read: ReadResult) -> Agreement:
-    walk, got = set(walk_ids), set(read.cited) | {f"extra:{d}:{p}" for d, p, _, _ in read.extra}
+def _flag(walk: set[str], got: set[str]) -> Agreement:
     if not walk and not got:
         return Agreement("both_empty")
     flag = "agree" if walk == got else "partial" if walk & got else "disagree"
     return Agreement(flag, tuple(sorted(walk - got)), tuple(sorted(got - walk)))
+
+
+def agreement(walk_ids: Collection[str], read: ReadResult) -> Agreement:
+    return _flag(set(walk_ids), set(read.cited) | {f"extra:{d}:{p}" for d, p, _, _ in read.extra})
+
+
+RELEVANT = ("agrees", "conflicts", "qualifies")
+
+
+def relevant_agreement(labels: Mapping[str, "Item"], read: ReadResult) -> Agreement:
+    """C5: compare only the statements the comparator found relevant, not every citation.
+
+    Both routes are empty when nothing is labelled agrees, conflicts or qualifies. A statement the read
+    cited that the comparator never judged, and a passage the statements miss, stay relevant: nothing
+    has ruled them out.
+    """
+    walk = {i for i, it in labels.items() if it.label in RELEVANT}
+    got = {i for i in read.cited if i not in labels or labels[i].label in RELEVANT}
+    return _flag(walk, got | {f"extra:{d}:{p}" for d, p, _, _ in read.extra})
 
 
 def _prompt(part_text: str, texts: Sequence[PageText], g: nx.MultiDiGraph, known: set[str]) -> str:

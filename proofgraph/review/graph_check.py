@@ -40,3 +40,13 @@ def second_reads(part_text: str, labels: Sequence[Item], g: nx.MultiDiGraph, *, 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         done = dict(pool.map(run, todo))
     return {i.id: done.get(i.id, ("not_run", None)) for i in labels}
+
+
+def confirm_support(deciding: Sequence[str], labels: dict[str, Item], checks: dict[str, tuple[CheckName, CheckAnswer | None]],
+                    part_text: str, g: nx.MultiDiGraph, *, checker: Checker = blind_wording
+                    ) -> dict[str, tuple[CheckName, CheckAnswer | None]]:
+    """C2: a part that becomes supported always gets its deciding statements second-read, whatever the claim budget."""
+    pending = [labels[i] for i in deciding if i in labels and checks.get(i, ("not_run", None))[0] == "not_run"]
+    if not pending:
+        return checks
+    return {**checks, **second_reads(part_text, pending, g, checker=checker, cap=len(pending))}
