@@ -40,7 +40,7 @@ class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", json_schema_extra=_all_required)
 
 
-Role = Literal["contract", "amendment", "bylaws", "resolution", "memo", "other"]
+Role = Literal["contract", "amendment", "statute", "articles", "bylaws", "resolution", "officer_act", "memo", "other"]
 Deontic = Literal["must", "may", "must_not", "is"]
 Level = Literal["exact", "normalised", "fuzzy", "unmatched"]
 Tier = Literal["page", "model", "unclear"]
@@ -62,7 +62,7 @@ class Header(Strict):
 
 
 class Relation(Strict):
-    kind: Literal["is_a", "holds_office"]
+    kind: Literal["is_a", "holds_office", "overrides"]
     subject: str
     object: str
     interim: bool = False

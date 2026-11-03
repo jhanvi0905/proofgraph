@@ -1,21 +1,36 @@
 """Amendments, document precedence and resolved dates over the evidence graph (A4).
 
-Code finds the candidates (regex on amendment quotes, a role-rank table, header dates); the
+Code finds the candidates (regex on amendment quotes, the declared governance order, header dates); the
 comparator only labels an amendment's effect later. Nothing is guessed: a missing role, a missing
 date or an ambiguous section leaves the link ``unclear`` or absent.
 """
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from datetime import date
+from functools import lru_cache
+from pathlib import Path
 
 import networkx as nx
 
 from proofgraph.review.timeline import _DATE_RE, _MONTHS, _first_date
 
-RANK = {"bylaws": 3, "contract": 3, "amendment": 3, "resolution": 2, "memo": 1}  # equal rank: no edge
+_GOVERNANCE = Path(__file__).with_name("governance.json")
+
+
+@lru_cache(maxsize=1)
+def _order() -> tuple[str, ...]:
+    return tuple(json.loads(_GOVERNANCE.read_text(encoding="utf-8"))["order"])
+
+
+def governance_rank(role: str) -> int | None:
+    """Position in the declared governance order (0 = highest authority), or None when the role is not listed."""
+    order = _order()
+    return order.index(role) if role in order else None
+
 EFFECTS = ("replaces", "adds", "deletes", "restates")
 _SEC = r"(?:section|§)\s*(\d+(?:\.\d+)*)"
 _AMEND = re.compile(
@@ -77,8 +92,8 @@ def precedence(g: nx.MultiDiGraph) -> list[tuple[str, str]]:
         g.add_node(f"doc:{a}", kind="doc", role=docs[a]["role"], date=_doc_date(g, a))
     for a in sorted(docs):
         for b in sorted(docs):
-            ra, rb = RANK.get(docs[a]["role"]), RANK.get(docs[b]["role"])
-            if ra and rb and ra > rb:
+            ra, rb = governance_rank(docs[a]["role"]), governance_rank(docs[b]["role"])
+            if ra is not None and rb is not None and ra < rb:
                 g.add_edge(f"doc:{a}", f"doc:{b}", "outranks", kind="outranks", tier="model", made_by="code",
                            evidence=[{"doc": a, "role": docs[a]["role"]}, {"doc": b, "role": docs[b]["role"]}])
                 out.append((a, b))

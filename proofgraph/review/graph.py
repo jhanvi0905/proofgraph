@@ -286,6 +286,14 @@ def edges(reads: list[DocRead], ents: Entities, merged: Merged, locator: Locator
                 checked = _in_quote(rel.subject, r.quote) and _in_quote(rel.object, r.quote)
                 if not checked:
                     g.graph["rejected"]["relation_not_in_quote"] += 1
+                if rel.kind == "overrides":  # A5: from the document's own words, checked against its quote
+                    targets = {ent(e.id) for e in ents.by_id.values() if canon_name(e.name) == canon_name(rel.object)}
+                    if len(targets) > 1:
+                        g.graph["rejected"]["ambiguous_override_target"] += 1
+                    for t in sorted(targets):
+                        g.add_edge(r.id, t, "overrides", kind="overrides", source=r.id, made_by="model-checked",
+                                   tier=gr.tier if checked and len(targets) == 1 else "unclear", evidence=ev)
+                    continue
                 if a and b:
                     g.add_edge(ent(a), ent(b), rel.kind, kind=rel.kind, interim=rel.interim, source=r.id,
                                tier=gr.tier if checked else "unclear", made_by="model-checked", evidence=ev)

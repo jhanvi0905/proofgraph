@@ -109,3 +109,24 @@ def test_a1_statement_type_reaches_the_graph_node_and_defaults_to_rule():
     g = _graph(reads)
     assert g.nodes["res-r1"]["stype"] == "fact" and g.nodes["byl-r2"]["stype"] == "rule"
     assert _g("d", "x", "B", "q").rule.stype == "rule"
+
+
+def test_a5_overrides_edge_is_verified_against_its_quote_and_unverified_is_unclear():
+    from graph_fixtures import _g, _reads
+    from proofgraph.review.graph import build_entities, edges, merge
+    from proofgraph.review.graph_extract import Relation
+
+    def build(subject, obj):
+        reads = _reads()
+        reads[0].rules.append(_g("res", "res-r9", "Board", "This Resolution replaces the earlier appointment letter.",
+                                 relations=[Relation(kind="overrides", subject=subject, object=obj)]))
+        ents = build_entities(reads)
+        reads[0].rules.append  # noqa: B018
+        return edges(reads, ents, merge(ents, reads))
+
+    g = build("This Resolution", "appointment letter")
+    found = [(u, d["tier"]) for u, _, d in g.edges(data=True) if d["kind"] == "overrides"]
+    assert found == [("res-r9", "page")]
+    g = build("This Resolution", "the employment contract")  # the object is not in the quote
+    assert [d["tier"] for _, _, d in g.edges(data=True) if d["kind"] == "overrides"] == ["unclear"]
+    assert g.graph["rejected"]["relation_not_in_quote"] == 1

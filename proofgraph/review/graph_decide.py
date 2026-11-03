@@ -1,7 +1,7 @@
 """Decide one claim part from the graph (A5). Pure code: no model, no network.
 
 The model's labels (comparator, second read) are inputs; code combines them with the structure,
-which document outranks which, amendments and dates. Outcomes map onto today's part statuses:
+which document overrides which (C3), amendments and dates. Outcomes map onto today's part statuses:
 supported, contradicted, weakened (qualified), not_found, cannot_tell (unknown, documents disagree,
 or the two routes disagree). Unclear statements never decide, a second read that disagrees with
 support never makes a part supported (as D38), and "not found" needs the walk and the read both empty.
@@ -17,7 +17,7 @@ import networkx as nx
 from proofgraph.review.compare import Item
 from proofgraph.review.full_read import Agreement
 from proofgraph.review.models import PartStatus
-from proofgraph.review.precedence import RANK
+from proofgraph.review.precedence import governance_rank
 from proofgraph.review.query import Linked, Path
 from proofgraph.review.timeline import _first_date
 
@@ -37,8 +37,34 @@ class Decision:
     path: tuple[str, ...] = ()
 
 
-def _rank(g: nx.MultiDiGraph, rule: str) -> int | None:
-    return RANK.get(g.graph["docs"].get(g.nodes[rule]["doc"], {}).get("role", ""))
+def _doc(g: nx.MultiDiGraph, rule: str) -> dict:
+    return g.graph["docs"].get(g.nodes[rule]["doc"], {})
+
+
+def _mentions(g: nx.MultiDiGraph, rule: str) -> set[str]:
+    return {v for _, v, d in g.out_edges(rule, data=True) if d["kind"] == "mentions"}
+
+
+def _overrides(g: nx.MultiDiGraph, a: str, b: str) -> bool:
+    """A statement of a document says, in its own words, that it overrides something the other statement is about."""
+    return any(d["kind"] == "overrides" and d["tier"] != "unclear" and g.has_edge(b, v) and v in _mentions(g, b)
+               for _, v, d in g.out_edges(a, data=True))
+
+
+def _beats(g: nx.MultiDiGraph, a: str, b: str) -> bool | None:
+    """C3: does statement ``a`` win over ``b`` (different documents)? Order: an extracted overrides edge; the later
+    document of the same role on the same subject; the declared governance order; otherwise nobody (None)."""
+    if _overrides(g, a, b) or _overrides(g, b, a):
+        return _overrides(g, a, b)
+    da, db = _doc(g, a), _doc(g, b)
+    if da.get("role") and da.get("role") == db.get("role") and _mentions(g, a) & _mentions(g, b):
+        ta, tb = _first_date(da.get("date") or ""), _first_date(db.get("date") or "")
+        if ta and tb and ta != tb:
+            return ta > tb
+    ra, rb = governance_rank(da.get("role", "")), governance_rank(db.get("role", ""))
+    if ra is not None and rb is not None and ra != rb:
+        return ra < rb
+    return None
 
 
 def overridden(g: nx.MultiDiGraph, rule: str) -> bool:
@@ -83,14 +109,17 @@ def graph_status(part_text: str, g: nx.MultiDiGraph, ranked: Sequence[Path], lab
                     scenario="S7")
 
     if precedence_on:
-        ranks = {i: _rank(g, i) for i in live}
-        votes = {it.label == "agrees" for it in live.values()}
-        if len(votes) == 2 and len({g.nodes[i]["doc"] for i in live}) > 1:
-            known = {r for r in ranks.values() if r is not None}
-            top = max(known) if known and None not in ranks.values() and len(known) > 1 else None
-            if top is None:
+        pro = [i for i, it in live.items() if it.label == "agrees"]
+        con = [i for i, it in live.items() if it.label != "agrees"]
+        cross = [(p, c) for p in pro for c in con if g.nodes[p]["doc"] != g.nodes[c]["doc"]]
+        if pro and con and cross:
+            wins = {_beats(g, p, c) for p, c in cross}
+            if wins == {True}:
+                live = {i: it for i, it in live.items() if i not in {c for _, c in cross}}
+            elif wins == {False}:
+                live = {i: it for i, it in live.items() if i not in {p for p, _ in cross}}
+            else:
                 return done("cannot_tell", "Two documents clash and nothing decides which one wins.", tuple(live), scenario="S5")
-            live = {i: it for i, it in live.items() if ranks[i] == top}
             return _decide(g, live, checks, done, "S5", part_text, notes_overridden)
     return _decide(g, live, checks, done, None, part_text, notes_overridden)
 
@@ -118,7 +147,7 @@ def _decide(g, live, checks, done, scenario, part_text, overridden_n):
 
 def _scenario(g: nx.MultiDiGraph, paths: Sequence[Path], deciding: Sequence[str]) -> str:
     kinds = {k for p in paths for k in p.kinds}
-    if any(d["kind"] in ("supersedes", "outranks") for i in deciding for _, _, d in g.edges(i, data=True)):
+    if any(d["kind"] in ("supersedes", "outranks", "overrides") for i in deciding for _, _, d in g.edges(i, data=True)):
         return "S5"
     if kinds & {"is_a", "holds_office"}:
         return "S4"
