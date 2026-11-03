@@ -1,39 +1,3 @@
-## Build progress
-
-- [x] A1
-- [x] A2
-- [x] N1
-- [x] N3
-- [x] M1
-- [x] M2
-- [x] A3
-- [x] A4
-- [x] A6
-- [x] I1
-- [x] I2
-- [x] I3
-- [x] I4
-- [x] N4
-- [x] N5
-- [x] A5
-- [x] A7
-- [x] A8
-- [ ] M3 (scorer built; gate run waiting on the owner)
-- [ ] N2
-- [ ] M4
-- [ ] M5
-- [ ] M6
-- [ ] A9
-- [ ] F1
-- [ ] F2
-- [ ] F3
-- [ ] F4
-- [ ] F5
-- [ ] F6
-- [ ] F7
-- [x] I5 (flag-off path untouched, nothing to build)
-
-
 # ProofGraph: Final Build Brief
 
 Nov 3, 2026 · @Jhanvi
