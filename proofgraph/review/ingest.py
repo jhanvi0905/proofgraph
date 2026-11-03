@@ -111,22 +111,43 @@ def _pdf_pages(data: bytes) -> list[Page]:
     with pdfplumber.open(io.BytesIO(data)) as pdf:
         for number, page in enumerate(pdf.pages, start=1):
             width, height = float(page.width), float(page.height)
-            words = [
-                Word(
-                    w["text"],
-                    (
-                        _grid(w["x0"], width),
-                        _grid(w["top"], height),
-                        _grid(w["x1"], width),
-                        _grid(w["bottom"], height),
-                    ),
-                )
-                for w in page.extract_words()
-            ]
+            words = _grid_words(page.extract_words(), width, height)
+            if _graph_on():
+                words, poor = _checked_words(page, words, width, height)
+            else:
+                poor = False
             dpi = min(RENDER_DPI, LONG_SIDE_PX / (max(width, height) / 72))
             png = _to_png(page.to_image(resolution=dpi).original.convert("RGB"))
-            pages.append(Page(number, _pdf_kind(words), png, words))
+            pages.append(Page(number, "image_only" if poor else _pdf_kind(words), png, words))
     return pages
+
+
+def _graph_on() -> bool:
+    from proofgraph.review.evidence import graph_on  # imported only behind the flag
+
+    return graph_on()
+
+
+def _grid_words(raw: list[dict], width: float, height: float) -> list[Word]:
+    return [
+        Word(
+            w["text"],
+            (_grid(w["x0"], width), _grid(w["top"], height), _grid(w["x1"], width), _grid(w["bottom"], height)),
+        )
+        for w in raw
+    ]
+
+
+def _checked_words(page, words: list[Word], width: float, height: float) -> tuple[list[Word], bool]:
+    """Retry glued words with a tighter x_tolerance, keep the better text; True if the page still needs a transcription."""
+    from proofgraph.review import text_quality as tq
+
+    tokens = [w.text for w in words]
+    if tq.long_share(tokens) > tq.LONG_MAX_SHARE and tq.cid_share(tokens) <= tq.CID_MAX_SHARE:
+        retry = _grid_words(page.extract_words(x_tolerance=tq.TIGHT_X_TOLERANCE), width, height)
+        if tq.pick_better(tokens, [w.text for w in retry]) is not tokens:
+            words = retry
+    return words, tq.is_poor([w.text for w in words])
 
 
 def _pdf_kind(words: list[Word]) -> str:

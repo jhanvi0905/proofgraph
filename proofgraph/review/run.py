@@ -20,6 +20,7 @@ import io
 import re
 from collections.abc import Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FuturesTimeout
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,7 +32,7 @@ from proofgraph.clients.muse import MuseClient
 from proofgraph.review import ingest as ingest_mod
 from proofgraph.review.absence import AbsencePage, build_receipt
 from proofgraph.review.check import Checker, check_cards
-from proofgraph.review.evidence import evidence_lines_on, evidence_map_on, receipt_with_evidence
+from proofgraph.review.evidence import evidence_lines_on, evidence_map_on, graph_on, receipt_with_evidence
 from proofgraph.review.evidence_map import build_map
 from proofgraph.review.models import (
     Banner, Card, Claim, Doc, Page, Part, PartStatus, Receipt, Review, Run,
@@ -44,6 +45,7 @@ from proofgraph.review.status import WORST_FIRST, overall_status, part_status
 from proofgraph.spend import MuseError, SpendCapReached
 
 MAX_WORKERS = 4
+PART_TIMEOUT_S = 300.0  # graph mode: a part that runs longer resolves to unclear
 LINE_GAP = 8  # grid units; words whose top differs by more start a new text line
 _KIND = {"text": "text_layer", "image_only": "image_only", "image": "image"}
 
@@ -78,6 +80,8 @@ class _Outcome:
     part: Part
     cards: list[Card]
     banners: list[Banner]
+    graph: dict | None = None  # PROOFGRAPH_GRAPH: how the part was decided
+    events: tuple = ()
 
 
 def default_muse() -> MuseClient:
@@ -133,37 +137,74 @@ def run_review(
     scan_lines = pack.transcripts
     banners = pack.banners
     docs, images = pack.docs, pack.images
+    names = {d.id: d.name for d in docs}
 
-    def finish(parts: list[Part], cards: list[Card], extra: list[Banner]) -> AllDone:
-        return AllDone(_assemble(claim, muse, docs, images, parts, cards, banners + extra))
+    built = budget = None
+    if graph_on():
+        from proofgraph.review import graph_run  # imported only behind the flag
+        try:
+            built = yield from graph_run.build_packet_graph(texts, names, words, scan_lines, muse, max_workers)
+        except Exception as exc:  # no graph, no review: say so, never fall back silently
+            whole = _whole(claim, pack, "The graph could not be built; nothing was checked.", "error")
+            yield AllDone(_assemble(claim, muse, docs, images, [whole], [], banners + [_failure_banner(exc)]))
+            return
+        banners = banners + built.banners
+        budget = graph_run.SecondReadBudget()
+
+    def finish(parts: list[Part], cards: list[Card], extra: list[Banner], graph: dict | None = None) -> AllDone:
+        return AllDone(_assemble(claim, muse, docs, images, parts, cards, banners + extra, graph))
 
     parts = [Part(id=p.id, text=p.text, span=p.span, status="checking", receipt=receipt) for p in pieces]
     yield PartsReady([p.model_copy() for p in parts])
 
     pool = ThreadPoolExecutor(max_workers=max(1, min(max_workers, MAX_WORKERS)))
     try:
-        futures = {pool.submit(_run_part, p, texts, words, scan_lines, sweep, muse, checker,
-                                {d.id: d.name for d in docs}): p for p in parts}
+        futures = {pool.submit(_run_part, p, texts, words, scan_lines, sweep, muse, checker, names,
+                                built, budget, not pack.unread): p for p in parts}
         outcomes: dict[str, _Outcome] = {}
-        for future in as_completed(futures):
-            outcome = future.result()
-            outcomes[outcome.part.id] = outcome
-            yield PartDone(outcome.part.id, outcome.part.status, outcome.part.reason)
+        try:
+            for future in as_completed(futures, timeout=PART_TIMEOUT_S if built else None):
+                outcome = future.result()
+                outcomes[outcome.part.id] = outcome
+                yield from outcome.events
+                yield PartDone(outcome.part.id, outcome.part.status, outcome.part.reason)
+        except FuturesTimeout:  # a part that ran out of time resolves to unclear, never to a clean answer
+            for future, part in futures.items():
+                if part.id not in outcomes:
+                    late = part.model_copy(update={"status": "cannot_tell", "reason": "The check timed out; nothing is settled."})
+                    outcomes[part.id] = _Outcome(late, [], [], {"scenario": "timeout"})
+                    yield PartDone(part.id, late.status, late.reason)
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
 
     ordered = [outcomes[p.id] for p in parts]
+    graph = None
+    if built is not None:
+        graph = {"stats": built.g.graph.get("stats", {}), "docs": built.g.graph["docs"],
+                 "parts": {o.part.id: o.graph for o in ordered if o.graph}}
     yield finish([o.part for o in ordered], [c for o in ordered for c in o.cards],
-                 [b for o in ordered for b in o.banners])
+                 [b for o in ordered for b in o.banners], graph)
 
 
 def _run_part(part: Part, texts: list[PageText], words: dict, scan_lines: dict,
               sweep: list[AbsencePage], muse: MuseClient, checker: Checker,
-              names: dict[str, str] | None = None) -> _Outcome:
+              names: dict[str, str] | None = None, built=None, budget=None,
+              receipt_complete: bool = True) -> _Outcome:
     """Worker: relate, snap, blind check, status for ONE part. Returns plain data; never raises."""
     banners: list[Banner] = []
     cards: list[Card] = []
     done = part.model_copy()
+    if built is not None:
+        from proofgraph.review import graph_run
+        try:
+            out = graph_run.run_part_graph(part, built, texts, muse, checker, names or {}, budget, receipt_complete)
+        except Exception as exc:
+            banners.append(_failure_banner(exc))
+            done.status = "error"
+            done.reason = ("Stopped at the spend cap; nothing was checked." if isinstance(exc, SpendCapReached)
+                           else "The graph check failed; nothing was checked.")
+            return _Outcome(done, cards, banners)
+        return _Outcome(out.part, out.cards, out.banners, out.info, tuple(out.events))
     if evidence_map_on():
         try:
             built = build_map(part, texts, words, scan_lines, muse, checker, names)
@@ -289,7 +330,7 @@ def _failure_banner(exc: Exception) -> Banner:
 
 
 def _assemble(claim: str, muse: MuseClient, docs: list[Doc], images: dict, parts: list[Part],
-              cards: list[Card], banners: list[Banner]) -> RunResult:
+              cards: list[Card], banners: list[Banner], graph: dict | None = None) -> RunResult:
     renamed: dict[str, str] = {}
     final_cards: list[Card] = []
     for n, card in enumerate(cards, start=1):
@@ -311,7 +352,7 @@ def _assemble(claim: str, muse: MuseClient, docs: list[Doc], images: dict, parts
         status=status, driver_part=driver,
         run=Run(mode="live", recorded_at=datetime.now(timezone.utc).isoformat(),
                 models={"proposer": muse.settings.muse_model}, cost_usd=0.0),
-        docs=docs, parts=parts, cards=final_cards, banners=banners,
+        docs=docs, parts=parts, cards=final_cards, banners=banners, graph=graph,
     )
     return RunResult(review, images)
 
