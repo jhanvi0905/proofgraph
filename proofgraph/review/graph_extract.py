@@ -49,6 +49,13 @@ class Header(BaseModel):
     vocabulary: list[str] = Field(default_factory=list)
 
 
+class Relation(BaseModel):
+    kind: Literal["is_a", "holds_office"]
+    subject: str
+    object: str
+    interim: bool = False
+
+
 class Rule(BaseModel):
     id: str
     bearer: str
@@ -62,6 +69,7 @@ class Rule(BaseModel):
     excepts: str | None = None
     effective_from: str | None = None
     concepts: list[str] = Field(default_factory=list)
+    relations: list[Relation] = Field(default_factory=list)
     page: int
     quote: str
     bearer_inferred: bool = False
@@ -106,6 +114,7 @@ class DocRead:
     header: Header
     rules: list[GroundedRule] = field(default_factory=list)
     injection_quote: str | None = None
+    terms: dict[str, Alignment] = field(default_factory=dict)  # defined term -> where its quote sits
 
     @property
     def counts(self) -> Counter:
@@ -131,14 +140,17 @@ def align(quote: str, text: str) -> tuple[Level, int, int]:
     return "unmatched", 0, 0
 
 
-def ground(rule: Rule, doc: str, pages: Sequence[PageText]) -> GroundedRule:
-    """Align a rule's quote on the page the model named, then on the document's other pages."""
-    ordered = sorted(pages, key=lambda p: p.page != rule.page)
-    for p in ordered:
-        level, start, end = align(rule.quote, p.text)
+def ground_quote(quote: str, page: int, pages: Sequence[PageText]) -> Alignment:
+    """Align on the page the model named, then on the document's other pages."""
+    for p in sorted(pages, key=lambda p: p.page != page):
+        level, start, end = align(quote, p.text)
         if level != "unmatched":
-            return GroundedRule(rule, doc, Alignment(level, p.page, start, end))
-    return GroundedRule(rule, doc, Alignment("unmatched", rule.page))
+            return Alignment(level, p.page, start, end)
+    return Alignment("unmatched", page)
+
+
+def ground(rule: Rule, doc: str, pages: Sequence[PageText]) -> GroundedRule:
+    return GroundedRule(rule, doc, ground_quote(rule.quote, rule.page, pages))
 
 
 def extract_document(doc: str, pages: Sequence[PageText], muse: MuseClient) -> DocRead:
@@ -155,6 +167,7 @@ def extract_document(doc: str, pages: Sequence[PageText], muse: MuseClient) -> D
                   for r in out.rules]
     read = DocRead(doc, header, injection_quote=injection)
     read.rules = [ground(r, doc, pages) for r in rules]
+    read.terms = {t.term: ground_quote(t.quote, t.page, pages) for t in header.defined_terms}
     return read
 
 

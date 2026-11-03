@@ -1,4 +1,4 @@
-<!-- Task progress (tick as each lands): [x] A1 [x] A2 [x] N1 [x] N3 [x] M1 [x] M2 -->
+<!-- Task progress (tick as each lands): [x] A1 [x] A2 [x] N1 [x] N3 [x] M1 [x] M2 [x] A3 [x] A4 [x] A6 -->
 
 # ProofGraph: Final Build Brief
 

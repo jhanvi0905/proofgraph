@@ -9,15 +9,25 @@ in". Near misses become ``unclear`` links, never merges, and a differing number 
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import unicodedata
-from dataclasses import dataclass, field
+from collections import Counter
+from collections.abc import Callable, Iterable
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Literal
 
 import networkx as nx
 from rapidfuzz.distance import JaroWinkler
 
-from proofgraph.review.graph_extract import DocRead
+from proofgraph.config import DEFAULT_CACHE_DIR
+from proofgraph.review.graph_extract import DocRead, GroundedRule
+from proofgraph.review.relate import PageText
+from proofgraph.review.scan import locate
+from proofgraph.review.snap import snap
+from proofgraph.review.timeline import referenced_documents
 
 EntityType = Literal["person", "organisation", "office", "section", "concept", "event"]
 
@@ -117,6 +127,10 @@ def build_entities(reads: list[DocRead]) -> Entities:
             subject = entity(rule.bearer or "unspecified")
             subject.rule_ids.append(rule.id)
             out.subject[rule.id] = subject.id
+            for rel in rule.relations:
+                entity(rel.subject), entity(rel.object)
+            for m in rule.members:
+                entity(m)
             seen = []
             for c in rule.concepts:
                 if canon_name(c):
@@ -189,3 +203,163 @@ def merge(ents: Entities, reads: list[DocRead]) -> Merged:
         head = min(comp, key=lambda i: (ents.by_id[i].scope is not None, i))
         canon.update({i: head for i in comp})
     return Merged(canon, links)
+
+
+# ---- typed links with evidence (A3) -------------------------------------------------------
+
+Locator = Callable[[str, int, str], tuple[str, list]]  # (doc, page, quote) -> (box status, boxes)
+_TIER_RANK = {"page": 0, "model": 1, "unclear": 2}
+_SECTION_REF = re.compile(r"(?:section|sec\.|§)\s*(\d+(?:\.\d+)*)", re.I)
+
+
+def make_locator(words: dict, transcripts: dict) -> Locator:
+    """Boxes for a quote: ``snap`` on a text page, ``locate`` on a transcribed scan, else none."""
+
+    def locator(doc: str, page: int, quote: str) -> tuple[str, list]:
+        if (doc, page) in words:
+            found = snap(quote, words[(doc, page)])
+        elif (doc, page) in transcripts:
+            found = locate(quote, transcripts[(doc, page)])
+        else:
+            return "unpinned", []
+        return found.status, found.boxes
+
+    return locator
+
+
+def _weakest(*tiers: str) -> str:
+    return max(tiers, key=_TIER_RANK.__getitem__)
+
+
+def _in_quote(name: str, quote: str) -> bool:
+    return bool(canon_name(name)) and re.search(rf"\b{re.escape(canon_name(name))}\b", canon_name(quote)) is not None
+
+
+def _evidence(g: GroundedRule, locator: Locator | None) -> dict:
+    a = g.alignment
+    ev = {"doc": g.doc, "page": a.page, "level": a.level, "start": a.start, "end": a.end, "quote": g.rule.quote}
+    if locator and g.decides:
+        ev["box_status"], ev["box"] = locator(g.doc, a.page, g.rule.quote)
+    return ev
+
+
+def edges(reads: list[DocRead], ents: Entities, merged: Merged, locator: Locator | None = None) -> nx.MultiDiGraph:
+    """The typed graph. Nodes: entities (by merged id), rules, definitions, external documents.
+    Every edge carries ``tier``, ``made_by`` and an ``evidence`` list. A link whose names are not in
+    its quote is kept as ``unclear`` and never decides; a dangling exception is counted."""
+    g = nx.MultiDiGraph()
+    g.graph.update(same_as=[asdict(l) for l in merged.links], rejected=Counter(), docs={})
+    ent = lambda eid: merged.canon.get(eid, eid)  # noqa: E731
+    for e in ents.by_id.values():
+        node = g.nodes.get(ent(e.id)) or {}
+        g.add_node(ent(e.id), kind="entity", name=ents.by_id[ent(e.id)].name, type=ents.by_id[ent(e.id)].type,
+                   docs=sorted(set(node.get("docs", [])) | e.docs))
+    by_name = {(read.doc, canon_name(e.name)): e.id for read in reads for e in ents.by_id.values() if read.doc in e.docs}
+
+    rule_doc = {gr.rule.id: gr for read in reads for gr in read.rules}
+    dated = {read.doc: read.header.date for read in reads}
+    for read in reads:
+        g.graph["docs"][read.doc] = {"role": read.header.role, "date": read.header.date}
+        for gr in read.rules:
+            r = gr.rule
+            g.add_node(r.id, kind="rule", doc=gr.doc, page=gr.alignment.page, quote=r.quote, deontic=r.deontic,
+                       action=r.action, value=r.value, value_status=r.value_status, link_kind=r.link_kind,
+                       effective_from=r.effective_from, tier=gr.tier, level=gr.alignment.level)
+            ev = [_evidence(gr, locator)]
+            g.add_edge(r.id, ent(ents.subject[r.id]), "mentions", kind="mentions", role="bearer", tier=gr.tier,
+                       made_by="code", evidence=ev)
+            for eid in ents.mentions.get(r.id, []):
+                g.add_edge(r.id, ent(eid), "mentions", kind="mentions", role="concept", tier=gr.tier,
+                           made_by="code", evidence=ev)
+            for m in _SECTION_REF.finditer(r.quote):
+                target = f"e:{read.doc}:section {m.group(1)}"
+                if target in ents.by_id and ent(target) != ent(ents.subject[r.id]):
+                    g.add_edge(r.id, ent(target), "refers_to_section", kind="refers_to_section", tier=gr.tier,
+                               made_by="code", evidence=ev)
+            for rel in r.relations:
+                a, b = by_name.get((read.doc, canon_name(rel.subject))), by_name.get((read.doc, canon_name(rel.object)))
+                checked = _in_quote(rel.subject, r.quote) and _in_quote(rel.object, r.quote)
+                if not checked:
+                    g.graph["rejected"]["relation_not_in_quote"] += 1
+                if a and b:
+                    g.add_edge(ent(a), ent(b), rel.kind, kind=rel.kind, interim=rel.interim, source=r.id,
+                               tier=gr.tier if checked else "unclear", made_by="model-checked", evidence=ev)
+            for m in r.members:
+                a, b = by_name.get((read.doc, canon_name(m))), ents.subject[r.id]
+                checked = _in_quote(m, r.quote)
+                if not checked:
+                    g.graph["rejected"]["member_not_in_quote"] += 1
+                if a:
+                    g.add_edge(ent(a), ent(b), "is_a", kind="is_a", mode=r.member_mode, source=r.id,
+                               tier=gr.tier if checked else "unclear", made_by="model-checked", evidence=ev)
+            if r.link_kind != "rule" and r.excepts:
+                if r.excepts in rule_doc:
+                    g.add_edge(r.id, r.excepts, "excepts" if r.link_kind == "exception" else "conditions",
+                               kind="excepts" if r.link_kind == "exception" else "conditions",
+                               tier=_weakest(gr.tier, rule_doc[r.excepts].tier), made_by="model-extracted", evidence=ev)
+                else:
+                    g.graph["rejected"]["dangling_exception"] += 1
+        for term, al in read.terms.items():
+            node = f"d:{read.doc}:{canon_name(term)}"
+            quote = next((t.quote for t in read.header.defined_terms if t.term == term), "")
+            tier = "unclear" if al.level == "unmatched" else ("model" if al.level == "fuzzy" else "page")
+            g.add_node(node, kind="definition", doc=read.doc, page=al.page, quote=quote, tier=tier)
+            eid = by_name.get((read.doc, canon_name(term)))
+            if eid:
+                g.add_edge(ent(eid), node, "defined_by", kind="defined_by", tier=tier, made_by="code",
+                           evidence=[{"doc": read.doc, "page": al.page, "level": al.level, "quote": quote}])
+    for ref in referenced_documents([(gr.rule.id, gr.rule.quote) for gr in rule_doc.values()], dated):
+        node = f"x:{ref.date}:{ref.phrase}"
+        g.add_node(node, kind="external", phrase=ref.phrase, date=ref.date, status=ref.status)
+        gr = rule_doc[ref.cited_in]
+        g.add_edge(ref.cited_in, node, "cites", kind="cites", tier=gr.tier, made_by="code",
+                   evidence=[_evidence(gr, locator)])
+    for l in merged.links:
+        if l.kind == "unclear":
+            g.add_edge(ent(l.a), ent(l.b), "unclear", kind="unclear", tier="unclear", made_by="code", evidence=[])
+    return g
+
+
+# ---- store and cache (A6) -----------------------------------------------------------------
+
+
+def packet_hash(texts: Iterable[PageText]) -> str:
+    h = hashlib.sha256()
+    for p in sorted(texts, key=lambda p: (p.doc, p.page)):
+        h.update(f"{p.doc}\x00{p.page}\x00{p.text}\x01".encode())
+    return h.hexdigest()
+
+
+def pair_key(a: str, b: str, part: str = "") -> str:
+    """Comparator cache key for one statement pair (order matters: part, then a, then b)."""
+    return hashlib.sha256(json.dumps([part, a, b], ensure_ascii=False).encode()).hexdigest()
+
+
+def _path(cache_dir: Path | str, key: str) -> Path:
+    return Path(cache_dir) / "graphs" / f"{key}.json"
+
+
+def save(g: nx.MultiDiGraph, key: str, cache_dir: Path | str = DEFAULT_CACHE_DIR) -> bool:
+    """Write the graph under ``key``. A rebuild smaller than the last good one is refused (False)."""
+    path = _path(cache_dir, key)
+    old = load(key, cache_dir)
+    if old is not None and old.number_of_nodes() + old.number_of_edges() > g.number_of_nodes() + g.number_of_edges():
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = nx.node_link_data(g, edges="edges")
+    data["graph"]["rejected"] = dict(g.graph.get("rejected", {}))
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+    tmp.replace(path)
+    return True
+
+
+def load(key: str, cache_dir: Path | str = DEFAULT_CACHE_DIR) -> nx.MultiDiGraph | None:
+    path = _path(cache_dir, key)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        g = nx.node_link_graph(data, edges="edges", multigraph=True, directed=True)
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    g.graph["rejected"] = Counter(g.graph.get("rejected", {}))
+    return g
