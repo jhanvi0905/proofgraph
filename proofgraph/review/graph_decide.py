@@ -23,6 +23,10 @@ from proofgraph.review.graph import canon_name
 from proofgraph.review.timeline import _first_date
 
 _TIER_RANK = {"page": 0, "model": 1, "unclear": 2}
+SCENARIO_NAMES = {  # shown to the reader beside the code (names from the build brief's scenario table)
+    "S1": "Direct statement", "S2": "Rule with exception or condition", "S3": "Hinges on a definition",
+    "S4": "Rule on a class, claim names an instance", "S5": "Override or precedence across documents",
+    "S6": "Timing and sequence", "S7": "Not mentioned", "S8": "Blank template value"}
 _DECIDING = ("conflicts", "qualifies", "agrees")
 
 
