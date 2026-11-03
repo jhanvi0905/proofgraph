@@ -177,7 +177,7 @@ def _row(part: Part, cards: list[Card], docs: list, names: dict, codes: dict, in
     for d in docs:
         mine = [c for c in cards if c.part == part.id and c.doc == d.id]
         body = "".join(_cell(c, codes) for c in mine) or '<span class="none">Nothing here bears on this part.</span>'
-        cells.append(f"<td>{body}</td>")
+        cells.append(f'<td data-label="{codes[d.id]}  {_e(names[d.id])}">{body}</td>')
     note = _agreement(info)
     trail = "" if driver else _trail(info, {d.id: names[d.id] for d in docs})
     name = scen.get(str(info.get("scenario")))

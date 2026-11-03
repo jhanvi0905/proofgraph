@@ -18,7 +18,11 @@
     var target = box[0] || document.querySelector(".page:not([hidden])");
     if (target && target.scrollIntoView) target.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }
-  cells.forEach(function (c) { c.addEventListener("click", function () { show(c); }); });
+  // On a narrow screen the page opens inline under the tapped quote; on a wide one it stays in its own column.
+  var pane = document.querySelector(".pane"), home = pane && pane.parentNode, anchor = pane && pane.nextSibling;
+  var narrow = matchMedia("(max-width: 1099px)");
+  if (pane && narrow.addEventListener) narrow.addEventListener("change", function (e) { if (!e.matches) home.insertBefore(pane, anchor); });
+  cells.forEach(function (c) { c.addEventListener("click", function () { if (pane && narrow.matches) c.after(pane); show(c); }); });
   document.querySelectorAll(".page").forEach(function (p) { p.hidden = true; });
   var first = document.querySelector(".cell.decides") || cells[0];
   if (first) show(first, true);

@@ -111,3 +111,11 @@ def test_share_page_leads_with_the_answer_and_has_no_ask(review, monkeypatch):
     assert "Checked with ProofGraph against 1 document" in html and "Check your own claim" in html
     assert 'id="ask"' not in html
     assert "Copy review link" in render(r, ask=True, share_url="/r/abc123def456")
+
+
+def test_document_cells_are_labelled_for_the_stacked_layout_and_boxes_take_the_relation_colour(review, monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    html = render(_graphed(review))
+    assert re.search(r'<td data-label="A  [^"]+">', html)
+    assert "data-rel" in html and ".box[data-rel=supports]" in html and ".box[data-rel=weakens]" in html
+    assert "narrow.matches" in html  # the page opens under the tapped quote on a phone

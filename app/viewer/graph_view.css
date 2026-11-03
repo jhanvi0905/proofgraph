@@ -78,3 +78,15 @@
 .ask div { display: flex; flex-wrap: wrap; gap: .5rem; max-width: 42rem; }
 .ask input { flex: 1 1 18rem; min-height: 44px; padding: 0 .75rem; border: 2px solid var(--ink); border-radius: 0; background: var(--paper); color: inherit; font: inherit; caret-color: var(--stamp); }
 @media print { .ask, .actions { display: none; } }
+
+/* Below 1440px three narrow columns make quotes break every few words, so each part's documents stack under its text. */
+@media (max-width: 1439px) {
+  .gridwrap { overflow-x: visible; }
+  .grid thead { display: none; }
+  .grid, .grid tbody, .grid tr, .grid th, .grid td { display: block; width: 100%; }
+  .grid th, .grid td { min-width: 0; padding: .6rem 0; border-bottom: 0; }
+  .grid tbody tr { padding: .9rem 0 .4rem; border-bottom: 1px solid var(--cyan); }
+  .grid td[data-label]::before { content: attr(data-label); display: block; margin-bottom: .35rem; font-size: var(--t-13); font-weight: 700; }
+  .grid td .none { display: block; }
+  .grid td .pane { position: static; }
+}

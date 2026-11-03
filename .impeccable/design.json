@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-04T00:00:00Z",
+  "title": "Design System: ProofGraph",
+  "extensions": {
+    "colorMeta": {
+      "sheet": {"role":"neutral","displayName":"Workpaper Sheet","canonical":"#F7F8FA","tonalRamp":[]},
+      "ink": {"role":"neutral","displayName":"Blue-Black Ink","canonical":"#0E1A2B","tonalRamp":[]},
+      "cyan-rule": {"role":"neutral","displayName":"Cyan Column Rule","canonical":"#CFE3EE","tonalRamp":[]},
+      "stamp-cobalt": {"role":"primary","displayName":"Stamp Cobalt","canonical":"#1636C9","tonalRamp":[]},
+      "pen-red": {"role":"secondary","displayName":"Audit-Pen Red","canonical":"#C8222D","tonalRamp":[]},
+      "pen-green": {"role":"secondary","displayName":"Audit-Pen Green","canonical":"#1B7F4B","tonalRamp":[]},
+      "amber-pen": {"role":"secondary","displayName":"Amber Pen","canonical":"#9A5B00","tonalRamp":[]},
+      "slate": {"role":"secondary","displayName":"Slate","canonical":"#4A5668","tonalRamp":[]},
+      "grey": {"role":"neutral","displayName":"Pencil Grey","canonical":"#5B6678","tonalRamp":[]},
+      "paper": {"role":"neutral","displayName":"Document White","canonical":"#FFFFFF","tonalRamp":[]}
+    },
+    "typographyMeta": {
+      "display": {"displayName":"Display","purpose":"Entrance H1 only."},
+      "document": {"displayName":"Document","purpose":"Quoted document text only (Source Serif 4)."}
+    },
+    "shadows": [
+      {"name":"pinned-sheet","value":"0 2px 4px rgba(14,26,43,.25), 0 24px 40px -16px rgba(14,26,43,.5)","purpose":"Entrance example sheet, rotated 1.2deg."},
+      {"name":"page-image","value":"0 2px 4px rgba(14,26,43,.14), 0 14px 28px -12px rgba(14,26,43,.3)","purpose":"Rendered document page."}
+    ],
+    "motion": [
+      {"name":"ease","value":"cubic-bezier(.16, 1, .3, 1)","purpose":"Pencil strokes, ring draw, map fades; only under no-preference reduced motion."}
+    ],
+    "breakpoints": [
+      {"name":"stack","value":"760px"},
+      {"name":"hero-split","value":"960px"},
+      {"name":"review-pane","value":"1100px"}
+    ]
+  },
+  "components": [
+    {"name":"Primary Button","kind":"button","refersTo":"button-primary","description":"Cobalt, square, inverts on hover.",
+     "html":"<button class=\"ds-btn\">Check claim</button>",
+     "css":".ds-btn{min-height:44px;padding:0 1.2rem;border:2px solid #1636C9;background:#1636C9;color:#fff;border-radius:0;font:700 1rem 'Schibsted Grotesk',Arial,sans-serif;cursor:pointer;transition:background .15s,color .15s}.ds-btn:hover{background:#fff;color:#1636C9}.ds-btn:focus-visible{outline:3px solid #1636C9;outline-offset:2px}"},
+    {"name":"Evidence Cell","kind":"card","refersTo":"evidence-cell","description":"Pressable white cell: serif quote, mark, relation, reference tag.",
+     "html":"<button class=\"ds-cell\"><q>The term is twelve months.</q><span class=\"ds-cm\">Supports <span class=\"ds-ref\">p. 4</span></span></button>",
+     "css":".ds-cell{display:block;width:100%;text-align:left;background:#fff;border:1px solid #CFE3EE;border-radius:0;padding:.65rem .75rem;min-height:44px;cursor:pointer;color:#0E1A2B;font-family:'Schibsted Grotesk',Arial,sans-serif}.ds-cell q{display:block;font-family:'Source Serif 4',Georgia,serif;line-height:1.5}.ds-cell:hover{border-color:#0E1A2B}.ds-cm{display:flex;margin-top:.45rem;font-size:.8125rem}.ds-ref{margin-left:auto;padding:0 .35rem;border:1px solid #0E1A2B}"},
+    {"name":"Sign-off Box","kind":"custom","refersTo":"signoff-box","description":"Prepared-by and second-reader record.",
+     "html":"<ul class=\"ds-so\"><li><span>Prepared by</span><span>ProofGraph</span></li><li><span>Second reader</span><span>Not run</span></li></ul>",
+     "css":".ds-so{list-style:none;margin:0;padding:0;border:1.5px solid #0E1A2B;background:#fff;font:.9rem 'Schibsted Grotesk',Arial,sans-serif;color:#0E1A2B}.ds-so li{display:flex;justify-content:space-between;gap:1rem;padding:.55rem .8rem}.ds-so li+li{border-top:1px solid #CFE3EE}.ds-so li>span:first-child{font-weight:700}"},
+    {"name":"Pencil Label","kind":"chip","refersTo":"pencil-label","description":"Hand-drawn pill for map labels.",
+     "html":"<span class=\"ds-pencil\">Term</span>",
+     "css":".ds-pencil{display:inline-block;padding:.2rem .7rem;border:2px solid #0E1A2B;border-radius:999px 1000px 999px 1000px/1000px 999px 1000px 999px;font:.9rem 'Schibsted Grotesk',Arial,sans-serif;background:#F7F8FA;color:#0E1A2B}"}
+  ],
+  "narrative": {
+    "northStar": "The Tied-Out Workpaper",
+    "overview": "ProofGraph looks like an auditor's working paper: cool white ruled sheet, blue-black ink, hand-drawn pencil marks each with a legend entry and a workpaper reference. Stamp cobalt is the single saturated field and the primary action. Serif speaks for documents; grotesk speaks for ProofGraph.",
+    "keyCharacteristics": ["Ruled sheet ground, square corners, ink borders.","One cobalt field, on the entrance hero.","Five pencil marks plus a clash mark, each with a legend entry.","Tabular figures, no monospace."],
+    "rules": [
+      {"name":"The Four Carriers Rule","body":"An answer is word + pen colour + mark shape + underline style.","section":"colors"},
+      {"name":"The Document White Rule","body":"Pure white means a document or a box that holds a record.","section":"colors"},
+      {"name":"The One Field Rule","body":"Cobalt fills a field only as the entrance hero.","section":"colors"},
+      {"name":"The Two Voices Rule","body":"Serif is for quoted document text only; all ProofGraph speech is grotesk.","section":"typography"},
+      {"name":"The Tabular Rule","body":"Figures and page references use tabular numerals; no monospace face.","section":"typography"},
+      {"name":"The Paper Only Rule","body":"Shadow belongs to a document or sheet; controls, cells and boxes never cast one.","section":"elevation"}
+    ],
+    "dos": ["Do give every answer all four carriers: word, pen colour, mark, underline style.","Do set quotes in Source Serif 4 on Document White.","Do tag sections and cells with a workpaper reference.","Do write gaps as open items.","Do keep controls square, at least 44px, with the 3px cobalt focus ring."],
+    "donts": ["Don't use a chat box, citation chips or a confidence score.","Don't use cobalt as a fill inside the product.","Don't put a shadow on cells, buttons or boxes.","Don't use a monospace face or set ProofGraph's words in the serif.","Don't use colour alone to carry an answer."]
+  }
+}
