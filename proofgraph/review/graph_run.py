@@ -39,6 +39,15 @@ _CARD = {"agrees": "supports", "conflicts": "contradicts", "qualifies": "weakens
 
 
 @dataclass(frozen=True)
+class DocStarted:
+    """Sent for every document before its reading starts, so the wait has something to show."""
+
+    doc: str
+    name: str
+    pages: int
+
+
+@dataclass(frozen=True)
 class DocRead:
     doc: str
     name: str
@@ -59,6 +68,7 @@ class EntityFound:
     name: str
     type: str
     docs: int
+    doc_ids: tuple[str, ...] = ()  # which documents it is named in, so a page can put it in the right column
 
 
 @dataclass(frozen=True)
@@ -99,6 +109,8 @@ def build_packet_graph(texts: Sequence[PageText], names: dict[str, str], words: 
     for t in texts:
         by_doc.setdefault(t.doc, []).append(t)
     reads = []
+    for doc in sorted(by_doc):
+        yield DocStarted(doc, names.get(doc, doc), len(by_doc[doc]))
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         futures = {pool.submit(extract_document, doc, pages, muse): doc for doc, pages in sorted(by_doc.items())}
         for fut in as_completed(futures):
@@ -134,7 +146,7 @@ def _ready(g: nx.MultiDiGraph, cached: bool = False):
     ents = sorted(((n, d) for n, d in g.nodes(data=True) if d["kind"] == "entity"),
                   key=lambda nd: (-len(nd[1]["docs"]), nd[1]["name"]))
     for _, d in ents[:12]:
-        yield EntityFound(d["name"], d["type"], len(d["docs"]))
+        yield EntityFound(d["name"], d["type"], len(d["docs"]), tuple(sorted(d["docs"])))
     s = g.graph["stats"]
     yield GraphReady(s["pages"], s["rules"], s["entities"], cached)
 
