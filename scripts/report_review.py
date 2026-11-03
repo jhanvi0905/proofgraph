@@ -319,11 +319,130 @@ def load_golds(paths: list[Path]) -> list[Gold]:
     return golds
 
 
+# ---- the gate (M3): flag off against flag on --------------------------------------------------
+
+_VALID_BOXES = ("pinned", "located")
+
+
+@dataclass
+class SystemScore:
+    """One system's counts over the gold cases. Definitions are printed beside the table."""
+
+    correct: list[str] = field(default_factory=list)  # case ids where every gold part's status matched
+    wrong_supported: list[str] = field(default_factory=list)  # "case/part" the run called supported, gold did not
+    parts_not_supported: int = 0  # gold parts whose status is not supported (the wrongly-supported denominator)
+    quoted: tuple[int, int] = (0, 0)  # gold relations a card quoted, over gold relations (not_enough excluded)
+    valid: tuple[int, int] = (0, 0)  # cards whose quote snapped to the page, over all cards
+    tiers: dict[str, list[tuple[str, str, bool]]] = field(default_factory=dict)  # tier -> (case, part, correct)
+    tier_supported_wrong: dict[str, int] = field(default_factory=dict)
+    unclear: tuple[int, int] = (0, 0)  # cannot_tell parts over aligned gold parts
+    scenarios: dict[str, list[tuple[str, bool]]] = field(default_factory=dict)
+
+
+def _run_status(review: Review | None, gold: Gold) -> dict[str, tuple[str, str | None, str | None]]:
+    """gold part id -> (merged run status, tier, scenario). Missing run or unmatched part: no entry."""
+    out: dict[str, tuple[str, str | None, str | None]] = {}
+    if review is None:
+        return out
+    by_id = {p.id: p for p in review.parts}
+    info = (review.graph or {}).get("parts", {})
+    for m in align(review, gold).matches:
+        status, _ = _merge_parts([by_id[r] for r in m.run])
+        first = info.get(m.run[0], {})
+        out[m.gold] = (status, first.get("tier"), first.get("scenario"))
+    return out
+
+
+def score_system(runs: dict[str, Review], golds: list[Gold]) -> SystemScore:
+    sc = SystemScore()
+    quoted = [0, 0]
+    valid = [0, 0]
+    unclear = [0, 0]
+    for gold in sorted(golds, key=lambda g: g.case):
+        review = runs.get(gold.case)
+        got = _run_status(review, gold)
+        ok_all = True
+        for part in gold.parts:
+            status, tier, scenario = got.get(part.id, ("missing", None, None))
+            right = status == part.status
+            ok_all &= right
+            if part.status != "supported":
+                sc.parts_not_supported += 1
+                if status == "supported":
+                    sc.wrong_supported.append(f"{gold.case}/{part.id}")
+            if tier and status != "cannot_tell":
+                sc.tiers.setdefault(tier, []).append((gold.case, part.id, right))
+                if status == "supported" and part.status != "supported":
+                    sc.tier_supported_wrong[tier] = sc.tier_supported_wrong.get(tier, 0) + 1
+            if scenario:
+                sc.scenarios.setdefault(scenario, []).append((gold.case, right))
+            if part.id in got:
+                unclear[1] += 1
+                unclear[0] += status == "cannot_tell"
+        if ok_all:
+            sc.correct.append(gold.case)
+        tally = score_case(review, gold)
+        for key, (k, n) in tally.items():
+            if key.startswith("recall:"):
+                quoted[0] += k
+                quoted[1] += n
+        for card in (review.cards if review else []):
+            valid[1] += 1
+            valid[0] += card.box_status in _VALID_BOXES
+    sc.quoted, sc.valid, sc.unclear = (quoted[0], quoted[1]), (valid[0], valid[1]), (unclear[0], unclear[1])
+    return sc
+
+
+def gate_table(off: dict[str, Review], on: dict[str, Review], golds: list[Gold]) -> str:
+    a, b = score_system(off, golds), score_system(on, golds)
+    n = len(golds)
+    fixed = sorted(set(b.correct) - set(a.correct))
+    broken = sorted(set(a.correct) - set(b.correct))
+    pct = lambda t: fmt_proportion(*t)  # noqa: E731
+    out = [f"# Gate: flag off against flag on (n = {n} cases)", "",
+           "Correct = every gold part's status matches (per case). Wrongly supported = a gold part that is not "
+           "supported but the run called supported (per gold part; n is the gold parts that are not supported). "
+           "Gold evidence quoted = gold relations that a card quotes. Valid quotes = cards whose quote snapped "
+           "to its page.", "",
+           "| System | Correct | Wrongly supported | Gold evidence quoted | Valid quotes | Against flag off |",
+           "|---|---|---|---|---|---|"]
+
+    def row(name: str, s: SystemScore, versus: str) -> str:
+        return (f"| {name} | {fmt_proportion(len(s.correct), n)} | {fmt_proportion(len(s.wrong_supported), s.parts_not_supported)}"
+                f" | {pct(s.quoted)} | {pct(s.valid)} | {versus} |")
+
+    out.append(row("Flag off", a, "-"))
+    out.append(row("ProofGraph", b, f"+{len(fixed)} fixed / -{len(broken)} broken"))
+    for tier, label in (("page", "read from page"), ("model", "model's reading")):
+        items = b.tiers.get(tier, [])
+        if items:
+            right = sum(1 for *_, r in items if r)
+            out.append(f"| ...{label} | {fmt_proportion(right, len(items))} | "
+                       f"{b.tier_supported_wrong.get(tier, 0)}/{len(items)} | - | - | |")
+    out.append(f"| ...unclear, sent to review | {b.unclear[0]}/{b.unclear[1]} parts | - | - | - | |")
+    out += ["", f"Fixed: {', '.join(fixed) or 'none'}", f"Broken: {', '.join(broken) or 'none'}",
+            f"Wrongly supported, flag off: {', '.join(a.wrong_supported) or 'none'}",
+            f"Wrongly supported, ProofGraph: {', '.join(b.wrong_supported) or 'none'}", ""]
+    if b.scenarios:
+        out += ["## Results by scenario (raw counts, ProofGraph)", "", "| scenario | parts right / parts | cases |", "|---|---|---|"]
+        for tag in sorted(b.scenarios):
+            rows = b.scenarios[tag]
+            out.append(f"| {tag} | {sum(r for _, r in rows)}/{len(rows)} | {', '.join(sorted({c for c, _ in rows}))} |")
+        out.append("")
+    rose = len(b.wrong_supported) > len(a.wrong_supported)
+    out.append("GATE: " + ("HOLD. Wrongly supported rose; ship with the flag off and show the graph on the demo "
+                           "packets only." if rose else
+                           f"PASS. Wrongly supported did not rise ({len(a.wrong_supported)} to {len(b.wrong_supported)}). "
+                           "The owner decides."))
+    return "\n".join(out) + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--runs-glob", default="runs/review-*.jsonl")
     ap.add_argument("--gold", action="append", type=Path, help="gold file or directory; repeatable")
     ap.add_argument("--out", type=Path, default=Path("results/report.md"))
+    ap.add_argument("--gate", nargs=2, type=Path, metavar=("OFF", "ON"), help="flag-off and flag-on run files")
     args = ap.parse_args(argv)
 
     files = sorted(glob.glob(args.runs_glob))
@@ -335,6 +454,13 @@ def main(argv: list[str] | None = None) -> int:
         print("report_review: no gold cases found; pass --gold", file=sys.stderr)
         return 2
     ids = {g.case for g in golds}
+
+    if args.gate:
+        text = gate_table(load_runs(args.gate[0]), load_runs(args.gate[1]), golds)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(text)
+        print(text, end="")
+        return 0
 
     sections = []
     for name in files:

@@ -395,3 +395,33 @@ def test_right_ids_with_wrong_spans_do_not_match():
     assert t["alignment"] == (0, 2)
     assert t["part_status"] == (0, 2)
     assert t["recall:supports"] == (0, 1)
+
+
+def test_gate_table_counts_fixed_broken_and_wrongly_supported():
+    golds = [_gold("C1"), _gold("C2"), _gold("C3")]
+    good = {g.case: _run_from_gold(g) for g in golds}
+
+    def wrong(case, status="supported"):
+        return _mutate(good[case], lambda raw: raw["parts"][1].update(status=status))
+
+    off = {"C1": good["C1"], "C2": wrong("C2"), "C3": good["C3"]}  # C2 wrongly supported
+    on = {"C1": wrong("C1", "cannot_tell"), "C2": good["C2"], "C3": good["C3"]}  # C1 broken, C2 fixed
+    text = rr.gate_table(off, on, golds)
+    assert "+1 fixed / -1 broken" in text and "Fixed: C2" in text and "Broken: C1" in text
+    assert "Wrongly supported, flag off: C2/P2" in text and "Wrongly supported, ProofGraph: none" in text
+    assert "GATE: PASS" in text and "unclear, sent to review | 1/6 parts" in text
+
+
+def test_gate_holds_when_wrongly_supported_rises():
+    golds = [_gold("C1")]
+    good = {"C1": _run_from_gold(golds[0])}
+    bad = {"C1": _mutate(good["C1"], lambda raw: raw["parts"][1].update(status="supported"))}
+    assert "GATE: HOLD" in rr.gate_table(good, bad, golds)
+
+
+def test_gate_tier_rows_use_the_graph_field():
+    gold = _gold("C1")
+    run = _mutate(_run_from_gold(gold), lambda raw: raw.update(
+        graph={"parts": {"P1": {"tier": "page", "scenario": "S1"}, "P2": {"tier": "page", "scenario": "S2"}}}))
+    text = rr.gate_table({"C1": _run_from_gold(gold)}, {"C1": run}, [gold])
+    assert "...read from page | 100.0% (2/2)" in text and "| S2 | 1/1 | C1 |" in text
