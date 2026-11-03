@@ -262,10 +262,11 @@ def edges(reads: list[DocRead], ents: Entities, merged: Merged, locator: Locator
         g.graph["docs"][read.doc] = {"role": read.header.role, "date": read.header.date}
         for gr in read.rules:
             r = gr.rule
+            ev = [_evidence(gr, locator)]
             g.add_node(r.id, kind="rule", doc=gr.doc, page=gr.alignment.page, quote=r.quote, deontic=r.deontic,
                        action=r.action, value=r.value, value_status=r.value_status, link_kind=r.link_kind,
-                       effective_from=r.effective_from, tier=gr.tier, level=gr.alignment.level)
-            ev = [_evidence(gr, locator)]
+                       effective_from=r.effective_from, tier=gr.tier, level=gr.alignment.level,
+                       box=ev[0].get("box", []), box_status=ev[0].get("box_status", "unpinned"))
             g.add_edge(r.id, ent(ents.subject[r.id]), "mentions", kind="mentions", role="bearer", tier=gr.tier,
                        made_by="code", evidence=ev)
             for eid in ents.mentions.get(r.id, []):

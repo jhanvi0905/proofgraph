@@ -181,6 +181,15 @@ class Review(BaseModel):
     parts: list[Part]
     cards: list[Card]
     banners: list[Banner] = Field(default_factory=list)
+    # Display-only (PROOFGRAPH_GRAPH). None on every older review.
+    graph: dict | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_unused_graph(self, handler):
+        data = handler(self)
+        if self.graph is None:
+            data.pop("graph", None)
+        return data
 
     @model_validator(mode="after")
     def _references_resolve(self) -> "Review":
