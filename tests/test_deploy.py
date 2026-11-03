@@ -52,7 +52,8 @@ def test_a_cache_seeded_from_the_repo_answers_every_sample_without_a_model_call(
     for sample in _manifest()["samples"]:
         done = [e for e in run_review(sample["claim"], [SAMPLES / f for f in sample["files"]], muse) if isinstance(e, AllDone)]
         review = done[0].result.review
-        assert review.status not in ("error", "checking") and not [b for b in review.banners if b.kind == "checker_unavailable"]
+        banners = [b.text for b in review.banners]
+        assert review.status not in ("error", "checking") and not [b for b in review.banners if b.kind == "checker_unavailable"], banners
     assert muse_net.calls == chat_net.calls == image_net.calls == []
 
 
