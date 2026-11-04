@@ -1,12 +1,20 @@
 /* Scale (1.25 ratio, 16px base): 13 / 16 / 20 / 25 / 31 / 39. */
 .shell { max-width: 80rem; margin: 0 auto; padding: 0 1rem 4rem; }
-.wordmark { font-weight: 700; font-size: 1.25rem; letter-spacing: .01em; }
+.wordmark { font-weight: 700; font-size: 1.25rem; letter-spacing: .01em; color: inherit; text-decoration: none; }
+/* One sticky bar across the entrance: where am I, and where can I go. Full width, matching the hero. */
+.topnav { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .1rem 1.5rem; margin: 0 calc(50% - 50vw); padding: .55rem max(1rem, calc(50vw - 40rem)); background: var(--stamp); color: #fff; }
+.topnav nav { display: flex; flex-wrap: wrap; gap: 0 1.35rem; }
+.topnav nav a { color: #fff; text-decoration: none; font-size: .95rem; font-weight: 500; padding: .55rem 0; border-bottom: 2px solid transparent; }
+.topnav nav a:hover, .topnav nav a:focus-visible { border-bottom-color: #fff; }
+.topnav :focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.entrance { scroll-padding-top: 4rem; } html { scroll-padding-top: 4rem; }
+.band[id], .hero { scroll-margin-top: 3.5rem; }
 #entrance { padding: 0; }
 html, body { overflow-x: clip; }
 .hero { background: var(--stamp); color: #fff; margin: 0 calc(50% - 50vw); padding: 1.5rem max(1rem, calc(50vw - 40rem)) 3.5rem; }
 .hero-in { margin: 0; display: grid; gap: 2.5rem; grid-template-columns: minmax(0, 1fr); align-items: start; }
 @media (min-width: 960px) { .hero-in { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 4rem; } }
-.hero h1 { font-size: clamp(2.4rem, 6.2vw, 4.4rem); line-height: 1.02; margin: 2.5rem 0 0; letter-spacing: -.02em; font-weight: 700; text-wrap: balance; }
+.hero h1 { font-size: clamp(2.4rem, 6.2vw, 4.4rem); line-height: 1.02; margin: 1.25rem 0 0; letter-spacing: -.02em; font-weight: 700; text-wrap: balance; }
 .lede { font-size: var(--t-20); line-height: 1.45; margin: 1rem 0 2rem; max-width: 36rem; }
 .start { display: grid; gap: 1.1rem; max-width: 36rem; }
 .field label { display: block; font-weight: 700; margin: 0 0 .35rem; }
@@ -56,6 +64,7 @@ html, body { overflow-x: clip; }
 .pillars { list-style: none; margin: 1.5rem 0 0; padding: 0; display: grid; gap: .75rem; max-width: 44rem; }
 .pillars li { padding-left: 1rem; border-left: 1px solid var(--ink); }
 .cases { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+@media (min-width: 1100px) { .cases { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 .cases .st { display: inline-flex; align-items: center; font-weight: 700; margin-bottom: .4rem; }
 .faq details { border-top: 1px solid var(--cyan); padding: .9rem 0; }
 .faq details:last-of-type { border-bottom: 1px solid var(--cyan); }
@@ -146,3 +155,17 @@ html, body { overflow-x: clip; }
 .try-btn:hover { background: #fff; color: var(--stamp); }
 .try-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 #try-what { opacity: .9; }
+
+.runbar-name { margin-right: 0; }
+.stage { margin-right: auto; padding-left: .75rem; border-left: 1px solid var(--cyan); color: var(--grey); font-size: .95rem; }
+@media (max-width: 640px) { .runbar-name { display: none; } .stage { padding-left: 0; border-left: 0; } }
+.live.done .notes li:not(.error) { display: none; }  /* the review shows its own notices; an error stays visible */
+/* On a phone the bar wraps to three rows: let it scroll away with the page instead of eating the screen. */
+@media (max-width: 640px) { .topnav { position: static; gap: .2rem 1.2rem; } .topnav nav { gap: 0 1.1rem; } }
+@media (max-width: 640px) {
+  .runbar { flex-wrap: wrap; gap: .25rem .6rem; padding: .4rem 1rem; }
+  .runbar .btn { white-space: nowrap; min-height: 40px; padding: 0 .85rem; }
+  .runbar-name { display: none; }
+  #reopen { margin-left: auto; }
+  .stage { order: 3; flex-basis: 100%; margin: 0; padding: 0; border: 0; font-size: .85rem; }
+}
