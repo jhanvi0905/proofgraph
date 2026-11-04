@@ -8,7 +8,7 @@ Live: <https://proofgraph-orww.onrender.com/> (open it and choose **See the work
 
 *The review screen on a claim about a real NDA (case TC40, from ContractNLI, CC BY 4.0, Koreeda and Manning 2021): each clause that goes against the claim is circled on its page. [Full-quality video](docs/media/hero.mp4).*
 
-> **Meta's Muse Spark does the reading and judging; ProofGraph checks every statement against the page.** About 99% of the 1,496 statements it extracted were found on the real page, exactly or after whitespace and punctuation normalisation. On 30 contract pairs never used while building it got 19 right, and moving judgement from hand-coded patches to model-labelled fixed taxonomies fixed 10 unseen pairs and broke none. Answers resting on text read from the page: 13 right out of 15, none wrongly supported. Small samples: read as *better on unseen cases*, not *proven better*. [Results](#results).
+> **Meta's Muse Spark does the reading and judging; ProofGraph checks every statement against the page.** About 99% of the 1,496 statements it extracted were found on the real page, exactly or after whitespace and punctuation normalisation. On 30 contract pairs never used while building it was right on 19, qualified 6 for a human to review, and wrong on 5; none of the 10 real contradictions was passed as supported. Moving judgement from hand-coded patches to model-labelled fixed taxonomies fixed 10 unseen pairs and broke none. Answers resting on text read from the page: 13 right out of 15, none wrongly supported. Small samples: read as *better on unseen cases*, not *proven better*. [Results](#results).
 
 ## What it does
 
@@ -93,15 +93,18 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 | --- | --- | --- |
 | **About 99%** of the statements Muse Spark extracted were found on the real page, exactly or after whitespace and punctuation normalisation | 1,496 statements on the suite (7 unmatched) and 1,192 on the held-out contracts (9 unmatched); unmatched ones are kept as unclear and never decide | The model is not inventing quotes |
 | **92%** of the gold evidence became a statement | First full run: 73 gold relations | The model reads what matters |
+| **0 of 10** real contradictions passed as supported | 30 unseen pairs, 10 per published label | The error that costs a reviewer money did not happen |
 | **10 fixed, 0 broken** when hand-coded patches gave way to model-labelled judgement under fixed label sets | 30 unseen pairs, 9/30 to 19/30 | The approach generalises; it is not tuned to cases |
 | **13 of 15** right, none wrongly supported, when the answer rests on text read straight from the page | 26-case suite, by trust tier (small n) | A reviewer can trust the green tier |
 | **About $0.50** to read the four-document worked-example packet once with the graph on; a cached view costs nothing | Deploy notes: [docs/deploy.md](docs/deploy.md) | The graph is built once, then reused |
 
-![Held-out check: hand-coded patches 9 of 30, model labels with a small verifier 19 of 30, with 95 percent intervals](docs/img/results-heldout.svg)
+![What happened to the 30 unseen pairs: 19 right, 6 qualified and sent to review, 5 wrong; none of the 10 real contradictions passed as supported](docs/img/results-outcomes.svg)
 
 ### The held-out check in full
 
 30 ContractNLI pairs, scored against the dataset's published labels. Gold labels are read only by the evaluation scripts, never by product code. Iteration 2's design is written down before its code in [`results/preregistration-iteration-2.md`](results/preregistration-iteration-2.md), from the 29-case suite's failures; this held-out check is the number we treat as unbiased.
+
+**How the 30 came out.** 19 right (63%). 6 qualified: the answer carries a caveat and goes to a human instead of showing a green or red verdict. 5 wrong: 3 false alarms (a contradiction flagged in a document that is silent), 1 wrongly supported (cnli-85), and 1 "not found" for a claim the document supports. The strict score below counts qualified as not right.
 
 | System (n = 30) | Correct | 95% Wilson interval | Wrongly supported |
 | --- | --- | --- | --- |

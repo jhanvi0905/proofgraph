@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 352" width="960" height="352" role="img" aria-label="What happened to the 30 unseen pairs: 19 right, 6 qualified and sent to review, 5 wrong; none of the 10 real contradictions was passed as supported">
+<rect width="960" height="352" rx="10" fill="#FFFFFF" stroke="#B9C8B5"/>
+<text x="24" y="34" font-family="Georgia, serif" font-size="20" font-weight="700" fill="#262B2A">What happened to the 30 unseen pairs</text>
+<text x="24" y="56" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#5A6560">10 pairs per published ContractNLI label; numbers are pair counts. Qualified means flagged for a human, not a false green.</text>
+<text x="24" y="110" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#262B2A">Real contradictions (10)</text>
+<rect x="250.0" y="90" width="352.0" height="30" fill="#1D4F91" stroke="#FFFFFF" stroke-width="2"/>
+<text x="426.0" y="110" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#fff">8</text>
+<rect x="602.0" y="90" width="88.0" height="30" fill="#D9A441" stroke="#FFFFFF" stroke-width="2"/>
+<text x="646.0" y="110" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#262B2A">2</text>
+<text x="708" y="110" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#262B2A">None passed as supported</text>
+<text x="24" y="158" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#262B2A">Not in the document (10)</text>
+<rect x="250.0" y="138" width="264.0" height="30" fill="#1D4F91" stroke="#FFFFFF" stroke-width="2"/>
+<text x="382.0" y="158" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#fff">6</text>
+<rect x="514.0" y="138" width="176.0" height="30" fill="#B42318" stroke="#FFFFFF" stroke-width="2"/>
+<text x="602.0" y="158" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#fff">4</text>
+<text x="708" y="158" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#262B2A">3 false alarms, 1 wrongly supported</text>
+<text x="24" y="206" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#262B2A">Entailed by the document (10)</text>
+<rect x="250.0" y="186" width="220.0" height="30" fill="#1D4F91" stroke="#FFFFFF" stroke-width="2"/>
+<text x="360.0" y="206" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#fff">5</text>
+<rect x="470.0" y="186" width="176.0" height="30" fill="#D9A441" stroke="#FFFFFF" stroke-width="2"/>
+<text x="558.0" y="206" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#262B2A">4</text>
+<rect x="646.0" y="186" width="44.0" height="30" fill="#B42318" stroke="#FFFFFF" stroke-width="2"/>
+<text x="668.0" y="206" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#fff">1</text>
+<text x="708" y="206" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#262B2A">4 qualified, 1 said not found</text>
+<line x1="24" y1="222" x2="936" y2="222" stroke="#DDE5DA"/>
+<text x="24" y="260" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#262B2A">All 30 pairs</text>
+<rect x="250.0" y="240" width="278.7" height="30" fill="#1D4F91" stroke="#FFFFFF" stroke-width="2"/>
+<text x="389.3" y="260" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#fff">19</text>
+<rect x="528.7" y="240" width="88.0" height="30" fill="#D9A441" stroke="#FFFFFF" stroke-width="2"/>
+<text x="572.7" y="260" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#262B2A">6</text>
+<rect x="616.7" y="240" width="73.3" height="30" fill="#B42318" stroke="#FFFFFF" stroke-width="2"/>
+<text x="653.3" y="260" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#fff">5</text>
+<text x="708" y="260" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#262B2A">Strict score: 19/30 = 63%</text>
+<rect x="250" y="296" width="14" height="14" fill="#1D4F91"/>
+<text x="272" y="308" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#262B2A">Right</text>
+<rect x="335.0" y="296" width="14" height="14" fill="#D9A441"/>
+<text x="357.0" y="308" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#262B2A">Qualified, sent to review</text>
+<rect x="568.0" y="296" width="14" height="14" fill="#B42318"/>
+<text x="590.0" y="308" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#262B2A">Wrong</text>
+<text x="24" y="336" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#5A6560">n = 30, so read it as better on unseen cases, not proven better. The strict score counts qualified as not right.</text>
+</svg>
