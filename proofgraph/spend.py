@@ -169,7 +169,7 @@ class SpendGuard:
         tokens_out = usage.get("output_tokens", usage.get("completion_tokens", 0))
         model = response.get("model")
         print(
-            f"[meta-api] {time.strftime('%H:%M:%S')} {label:<22} "
+            f"[meta-api] {time.strftime('%H:%M:%S')} {label:<15} "
             f"model={model if isinstance(model, str) and model else 'unreported'} "
             f"id={str(response.get('id') or '-')[:18]} "
             f"in={tokens_in} out={tokens_out} {time.monotonic() - started:.1f}s",

@@ -68,6 +68,20 @@ DEFAULT_REASONING_EFFORT = "medium"
 _EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
 
 
+# The schema name of a call says what it is for. The demo log shows this, not the schema.
+_STAGES = {
+    "Transcription": "read-scan",
+    "_Proposal": "split-claim",
+    "Extraction": "extract-graph",
+    "_Linking": "link-entities",
+    "_Read": "read-part",
+    "Relate": "relate-part",
+    "Labels": "label-evidence",
+    "Comparison": "compare-values",
+    "DirectReply": "direct-answer",
+}
+
+
 class MissingApiKeyError(MuseError):
     """MODEL_API_KEY is absent, so the API was not called."""
 
@@ -440,7 +454,8 @@ class MuseClient:
         response = self._read_json(
             lambda: call_with_retries(lambda: transport.create(body), sleep=self._sleep)
         )
-        self._spend.log_call("POST /v1/responses", response, started)
+        schema = body["text"]["format"]["name"]
+        self._spend.log_call(_STAGES.get(schema, schema), response, started)
         self._spend.charge(responses_cost_usd(response))
         return response
 

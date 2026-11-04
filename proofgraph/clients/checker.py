@@ -369,7 +369,7 @@ class CheckerClient:
             raise CheckerError("blind re-read fallback response was not JSON") from exc
         if not isinstance(response, dict):
             raise CheckerError("blind re-read fallback response was not a JSON object")
-        self._spend.log_call("POST /v1/responses", response, started)
+        self._spend.log_call("blind-reread", response, started)
         self._spend.charge(responses_cost_usd(response))
         return response
 
@@ -417,7 +417,7 @@ class CheckerClient:
             raise CheckerError("blind checker response was not JSON") from exc
         if not isinstance(response, dict):
             raise CheckerError("blind checker response was not a JSON object")
-        self._spend.log_call("POST /chat/completions", response, started)
+        self._spend.log_call("blind-check", response, started)
         self._spend.charge(chat_cost_usd(response))
         return response
 

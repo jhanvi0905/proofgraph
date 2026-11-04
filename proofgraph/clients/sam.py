@@ -208,7 +208,7 @@ class SamClient:
             raise SamError("SAM response was not JSON") from exc
         if not isinstance(dumped, dict):
             raise SamError("SAM response was not a JSON object")
-        self._spend.log_call("POST /v1/responses (SAM)", dumped, started)
+        self._spend.log_call("sam-count", dumped, started)
         if isinstance(dumped.get("usage"), Mapping):
             self._spend.charge(responses_cost_usd(dumped))
         else:
