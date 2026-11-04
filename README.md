@@ -25,11 +25,11 @@ People trust an answer as far as they can see what it came from. Hand ProofGraph
 
 Each answer opens the deciding clause on its page, shows the path the reasoning took, and says which document wins and from when.
 
-**Worked example (the one on the live app).** A synthetic packet (every name invented): a software license, a press release, an employee FAQ and a scanned Schedule 4. Claim: *"After Brightline completes its acquisition of Corvid, Corvid's license with Halvorsen will transfer automatically to Brightline without Halvorsen's consent, because the license allows assignment to Affiliates and to successors in an acquisition."*
+**Worked example (the one on the live app).** A synthetic packet (every name invented): a subscription agreement excerpt, the service-level schedule, the data-processing addendum, a scanned October service report with a received stamp, and a news screenshot. Claim: *"Nimbus owes us a 25% service credit for the October 2026 outages, and under our contract Nimbus must notify us of any personal data breach within 24 hours."*
 
-ProofGraph splits it into three parts and answers each one. **Part 2** (automatic transfer without consent) is **Contradicted**. It reaches its clause in two hops, Change of Control then the license, page 2, where a change of control is deemed an assignment and an assignment without consent is void. Schedule 4, a scan, also goes against the claim; its box is approximate and it is labelled the model's reading. **Part 3** is **Qualified**: the license does allow assignment to an Affiliate or acquirer, an exception that may apply, so the claim is weakened, not decided. **Part 1** (the deal closing) is **Documents disagree**: the press release qualifies it, the FAQ supports it, and nothing says which wins. A notice dated 15 Jan 2026 is cited but not supplied, so nothing rests on it. Part 2 drives the whole-claim answer, Contradicted.
+ProofGraph splits it into two parts. **Part 1 is Contradicted**: the scanned report's uptime row, 99.13%, falls in the 5% credit tier, not 25%. The scan is read by the model, so its box is approximate and it is labelled that way. **Part 2 is Contradicted**: the data-processing addendum requires notice within 72 hours, a quote found on the page. The news screenshot and the contract excerpt say nothing on either part and are listed as such. Both parts are Contradicted, so the whole claim is.
 
-![Worked example: each of the three claim parts, from entity to clause to answer. Solid arrows are the deciding path, dashed arrows are other evidence](docs/img/worked-example.png)
+![Worked example: each of the two claim parts, from entity to clause to answer, with the documents that were set aside](docs/img/worked-example.png)
 
 *Interactive version: [docs/diagrams/worked-example.html](docs/diagrams/worked-example.html) (download and open).*
 
@@ -38,7 +38,7 @@ ProofGraph splits it into three parts and answers each one. **Part 2** (automati
 Fastest to check first:
 
 1. **The page.** The deciding clause, circled on the real page.
-2. **The path.** For example Change of Control, then the license, page 2: the reasoning a careful reviewer would write out.
+2. **The path.** For example Personal Data Breach, then the data-processing addendum, page 1: the reasoning a careful reviewer would write out.
 3. **The override.** Which document wins, and from when.
 4. **The honesty.** "Not in these documents" and "cited, not in the packet" are answers, not failures.
 5. **How each link was made.** *Read from the page* (code verified the quote), *the model's reading*, or *unclear*. An unclear link never decides an answer, and an answer is only as strong as its weakest link.
@@ -96,7 +96,6 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 | **0 of 10** real contradictions passed as supported | 30 unseen pairs, 10 per published label | The error that costs a reviewer money did not happen |
 | **10 fixed, 0 broken** when hand-coded patches gave way to model-labelled judgement under fixed label sets | 30 unseen pairs, 9/30 to 19/30 | The approach generalises; it is not tuned to cases |
 | **13 of 15** right, none wrongly supported, when the answer rests on text read straight from the page | 26-case suite, by trust tier (small n) | A reviewer can trust the green tier |
-| **About $0.50** to read the four-document worked-example packet once with the graph on; a cached view costs nothing | Deploy notes: [docs/deploy.md](docs/deploy.md) | The graph is built once, then reused |
 
 ![What happened to the 30 unseen pairs: 19 right, 6 qualified and sent to review, 5 wrong; none of the 10 real contradictions passed as supported](docs/img/results-outcomes.svg)
 
