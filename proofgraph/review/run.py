@@ -111,9 +111,14 @@ def run_review(
         yield AllDone(_assemble(claim, muse, pack.docs, pack.images, [whole], [], pack.banners))
         return
 
-    # Gates first: the spend cap is checked before any transcription or split, so a stopped run sends nothing.
+    # The spend cap stops paid calls, not cached ones: a packet whose every call is cached still answers once the
+    # cap is reached. The client checks the cap before each real call, so a capped run sends nothing, and the
+    # first call that must be paid for ends the run with the cap banner below.
+    capped: SpendCapReached | None = None
     try:
         muse.ensure_budget()
+    except SpendCapReached as exc:
+        capped = exc
     except Exception as exc:
         pack = _collect(ingested, {})
         whole = _whole(claim, pack, "The claim was not split; nothing was checked.", "error")
@@ -122,6 +127,10 @@ def run_review(
 
     pack = _collect(ingested, _transcribe_all(scans, muse, max_workers))
     if not pack.texts:
+        if capped is not None:
+            whole = _whole(claim, pack, "Stopped at the spend cap; nothing was checked.", "error")
+            yield AllDone(_assemble(claim, muse, pack.docs, pack.images, [whole], [], pack.banners + [_failure_banner(capped)]))
+            return
         whole = _whole(claim, pack, "No page had readable text, so nothing was checked.")
         yield AllDone(_assemble(claim, muse, pack.docs, pack.images, [whole], [], pack.banners))
         return
