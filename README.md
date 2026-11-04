@@ -2,7 +2,7 @@
 
 **Where does it say that?** ProofGraph checks a claim against every document in the packet and opens the clause that decides it, on its page.
 
-**Try it:** open the [worked example](docs/recorded/worked-example-review.html) (download the file with GitHub's **Download raw file** button and open it in a browser; no key, no network), or use the [live app](https://proofgraph-orww.onrender.com/) and choose **See the worked example** (no account, no key, no upload). The worked example is never limited; live uploads are limited per visitor.
+**Try it:** open the [worked example](docs/recorded/worked-example-review.html) (download the file with GitHub's **Download raw file** button and open it in a browser; no key, no network), or use the [live app](https://proofgraph-orww.onrender.com/) and choose **See the worked example** (no account, no key, no upload). The worked example is never limited; live uploads are limited per visitor. To test your own packet without those limits, open **Test with your own Meta Model API key** on the entrance screen and paste a key (add a Baseten key for the second reader too). The key is sent only with your run and never stored, logged or cached.
 
 [![ProofGraph review screen: three clauses on page 1 go against the claim, the deciding clause circled on the real page](docs/media/hero.gif)](docs/media/hero.mp4)
 
