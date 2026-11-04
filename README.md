@@ -2,7 +2,7 @@
 
 **Where does it say that?** ProofGraph checks a claim against every document in the packet and opens the clause that decides it, on its page.
 
-**Try it:** open the [worked example](docs/recorded/worked-example-review.html) (download the file with GitHub's **Download raw file** button and open it in a browser; no key, no network), or use the [live app](https://proofgraph-orww.onrender.com/) and choose **See the worked example** (no account, no key, no upload). The worked example is never limited; live uploads are limited per visitor. To test your own packet without those limits, open **Test with your own Meta Model API key** on the entrance screen and paste a key (add a Baseten key for the second reader too). The key is sent only with your run and never stored, logged or cached.
+**Try it:** open the [worked example](docs/recorded/worked-example-review.html) (download the file with GitHub's **Download raw file** button and open it in a browser; no key, no network), or use the [live app](https://proofgraph-orww.onrender.com/) and choose **See the worked example** (no account, no key, no upload). The worked example is never limited; live uploads are limited per visitor. To run your own check with your own key, see [Test it yourself](#test-it-yourself-for-judges).
 
 [![ProofGraph review screen: three clauses on page 1 go against the claim, the deciding clause circled on the real page](docs/media/hero.gif)](docs/media/hero.mp4)
 
@@ -15,6 +15,37 @@
 > - **Answers resting on text read from the page are the most reliable.** 12 right out of 14, none wrongly supported.
 >
 > These are small samples: read them as *better on unseen cases*, not *proven better*. Details and the failures are in [Results](#results).
+
+## Test it yourself (for judges)
+
+Three ways in, from fastest to most hands-on. None needs an account with us.
+
+**1. Look (1 minute, no key).** Open the [live app](https://proofgraph-orww.onrender.com/) and choose **See the worked example**. If the page is slow to load, it is waking up; wait a few seconds. For a fully offline copy, download [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) and open it in a browser.
+
+**2. Run a live check on the hosted app with your own key (about 5 minutes).** Live runs use your key, so they are not limited by the demo's spend cap or per-visitor limit.
+
+1. Have a Meta Model API key ready. A Baseten key is optional; it turns on the Muse Spark Open second reader.
+2. Open the [live app](https://proofgraph-orww.onrender.com/) and expand **Test with your own Meta Model API key** on the entrance screen. Paste the key (and the Baseten key if you have one). It is sent only with your run and never stored, logged or cached.
+3. Get a packet. The five synthetic documents of the worked example are in [`examples/samples/leg-06/`](examples/samples/leg-06/) (every name is invented); download them, or use any PDFs or images of your own.
+4. Type a claim, for example: *The SLA commits Nimbus to at least 99.9% uptime each month, we can claim a service credit if it falls short, and Nimbus must notify us of any personal data breach within 24 hours.*
+5. Drop in the documents and choose **Check claim**. The run reads each page with Muse Spark, which takes a little while; progress shows on screen.
+6. Read the answer. Open the deciding clause to see it circled on its page, then open **How this was checked** for the path, which document wins, and the second-reader result.
+
+Things worth trying: change one number in the claim and see whether the answer and the circled clause change; ask something the documents never say and look for "Not found" instead of a guess; add your own contract.
+
+**3. Run the code on your machine (about 10 minutes).** You need [uv](https://docs.astral.sh/uv/) and Python 3.11.
+
+```bash
+git clone https://github.com/jhanvi0905/proofgraph.git && cd proofgraph
+make setup                    # installs dependencies
+make test                     # 1,100+ tests, all offline, no key needed
+cp .env.example .env          # .env is gitignored
+# edit .env: set MODEL_API_KEY (Meta Model API); set BASETEN_API_KEY for the second reader (optional)
+export $(grep -v '^#' .env | xargs)
+PROOFGRAPH_GRAPH=1 PROOFGRAPH_SAMPLES=examples/samples/samples.json uv run uvicorn app.server:app --port 8000
+```
+
+Open <http://localhost:8000>. Use the same steps as in way 2. `make app` starts an earlier Streamlit front end, not the demo; use the command above. `SPEND_LIMIT_USD` in `.env` caps your own spend (default 50). More on what runs where: [Run it](#run-it) and [`docs/deploy.md`](docs/deploy.md).
 
 ## What it does
 
