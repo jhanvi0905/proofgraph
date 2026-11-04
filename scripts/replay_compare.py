@@ -1,6 +1,6 @@
 """Offline replay: baseline code vs the current tree on the same recorded inputs (gates G1 and G2).
 
-docs/council/2026-11-02-second-check-experiment.md. No network, no paid call, no model.
+The second-check invariance experiment. No network, no paid call, no model.
 
 Plan
 1. ``git archive`` the baseline commit (default e6815ae) into a temp dir outside the repo.

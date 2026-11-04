@@ -1,0 +1,26 @@
+# Render blueprint: one Docker web service with a persistent disk for the cache and saved reviews.
+# Create it with New > Blueprint, point it at this repository, and fill the values marked sync: false.
+services:
+  - type: web
+    name: proofgraph
+    runtime: docker
+    plan: starter            # a persistent disk needs a paid instance
+    healthCheckPath: /api/config
+    autoDeploy: false        # a merge to main does not go live until you deploy it
+    disk:
+      name: proofgraph-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: CACHE_DIR
+        value: /var/data/cache
+      - key: SPEND_LIMIT_USD
+        value: "10"          # the cap on model spend for this public instance
+      - key: MODEL_API_KEY
+        sync: false          # secret: paste it in the Render dashboard, never into the repository
+      - key: BASETEN_API_KEY
+        sync: false          # secret: the blind second reader runs on Baseten; without it supported answers go unchecked
+      - key: PROOFGRAPH_GRAPH
+        sync: false          # "1" shows the evidence graph, "0" or empty runs the original pipeline
+      - key: APP_PASSCODE
+        sync: false          # optional: leave empty for no passcode

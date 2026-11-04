@@ -23,4 +23,4 @@ The 2026-10-27 entry is behind the tree. Also on disk, tested offline: `clients/
 
 No live model call has been scored. The detention fixture prints CONTRADICTED / COMPUTED without Muse. Checkpoint A live is next. Checkpoint B was missed, so the IE half stays skipped.
 
-The remaining days are resequenced in `docs/07-build-plan.md` (decision D21). Wednesday morning is two probes, then stop.
+The remaining days were resequenced. Wednesday morning is two probes, then stop.

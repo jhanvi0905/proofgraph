@@ -310,7 +310,7 @@ def _short_names(docs: list[Doc]) -> _Names:
     return out
 
 
-# Owner-approved wording (docs/sprint/journey/product-fear-second-check.md). A check that did not run never reads as "not settled".
+# Pinned wording. A check that did not run never reads as "not settled".
 _SECOND = {
     "agrees": "Quote alone: confirmed",
     "disagrees": "Quote alone: not settled",

@@ -211,7 +211,9 @@ def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
 
     @app.get("/api/config")
     def config():
-        return {"passcode_required": bool(os.environ.get("APP_PASSCODE"))}
+        # second_reader: the blind second reader runs on Baseten. Without its key a supported answer passes unchecked.
+        return {"passcode_required": bool(os.environ.get("APP_PASSCODE")),
+                "second_reader": bool(os.environ.get("BASETEN_API_KEY", "").strip())}
 
     @app.get("/api/samples")
     def list_samples():

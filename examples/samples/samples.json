@@ -1,0 +1,16 @@
+{
+  "note": "SYNTHETIC. All names, numbers, companies, documents and events are invented for testing ProofGraph.",
+  "samples": [
+    {
+      "id": "leg-05",
+      "title": "A license after an acquisition",
+      "claim": "After Brightline completes its acquisition of Corvid, Corvid's license with Halvorsen will transfer automatically to Brightline without Halvorsen's consent, because the license allows assignment to Affiliates and to successors in an acquisition.",
+      "files": [
+        "leg-05/Brightline_to_acquire_Corvid_press_release.pdf",
+        "leg-05/Corvid_Employee_FAQ_Brightline.pdf",
+        "leg-05/Halvorsen_Corvid_Software_License_Agreement_2023.pdf",
+        "leg-05/Schedule_4_Competitors_update_2026-01-15_scan.pdf"
+      ]
+    }
+  ]
+}

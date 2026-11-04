@@ -1,6 +1,6 @@
 """Review JSON contract shared by backend, viewer, export, cache and scorer.
 
-Shape: docs/council/2026-10-31-roadmap-sprint.md section 5, plus
+Shape: the review contract, plus
 `parts[].conflict` and `docs[].note` (final-plan.md section 4.5, R-04).
 """
 

@@ -5,7 +5,7 @@ sees the relation, the reason, the page, the document or any other card. Its ans
 is a witness, recorded on the card as ``check``. It never hides a card and never
 changes a part status; status stays pure code (``status.py``).
 
-Adjudication, C17 (docs/council/2026-10-31-roadmap-sprint.md): ``supports`` agrees
+Adjudication: ``supports`` agrees
 on ``entails``; ``contradicts`` agrees on ``contradicts``; ``weakens`` is consistent
 on anything but ``entails`` (so ``contradicts`` and ``not_mentioned`` agree).
 Any other pairing disagrees. A checker error, a timeout or an unknown answer is

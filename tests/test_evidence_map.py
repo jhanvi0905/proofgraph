@@ -74,7 +74,7 @@ NAMES = {"d1": "Bylaws.pdf", "d2": "Minutes.pdf", "d3": "Letter.pdf"}
 RULE = "One passage that goes against a claim is enough to count against it."
 OLD_TERMS = ["Second read", "referenced, not supplied", "Undated", "Contradicts (", "weakens", "second read", "not settled",
              "Weakened", "Contradicted", "Supported", "box pinned", "labelling step", "not to scale"]
-# Owner-approved product wording (docs/sprint/journey/product-fear-second-check.md). Only these exact strings may carry
+# Pinned product wording. Only these exact strings may carry
 # the otherwise banned terms "second read" and "not settled"; everything else is still banned.
 ALLOWED = ["Quote alone: not settled", "Second read did not run on this one", "Second read could not run this time",
            "The second read did not run on this one.", "The second read could not run this time.",

@@ -214,7 +214,7 @@ def test_engine_view_exposes_only_claim_and_evidence():
         assert case.answer is not None and case.gold_evidence
 
 
-# docs/05 and docs/08, pinned here so shrinking LEAK_FIELDS cannot silently pass.
+# docs/05, pinned here so shrinking LEAK_FIELDS cannot silently pass.
 DOCUMENTED_LEAKS = {
     "explanation", "explaination", "python_calculation", "execution_result", "knowledge",
     "entailment_label",
