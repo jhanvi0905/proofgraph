@@ -40,6 +40,7 @@ class Decision:
     agreement: str
     deciding: tuple[str, ...] = ()
     path: tuple[str, ...] = ()
+    clash: tuple[tuple[str, str], ...] = ()  # S5 cannot_tell only: (statement that agrees, statement that conflicts), across documents
 
 
 def _doc(g: nx.MultiDiGraph, rule: str) -> dict:
@@ -94,13 +95,13 @@ def graph_status(part_text: str, g: nx.MultiDiGraph, ranked: Sequence[Path], lab
                             and g.nodes[i]["tier"] != "unclear"])
     flag = agree.flag
 
-    def done(status, reason, deciding=(), conflict=False, scenario=None):
+    def done(status, reason, deciding=(), conflict=False, scenario=None, clash=()):
         paths_ = [path_of[i] for i in deciding if i in path_of]
         tiers = [g.nodes[i]["tier"] for i in deciding] + [p.tier for p in paths_]
         tier = max(tiers, key=_TIER_RANK.__getitem__) if tiers else "page"
         shape = scenario or _scenario(g, paths_, deciding)
         best = min(paths_, key=lambda p: (p.hops, p.nodes), default=None)
-        return Decision(status, conflict, reason, tier, shape, flag, tuple(deciding), best.nodes if best else ())
+        return Decision(status, conflict, reason, tier, shape, flag, tuple(deciding), best.nodes if best else (), tuple(clash))
 
     if not live:
         if not linked.entities and flag == "both_empty":
@@ -124,7 +125,7 @@ def graph_status(part_text: str, g: nx.MultiDiGraph, ranked: Sequence[Path], lab
             elif wins == {False}:
                 live = {i: it for i, it in live.items() if i not in {p for p, _ in cross}}
             else:
-                return done("cannot_tell", "Two documents clash and nothing decides which one wins.", tuple(live), scenario="S5")
+                return done("cannot_tell", "Two documents clash and nothing decides which one wins.", tuple(live), scenario="S5", clash=cross)
             return _decide(g, live, checks, done, "S5", part_text, notes_overridden)
     return _decide(g, live, checks, done, None, part_text, notes_overridden)
 

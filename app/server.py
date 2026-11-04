@@ -37,7 +37,7 @@ MAX_FILE_BYTES = 25 * 1024 * 1024
 KEEP_REVIEWS = 20
 ALLOWED = {".pdf", ".png", ".jpg", ".jpeg"}
 
-_EVENT = {"DocStarted": "docstarted", "DocRead": "docread", "PageRead": "pageread", "EntityFound": "entity", "GraphReady": "graphready",
+_EVENT = {"DocStarted": "docstarted", "DocRead": "docread", "PageRead": "pageread", "EntityFound": "entity", "DocSummary": "docsummary", "GraphReady": "graphready",
           "PartLinked": "linked", "PathFound": "path"}
 
 

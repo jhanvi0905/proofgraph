@@ -152,6 +152,78 @@ def _cell(card: Card, codes: dict[str, str]) -> str:
     )
 
 
+_KIND = {"contract": "Contract", "memo": "Memo", "bylaws": "Bylaws", "resolution": "Resolution", "amendment": "Amendment",
+         "letter": "Letter", "policy": "Policy", "invoice": "Invoice"}
+
+
+def _tidy(name: str) -> str:
+    stem = name.rsplit(".", 1)[0] if name.lower().endswith((".pdf", ".png", ".jpg", ".jpeg")) else name
+    return " ".join(stem.replace("_", " ").split())
+
+
+def _kind_line(meta: dict) -> str:
+    """'Contract, 1 June 2023' for a document, from what the graph read in its header; blank when it read neither."""
+    kind = _KIND.get(str(meta.get("role") or "").lower().replace(" ", "_"), "")
+    when = _day(meta.get("date"))
+    return ", ".join(x for x in (kind, _long(when) if when else "") if x)
+
+
+def _dockey(review: Review, codes: dict[str, str], docs_meta: dict) -> str:
+    """Which letter is which document: the letters tie every column and every quote reference (A-1) to a file."""
+    items = "".join(
+        f'<li><span class="wp">{codes[d.id]}</span><span class="dn">{_e(_tidy(d.name))}</span>'
+        f'<span class="dm">{_e(_kind_line(_d(docs_meta.get(d.id))))}</span></li>' for d in review.docs)
+    return f'<ol class="dockey" aria-label="The documents, by letter">{items}</ol>'
+
+
+_CLASHING = ("contradicts", "weakens")
+_TALLY = {"supports": "supporting", "weakens": "qualifying", "contradicts": "contradicting", "set_aside": "set aside"}
+
+
+def _recorded_pair(mine: list[Card], info: dict) -> tuple[list[Card], int]:
+    """The statements the decision itself set against each other, matched to the cards that quote them."""
+    where = {(c.doc, c.page, c.quote): c for c in mine}
+    pairs = []
+    for pair in _l(info.get("clash")):
+        a, b = _d(_d(pair).get("for")), _d(_d(pair).get("against"))
+        ca = where.get((a.get("doc"), a.get("page"), a.get("quote")))
+        cb = where.get((b.get("doc"), b.get("page"), b.get("quote")))
+        if ca and cb and ca.doc != cb.doc:
+            pairs.append([ca, cb])
+    return (pairs[0], len(pairs) - 1) if pairs else ([], 0)
+
+
+def _clash(part: Part, cards: list[Card], docs: list, codes: dict[str, str], docs_meta: dict, info: dict | None = None) -> str:
+    """Where two documents disagree, say which two, with the passage from each, instead of only that they clash.
+
+    Uses the pair the decision recorded; a review saved before that was recorded falls back to the most telling
+    passage from each of the two documents that carry the deciding statements."""
+    mine = [c for c in cards if c.part == part.id]
+    sides, more = _recorded_pair(mine, info or {})
+    if not sides:
+        best: dict[str, Card] = {}
+        for c in sorted(mine, key=lambda c: (not c.controls, c.relation not in _CLASHING)):
+            best.setdefault(c.doc, c)
+        sides = [best[d.id] for d in docs if d.id in best]
+        sides = sorted(sides, key=lambda c: (not c.controls, c.relation not in _CLASHING))[:2]
+    if len(sides) < 2:
+        return ""
+    sides.sort(key=lambda c: codes.get(c.doc, "~"))
+    by_id = {d.id: d for d in docs}
+    blocks = []
+    for c in sides:
+        d = by_id[c.doc]
+        blocks.append(
+            f'<div class="side"><p class="side-doc"><span class="wp">{_e(codes.get(c.doc, "?"))}</span>'
+            f'<span class="dn">{_e(_tidy(d.name))}</span><span class="dm">{_e(_kind_line(_d(docs_meta.get(c.doc))))}</span></p>'
+            f'<q class="says">{_e(c.quote)}</q>'
+            f'<p class="side-rel">{mark(RELATION_MARK[c.relation])}<span>{_e(RELATION[c.relation])}</span></p>'
+            f'<button type="button" class="side-go" data-for="{_e(c.id)}">Show on page {c.page}</button></div>')
+    extra = f'<p class="clash-more">{more} other conflicting passage{"s" if more != 1 else ""} are in the columns below.</p>' if more else ""
+    return (f'<div class="clash" role="group" aria-label="The two documents that disagree"><p class="clash-title">The two documents that disagree</p>'
+            f'{blocks[0]}<p class="vs">{mark("clash")}<span>against</span></p>{blocks[1]}{extra}</div>')
+
+
 def _open_items(review: Review, graph: dict) -> str:
     seen: dict[str, str] = {}
     for item in _l(graph.get("cited")):
@@ -171,22 +243,40 @@ def _open_items(review: Review, graph: dict) -> str:
             f'<p>The documents refer to these; they were not supplied, so nothing here rests on them.</p><ul>{lis}</ul></section>')
 
 
-def _row(part: Part, cards: list[Card], docs: list, names: dict, codes: dict, info: dict, driver: bool, scen: dict) -> str:
+def _row(part: Part, cards: list[Card], docs: list, names: dict, codes: dict, info: dict, driver: bool, scen: dict,
+         docs_meta: dict | None = None, number: int = 1, total: int = 1) -> str:
     word, m, cls = _answer(part, info)
-    cells = []
+    cells, silent = [], []
     for d in docs:
         mine = [c for c in cards if c.part == part.id and c.doc == d.id]
+        tag = (f'<span class="wp">{codes[d.id]}</span><span class="dn">{_e(_tidy(d.name))}</span>'
+               f'<span class="dm">{_e(_kind_line(_d((docs_meta or {}).get(d.id))))}</span>')
+        if not mine:
+            silent.append(f'<li>{tag}</li>')
+        counts = {r: sum(1 for c in mine if c.relation == r) for r in _TALLY}
+        tally = "".join(f'<span class="t-{r}">{mark(RELATION_MARK[r])}{n} {_TALLY[r]}</span>' for r, n in counts.items() if n)
+        if tally:
+            tag += f'<span class="tally" aria-label="Passages in this document">{tally}</span>'
         body = "".join(_cell(c, codes) for c in mine) or '<span class="none">Nothing here bears on this part.</span>'
-        cells.append(f'<td data-label="{codes[d.id]}  {_e(names[d.id])}">{body}</td>')
+        cells.append(f'<td class="{"" if mine else "empty"}"><p class="docbar">{tag}</p>{body}</td>')
+    if not silent:
+        quiet = ""
+    elif len(silent) == len(docs):
+        quiet = '<div class="quiet"><p>No passage in any of the documents bears on this part.</p></div>'
+    else:
+        quiet = f'<div class="quiet"><p>Nothing in these bears on this part:</p><ul>{"".join(silent)}</ul></div>'
+    says = "" if len(silent) == len(docs) else '<span class="says-head">What the documents say about this part</span>'
     note = _agreement(info)
     trail = "" if driver else _trail(info, {d.id: names[d.id] for d in docs})
     name = scen.get(str(info.get("scenario")))
+    clash = _clash(part, cards, docs, codes, docs_meta or {}, info) if info.get("documents_disagree") else ""
     bits = [f'<p class="why">{_e(part.reason)}</p>' if part.reason else "",
-            f'<p class="scen">{_e(name)}</p>' if name else "", trail,
+            f'<p class="scen">{_e(name)}</p>' if name else "", clash, trail,
             f'<p class="agree">{_e(note)}</p>' if note else "",
             f'<p class="tierline">Weakest evidence: {_e(TIER_LEVEL.get(info.get("tier"), info.get("tier")))}</p>' if info.get("tier") else ""]
-    return (f'<tr data-part-id="{_e(part.id)}"><th scope="row" class="{cls}"><span class="partline">{_e(part.text)}</span>'
-            f'<strong class="st {cls}">{mark(m)}{_e(word)}</strong>{"".join(bits)}</th>{"".join(cells)}</tr>')
+    return (f'<tr data-part-id="{_e(part.id)}"><th scope="row" class="{cls}"><span class="part-id">{f"Part {number} of {total} of your claim" if total > 1 else "Your claim"}</span>'
+            f'<q class="partline u {cls}">{_e(part.text)}</q>'
+            f'<strong class="st {cls}">{mark(m)}{_e(word)}</strong>{"".join(bits)}{quiet}{says}</th>{"".join(cells)}</tr>')
 
 
 def _signoff(graph: dict, infos: dict, replay: bool) -> str:
@@ -212,7 +302,7 @@ def _signoff(graph: dict, infos: dict, replay: bool) -> str:
     lines.append(f'<li><span>Left out</span> <span class="num">{set_aside} that could not be checked against the page</span></li>')
     if replay:
         lines.append("<li><span>Saved run</span> <span>Replayed, not a live check.</span></li>")
-    return f'<section class="signoff" id="how-checked"><h2>How this was checked</h2><ul>{"".join(lines)}</ul></section>'
+    return f'<section class="signoff" id="how-checked"><h2>How this was checked</h2><p class="ledger-help">Who read the documents, and how much of what they found was read a second time.</p><ul>{"".join(lines)}</ul></section>'
 
 
 def _legend() -> str:
@@ -243,9 +333,11 @@ def render_graph(review: Review, images: dict, replay: bool = False, ask: bool =
     notes += "".join(f'<p class="banner">{_e(names[d.id])}: {_e(d.note)}</p>' for d in review.docs if d.note)
     notes += "".join(f'<p class="banner">{_e(names[d.id])} page {p.n}: no text layer, not read.</p>'
                      for d in review.docs for p in d.pages if not p.readable)
-    cols = "".join(f'<th scope="col"><span class="wp">{codes[d.id]}</span>{_e(names[d.id])}</th>' for d in review.docs)
-    rows = "".join(_row(p, review.cards, review.docs, names, codes, _d(infos.get(p.id)), bool(driver and p.id == driver.id), scen)
-                   for p in review.parts)
+    meta = _d(graph.get("docs"))
+    cols = "".join(f'<th scope="col"><span class="wp">{codes[d.id]}</span>{_e(names[d.id])}'
+                   f'<span class="dm">{_e(_kind_line(_d(meta.get(d.id))))}</span></th>' for d in review.docs)
+    rows = "".join(_row(p, review.cards, review.docs, names, codes, _d(infos.get(p.id)), bool(driver and p.id == driver.id), scen, meta, i, len(review.parts))
+                   for i, p in enumerate(review.parts, 1))
     pages = "".join(_page(d, p, review.cards, images, names[d.id]) for d in review.docs for p in d.pages)
     asker = ""
     if ask and not share:
@@ -260,19 +352,23 @@ def render_graph(review: Review, images: dict, replay: bool = False, ask: bool =
     sharenote = (f'<p class="sharenote">Checked with ProofGraph against {n} document{"s" if n != 1 else ""}'
                  f'{f" on {_long(when)}" if when else ""}. <a href="/">Check your own claim</a></p>' if share else "")
     open_items = _open_items(review, graph)
-    links = [("answer", "Answer"), ("evidence", "Evidence")] + ([("cited", "Cited, not supplied")] if open_items else []) \
-        + [("how-checked", "How this was checked")] + ([("ask", "Ask another claim")] if asker else [])
-    toc = '<nav class="toc" aria-label="On this page">' + "".join(f'<a href="#{i}">{t}</a>' for i, t in links) + "</nav>"
+    links = [("answer", "Answer", "The verdict on your claim, and the path that decided it"),
+             ("evidence", "Evidence", "The quotes from your documents behind each part of the claim")] \
+        + ([("cited", "Cited, not supplied", "Documents yours refer to that were not in the packet")] if open_items else []) \
+        + [("how-checked", "How this was checked", "Who read the documents, and how much was double-checked")] \
+        + ([("ask", "Ask another claim", "Check a second claim against the same documents")] if asker else [])
+    toc = '<nav class="toc" aria-label="On this page">' + "".join(
+        f'<a href="#{i}" data-hint="{_e(h)}">{t}</a>' for i, t, h in links) + "</nav>"
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         '<title>ProofGraph review</title><link rel="preconnect" href="https://fonts.googleapis.com">'
-        f'<link rel="stylesheet" href="{FONTS}"><style>{TOKENS.read_text()}{CSS.read_text()}</style></head><body>'
+        f'<link rel="stylesheet" href="{FONTS}"><script>if(window.parent!==window)document.documentElement.classList.add("framed")</script><style>{TOKENS.read_text()}{CSS.read_text()}</style></head><body>'
         f'<div class="wrap">{toc}<div class="layout{" share" if share else ""}"><header class="head" id="answer">{claim_first if not share else ""}'
         f'{answer}{_trail(dinfo, docs_by_id) if driver else ""}{_strip(review, dinfo, _d(graph.get("dates"))) if driver else ""}'
         f'{claim_first if share else ""}{notes}</header>'
         f'<aside class="pane" aria-label="Page"><button type="button" class="btn quiet paneclose" id="paneclose">Close page</button>'
         f'<p class="hint" id="hint">Select a quote to see its page here.</p>{pages}</aside>'
-        f'<main id="evidence"><h2 class="ledger-title">What the documents say</h2><p class="ledger-help">Select a quote to see it on its page.</p>'
+        f'<main id="evidence"><h2 class="ledger-title">What the documents say</h2><p class="ledger-help">Your claim is split into parts. Under each part, every document that has something to say lists its passages, marked as supporting, qualifying or contradicting it. Select a quote to see it on its page.</p>{_dockey(review, codes, meta)}'
         f'<div class="gridwrap" tabindex="0" role="region" aria-label="What the documents say">'
         f'<table class="grid"><caption class="sr">What the documents say, by part of the claim</caption>'
         f'<thead><tr><th scope="col"><span>Part of the claim</span></th>{cols}</tr></thead><tbody>{rows}</tbody></table></div>'
