@@ -48,7 +48,7 @@ def test_flag_on_draws_the_workpaper(review, monkeypatch):
     assert html.count('<button type="button" class="cell') == len(r.cards)
     assert re.search(r'class="ref">A-\d+<', html)  # document letter and page
     assert "Reading every page also points at 1 passage that following the links did not reach." in html
-    assert "Read 3 pages: 38 statements about who must, may or must not do what, naming 14 people, offices, sections and terms." in html
+    assert "Read 3 pages. Noted 38 things the documents say about who must or may do what, and 14 names (people, offices, sections and terms)." in html
     assert "3 confirm, 1 do not confirm, 2 not re-checked" in html and "3 that could not be checked against the page" in html
     assert "A rule on the thing the claim names" in html
     for word in ("Quote found on the page", "Read by the model, box approximate", "Not placed on the page, never decides"):
