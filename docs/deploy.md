@@ -11,6 +11,7 @@ The app is one container: `uvicorn app.server:app`, built from the `Dockerfile`.
 | `MUSE_MODEL`, `CHECKER_MODEL`, `SAM_MODEL`, `BASETEN_BASE_URL` | The model names and the Baseten address. The blueprint pins them to the values the evaluation used; the code defaults are the same. |
 | `SPEND_LIMIT_USD` | Cap on model spend. When it is reached the app refuses new requests, including cached ones. |
 | `PROOFGRAPH_GRAPH` | `1` runs the evidence graph and shows its review page; empty or `0` runs the original pipeline. |
+| `MODEL_CALL_LOG` | `1` prints one `[meta-api]` line per real model call to the host's Logs: time, stage (`read-scan`, `split-claim`, `extract-graph`, `link-entities`, `read-part`, `relate-part`, `label-evidence`, `compare-values`, `blind-reread`, `blind-check`), model name the API returned, token counts and duration. No request text, header or key. Cached results make no call, so they print nothing; a packet that has not been reviewed before shows the full sequence. The blueprint sets it to `1`. |
 | `APP_PASSCODE` | Optional. When set, every run asks for it. |
 | `CACHE_DIR` | Where the model cache, the spend ledger and saved reviews live. Put it on a persistent disk. |
 | `PROOFGRAPH_SAMPLES` | Path to the sample manifest. The image sets it. |
