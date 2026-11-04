@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import io
 import re
+import threading
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -106,6 +107,15 @@ def _grid(value: float, size: float) -> int:
     return max(0, min(GRID, round(value / size * GRID)))
 
 
+# pdfium, which renders the pages, is not thread-safe: two requests rendering at once segfault the whole server.
+_PDFIUM = threading.Lock()
+
+
+def render_page(page, dpi: float) -> Image.Image:
+    with _PDFIUM:
+        return page.to_image(resolution=dpi).original.convert("RGB")
+
+
 def _pdf_pages(data: bytes) -> list[Page]:
     pages: list[Page] = []
     with pdfplumber.open(io.BytesIO(data)) as pdf:
@@ -117,7 +127,7 @@ def _pdf_pages(data: bytes) -> list[Page]:
             else:
                 poor = False
             dpi = min(RENDER_DPI, LONG_SIDE_PX / (max(width, height) / 72))
-            png = _to_png(page.to_image(resolution=dpi).original.convert("RGB"))
+            png = _to_png(render_page(page, dpi))
             pages.append(Page(number, "image_only" if poor else _pdf_kind(words), png, words))
     return pages
 
