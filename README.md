@@ -193,7 +193,13 @@ The reproduction scripts (`scripts/eval_review.py`, `scripts/report_review.py`, 
 
 ## Built during the hackathon, and what it stands on
 
-The git history carries dated commits from the first one on 26 Oct 2026. The evidence graph (`proofgraph/review/graph*.py`, `precedence.py`, the review app and the evaluation scripts) was written in the build window.
+**Provenance you can verify from git, not from our word.** 260+ commits from 26 Oct to 4 Nov 2026. Before 27 Oct 00:00 IST there are four commits, all planning scaffold (documents, licence, `.gitignore`, an editor-workspace file removed minutes later); no code predates the first code commit at 02:48 IST on 27 Oct. Of the first commit's files only `.gitignore` and `LICENSE` survive unchanged, and the planning documents have since been removed. The evidence graph (`proofgraph/review/graph*.py`, `precedence.py`, the review app and the evaluation scripts) was written after that, with dated commits.
+
+```bash
+git log --reverse --format='%h %aI %s' | head -5            # the first commits
+git log --reverse --format='%h %aI %s' -- '*.py' | head -1   # the first code commit
+git log --before='2026-10-27T00:00:00+05:30' --format='%h %aI %s'   # everything before the event day
+```
 
 Nothing in this repository predates the build window; the only pre-existing code is the named dependencies below.
 
