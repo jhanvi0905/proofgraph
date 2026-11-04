@@ -23,9 +23,6 @@ ProofGraph's own code is released under the MIT licence (see `LICENSE`). It buil
 | openai (SDK) | Apache-2.0 | calling the model endpoints |
 | Streamlit | Apache-2.0 | the earlier front end, kept in the repository |
 
-## Ideas studied
-
-graphify (trust tiers, weakest-link confidence, the numeric-token merge veto), LangExtract, Graphiti, LightRAG, Microsoft LazyGraphRAG and KAG informed the design. No code was copied from them. Where logic is adapted from graphify, its licence notice must be kept here: confirm graphify's licence before submission.
 
 ## Fonts
 

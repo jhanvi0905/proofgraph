@@ -8,7 +8,7 @@ Live: <https://proofgraph-orww.onrender.com/> (open it and choose **See the work
 
 *The review screen on a claim about a real NDA (case TC40, from ContractNLI, CC BY 4.0, Koreeda and Manning 2021): each clause that goes against the claim is circled on its page. [Full-quality video](docs/media/hero.mp4).*
 
-> **On 30 contract pairs never used while building, ProofGraph got 19 right (63%). Replacing case-by-case patches with general rules fixed 10 unseen pairs and broke none. When an answer rests on text read straight from the page: 13 right out of 15, none wrongly supported.** Held-out, published gold labels, small sample: read as *better on unseen cases*, not *proven better*. [Results](#results).
+> **Meta's Muse Spark does the reading and judging; ProofGraph checks every statement against the page.** About 99% of the 1,496 statements it extracted were found on the real page, exactly or after whitespace and punctuation normalisation. On 30 contract pairs never used while building it got 19 right, and moving judgement from hand-coded patches to model-labelled fixed taxonomies fixed 10 unseen pairs and broke none. Answers resting on text read from the page: 13 right out of 15, none wrongly supported. Small samples: read as *better on unseen cases*, not *proven better*. [Results](#results).
 
 ## What it does
 
@@ -47,7 +47,7 @@ Fastest to check first:
 
 ## How it works
 
-ProofGraph is neuro-symbolic. A Meta model reads the documents and makes small, local judgments. Deterministic code builds the graph, walks it, applies precedence and dates, and decides. The graph and the decision logic are deterministic; the contents of the graph are probabilistic, and every probabilistic piece is labelled.
+ProofGraph is neuro-symbolic, and the models carry the language work: Muse Spark is called at four of the eight steps (reading, claim linking, the full read, pair comparison) and Muse Spark Open re-reads deciding links. Code builds the graph, checks every quote against the page, and runs a small frozen verifier over the models' labels. The graph and the decision logic are deterministic; the contents of the graph are probabilistic, and every probabilistic piece is labelled.
 
 | # | Step | Done by | Technique |
 | --- | --- | --- | --- |
@@ -58,9 +58,9 @@ ProofGraph is neuro-symbolic. A Meta model reads the documents and makes small, 
 | 5 | **Link the claim**: split into parts, each attached only to entity ids and rule types that exist in the packet. | Code, then Muse Spark constrained to an enum | Entity linking, constrained decoding |
 | 6 | **Retrieve two ways in parallel**: a typed path walk and one full read of the packet that cites statement ids. | Code and Muse Spark | Hybrid retrieval with a long-context read |
 | 7 | **Compare, then re-read** pairs of statements (agrees, conflicts, qualifies, irrelevant, unsure). A second model re-reads deciding links (a capped number per claim) without seeing the verdict. | Muse Spark, then Muse Spark Open | Pairwise entailment (NLI) |
-| 8 | **Decide** with five frozen rules. The weakest link sets the confidence label. | Code | Symbolic, defeasible deontic reasoning |
+| 8 | **Verify and decide**: a small frozen verifier combines the models' labels with structure, precedence and dates. The weakest link sets the confidence label. | Code | Symbolic, defeasible deontic reasoning |
 
-The five frozen rules: a rule cannot establish a fact about an instance; an exception defeats its rule only when it applies to this case; an extracted override wins, otherwise the later document of the same role, otherwise a declared governance order, otherwise "documents disagree"; time claims compare event dates; and the weakest link sets the label. No rule in code names a document type, a domain, a synonym or a case.
+The verifier is deliberately small, five rules over the models' labels: a rule cannot establish a fact about an instance; an exception defeats its rule only when it applies to this case; an extracted override wins, otherwise the later document of the same role, otherwise a declared governance order, otherwise "documents disagree"; time claims compare event dates; and the weakest link sets the label. No rule in code names a document type, a domain, a synonym or a case.
 
 [![ProofGraph pipeline, animated: Muse Spark reads and judges, code builds the graph and decides, Muse Spark Open re-reads deciding links](docs/media/pipeline.gif)](docs/media/pipeline.webm)
 
@@ -91,12 +91,13 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 
 | Result | Evidence | Why it matters |
 | --- | --- | --- |
-| **13 of 15** right, and **none wrongly supported**, when the answer rests on text read straight from the page | 26-case suite, by trust tier (small n) | A reviewer can trust the green tier |
-| **10 fixed, 0 broken** when case-by-case patches were replaced by a small schema and five general rules | 30 unseen pairs, 9/30 to 19/30 | The design generalises; it is not tuned to cases |
-| **92%** of the gold evidence became a statement, and **84%** of statements were read straight from the page; 0.5% were unclear and never decided | First full run: 29 graphs, 1,496 statements, 73 gold relations (before 3 cases were dropped) | The graph is faithful to the page |
-| **3 of 3** "not in these documents" cases answered as such | 26-case suite | It says when the packet is silent instead of filling the gap |
+| **About 99%** of the statements Muse Spark extracted were found on the real page, exactly or after whitespace and punctuation normalisation | 1,496 statements on the suite (7 unmatched) and 1,192 on the held-out contracts (9 unmatched); unmatched ones are kept as unclear and never decide | The model is not inventing quotes |
+| **92%** of the gold evidence became a statement | First full run: 73 gold relations | The model reads what matters |
+| **10 fixed, 0 broken** when hand-coded patches gave way to model-labelled judgement under fixed label sets | 30 unseen pairs, 9/30 to 19/30 | The approach generalises; it is not tuned to cases |
+| **13 of 15** right, none wrongly supported, when the answer rests on text read straight from the page | 26-case suite, by trust tier (small n) | A reviewer can trust the green tier |
+| **About $0.50** to read the four-document worked-example packet once with the graph on; a cached view costs nothing | Deploy notes: [docs/deploy.md](docs/deploy.md) | The graph is built once, then reused |
 
-![Held-out check: case-by-case patches 9 of 30, general rules 19 of 30, with 95 percent intervals](docs/img/results-heldout.svg)
+![Held-out check: hand-coded patches 9 of 30, model labels with a small verifier 19 of 30, with 95 percent intervals](docs/img/results-heldout.svg)
 
 ### The held-out check in full
 
@@ -105,10 +106,10 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 | System (n = 30) | Correct | 95% Wilson interval | Wrongly supported |
 | --- | --- | --- | --- |
 | Same pipeline with the graph switched off (baseline) | 15/30 (50%) | 33 to 67% | 2/20 (10%) |
-| Case-by-case patches (run 1, the ablation) | 9/30 (30%) | 17 to 48% | 0/20 |
+| Hand-coded patches (run 1, the ablation) | 9/30 (30%) | 17 to 48% | 0/20 |
 | **ProofGraph (iteration 2, shipped)** | **19/30 (63%)** | **45 to 78%** | **1/20 (5%)** |
 
-**Why the patches row matters.** Run 1 handled each failure we saw with its own piece of code. That scored 9 of 30 on unseen pairs, worse than no graph. Iteration 2 threw those patches out and replaced them with a small declared schema and five general rules, none of which names a document type, a domain or a case. It scored 19 of 30, and got 10 pairs right that run 1 got wrong and none the other way. Both versions are hand-written logic. What separated them is whether a rule fixes one case or states a principle.
+**Why the patches row matters.** Run 1 let hand-coded code patches decide each case we had seen fail. That scored 9 of 30 on unseen pairs, worse than no graph. Iteration 2 threw the patches out. It asked Muse Spark to judge under fixed label sets (does this statement address the claim part; does it agree, conflict or not mention it; does an exception apply; which of ten event types is this) and kept only a small frozen verifier in code, with no rule naming a document type, a domain or a case. It scored 19 of 30 and got 10 pairs right that run 1 got wrong, and none the other way. The models handle the variety of contract wording; code only reads their labels and checks them against the page.
 
 **What got worse, and the one miss.** Three pairs broke (cnli-62, 157, 289): all are exceptions that agree with the claim, a known limit (see [Limitations](#limitations-and-next-steps)). The one wrongly supported answer (cnli-85) read a blank-template statement as supporting "all information shall be expressly identified".
 
@@ -201,7 +202,7 @@ Not built here, used as named dependencies:
 
 Full list and attribution in [`NOTICE.md`](NOTICE.md). Earlier-engine code (a photo-counting path using SAM 3.1, a Streamlit front end, a freight example) remains in the tree for history and is not used by the demo.
 
-**Ideas studied, not code copied.** graphify (trust tiers and weakest-link confidence), LangExtract (graded source grounding with offsets), Graphiti (a small declared edge schema, "unsure" allowed), LightRAG (the gleaning recall pass), Microsoft LazyGraphRAG (cheap build, model calls only where a verdict depends on them), KAG (schema-constrained extraction), the deontic-formalisation literature and LegalRuleML (rule-shaped statements), and ContractNLI (the label set). Each was adapted to the one rule here: code decides, and nothing the code cannot verify against a quote is allowed to decide. See [docs/evidence-graph.md](docs/evidence-graph.md).
+**Ideas studied, not code copied.** LangExtract (graded source grounding with offsets), Graphiti (a small declared edge schema, "unsure" allowed), LightRAG (the gleaning recall pass), Microsoft LazyGraphRAG (cheap build, model calls only where a verdict depends on them), KAG (schema-constrained extraction), the deontic-formalisation literature and LegalRuleML (rule-shaped statements), and ContractNLI (the label set). Each was adapted to the one rule here: code decides, and nothing the code cannot verify against a quote is allowed to decide. See [docs/evidence-graph.md](docs/evidence-graph.md).
 
 ## Data and licences
 
