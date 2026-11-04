@@ -25,9 +25,9 @@ People trust an answer as far as they can see what it came from. Hand ProofGraph
 
 Each answer opens the deciding clause on its page, shows the path the reasoning took, and says which document wins and from when.
 
-**Worked example (the one on the live app).** A synthetic packet (every name invented): a subscription agreement excerpt, the service-level schedule, the data-processing addendum, a scanned October service report with a received stamp, and a news screenshot. Claim: *"Nimbus owes us a 25% service credit for the October 2026 outages, and under our contract Nimbus must notify us of any personal data breach within 24 hours."*
+**Worked example (the one on the live app).** A synthetic packet (every name invented): a subscription agreement excerpt, the service-level schedule, the data-processing addendum, a scanned October service report and a news screenshot. Claim: *"The SLA commits Nimbus to at least 99.9% uptime each month, we can claim a service credit if it falls short, and Nimbus must notify us of any personal data breach within 24 hours."*
 
-ProofGraph splits it into two parts. **Part 1 is Contradicted**: the scanned report's uptime row, 99.13%, falls in the 5% credit tier, not 25%. The scan is read by the model, so its box is approximate and it is labelled that way. **Part 2 is Contradicted**: the data-processing addendum requires notice within 72 hours, a quote found on the page. The news screenshot and the contract excerpt say nothing on either part and are listed as such. Both parts are Contradicted, so the whole claim is.
+ProofGraph splits it into three parts. **Part 1 is Supported**: the service-level schedule promises at least 99.9% in each month, a quote found on the page. **Part 2 is Supported**: the same schedule grants a service credit when uptime falls short. **Part 3 is Contradicted**: the data-processing addendum requires notice within 72 hours, and the agreement excerpt says the addendum prevails on personal data, so the 24 hours in the claim loses. The news screenshot also mentions credits; it is a model-read line, labelled approximate, and never decides. Two parts hold and one fails, so the claim as a whole does not.
 
 ![Worked example: each of the two claim parts, from entity to clause to answer, with the documents that were set aside](docs/img/worked-example.png)
 
@@ -95,7 +95,7 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 | **92%** of the gold evidence became a statement | First full run: 73 gold relations | The model reads what matters |
 | **0 of 10** real contradictions passed as supported | 30 unseen pairs, 10 per published label | The error that costs a reviewer money did not happen |
 | **10 fixed, 0 broken** when hand-coded patches gave way to model-labelled judgement under fixed label sets | 30 unseen pairs, 9/30 to 19/30 | The approach generalises; it is not tuned to cases |
-| **13 of 15** right, none wrongly supported, when the answer rests on text read straight from the page | 26-case suite, by trust tier (small n) | A reviewer can trust the green tier |
+| **12 of 14** right, none wrongly supported, when the answer rests on text read straight from the page | 24-case suite, by trust tier (small n) | A reviewer can trust the green tier |
 
 ![What happened to the 30 unseen pairs: 19 right, 6 qualified and sent to review, 5 wrong; none of the 10 real contradictions passed as supported](docs/img/results-outcomes.svg)
 
@@ -117,14 +117,14 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 
 ### Why you can believe the green tier
 
-- **Calibrated.** Answers decided by statements read straight from the page: 13 of 15 right, none wrongly supported.
+- **Calibrated.** Answers decided by statements read straight from the page: 12 of 14 right, none wrongly supported.
 - **Faithful to the page.** Across the 29 graphs of the first full run and 1,496 statements, 84% were read from the page, 15% were the model's reading, and 0.5% (7) could not be aligned and were marked unclear, so they never decided anything.
 - **Honest abstention.** "Not mentioned" cases were 3 of 3 on the suite.
 - **Nothing dropped silently.** 165 list members not found in their quote, 29 relations whose names were not in the quote, and 2 ambiguous override targets were each rejected and counted. Instructions planted in two packets were kept out of the rules.
 
-### The 26-case suite (labelled after error analysis)
+### The 24-case suite (labelled after error analysis)
 
-Used to find failures, so not unbiased: 12 of 26 correct against 9 of 26 without the graph. Sources: 8 LegalReasonBench cases, 8 ContractNLI, 2 Pepperwind cases and 8 multi-document packs. The first full run had 29 cases; 3 whose source licence we could not confirm were dropped and the suite figures recomputed from the recorded runs, so the analysis files in `results/` still report the 29-case run; see [Data and licences](#data-and-licences).
+Used to find failures, so not unbiased: 11 of 24 correct against 9 of 24 without the graph. Sources: 8 LegalReasonBench cases, 8 ContractNLI and 8 multi-document packs. The first full run had 29 cases; 5 whose source licence we could not confirm or did not want to carry were dropped and the suite figures recomputed from the recorded runs, so the analysis files in `results/` still report the 29-case run; see [Data and licences](#data-and-licences).
 
 ## Recorded runs
 
@@ -149,7 +149,7 @@ The three suite cases whose source licence we could not confirm have been remove
 | Overrides across documents rarely decide | Suite 2/7 |
 | Normative claims backed only by facts can be wrongly supported | The one suite case, TC17: "served from May 7" read as "authorized from May 7" |
 | Emails, image pages and table rows are often not reached | 92% of gold evidence extracted, 73% reached by the walk |
-| Small samples | n = 26 and n = 30, intervals overlap |
+| Small samples | n = 24 and n = 30, intervals overlap |
 
 Out of scope, and said so on screen: arithmetic across many figures, law outside the packet (shown as "cited, not in the packet"), and subjective claims.
 
@@ -213,7 +213,6 @@ Code: MIT ([`LICENSE`](LICENSE)). No API key or secret is committed; `.env` is g
 | --- | --- | --- |
 | **ContractNLI** (Koreeda and Manning, Findings of EMNLP 2021) | CC BY 4.0, attribution required, no share-alike. Documents were collected from SEC filings and search results; the dataset page does not address the rights status of the original documents, so we ship none of them. | Held-out check and suite. Published gold labels are used under the same licence. Suite documents are referenced by file name and hash, not redistributed. The hero clip shows one page of one NDA (TC40) with attribution; no other ContractNLI page is shown. |
 | **LegalReasonBench** (micro1 public sample) | CC BY 4.0 per the dataset card. | Suite cases. Cite as: LegalReasonBench (micro1), <https://www.micro1.ai/benchmark/legal-reason-bench>. |
-| **Pepperwind: A Whole Fictional Company as Data** (Muhammed Rasin, Kaggle) | CC BY 4.0, checked on the dataset page; the data is synthetic. | Two suite cases, by pointer only. Cite: Muhammed Rasin, Pepperwind, <https://www.kaggle.com/datasets/rasinmuhammed/pepperwind>. |
 | Packets in `examples/` | Fictional, written for ProofGraph, MIT. | The worked example and the offline run. |
 
 Labels and transcriptions derived from a dataset's images or documents fall under that dataset's licence, so the same status applies to them.

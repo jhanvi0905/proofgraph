@@ -379,66 +379,6 @@
           "bytes": 461261
         }
       ]
-    },
-    {
-      "id": "TC4",
-      "title": "Delivery confirmation",
-      "claim": "Vins et alcools Chevalier received order 10248 on July 16, 2016.",
-      "source_dataset": "Pepperwind: A Whole Fictional Company as Data (Kaggle, Muhammed Rasin)",
-      "source_group": "source_group_01",
-      "citation": "Muhammed Rasin, Pepperwind: A Whole Fictional Company as Data, Kaggle. CC BY 4.0. https://www.kaggle.com/datasets/rasinmuhammed/pepperwind . Synthetic data.",
-      "licence_status": "pointer only; CC BY 4.0 (dataset page, checked 4 Nov 2026); synthetic; not committed",
-      "split": "heldout",
-      "files": [
-        {
-          "name": "invoice_10248.pdf",
-          "path": "Company Documents - Archive 3/CompanyDocuments/invoices/invoice_10248.pdf",
-          "sha256": "bc95a144939b7f21abd832019625a3f2c182a7abe8d57f9bd25e7c6f5d6b3ba5",
-          "bytes": 2052
-        },
-        {
-          "name": "purchase_orders_10248.pdf",
-          "path": "Company Documents - Archive 3/CompanyDocuments/purchase_orders/purchase_orders_10248.pdf",
-          "sha256": "ad8f14ad77a98d0926a68d17e5ce822c2f9d3a355ccf4a6b1ded5327c31cbb87",
-          "bytes": 8412
-        },
-        {
-          "name": "order_10248.pdf",
-          "path": "Company Documents - Archive 3/CompanyDocuments/shipping_orders/order_10248.pdf",
-          "sha256": "5ee01b997176b9124302899471651ce4d4b160f292caf79f2250e2e8324e3480",
-          "bytes": 2780
-        }
-      ]
-    },
-    {
-      "id": "TC10",
-      "title": "Purchase authorization versus billed goods",
-      "claim": "Franchi was billed only for the quantities and unit prices authorized in purchase order 11060.",
-      "source_dataset": "Pepperwind: A Whole Fictional Company as Data (Kaggle, Muhammed Rasin)",
-      "source_group": "source_group_03",
-      "citation": "Muhammed Rasin, Pepperwind: A Whole Fictional Company as Data, Kaggle. CC BY 4.0. https://www.kaggle.com/datasets/rasinmuhammed/pepperwind . Synthetic data.",
-      "licence_status": "pointer only; CC BY 4.0 (dataset page, checked 4 Nov 2026); synthetic; not committed",
-      "split": "heldout",
-      "files": [
-        {
-          "name": "invoice_11060.pdf",
-          "path": "Company Documents - Archive 3/CompanyDocuments/invoices/invoice_11060.pdf",
-          "sha256": "7d8c995bb85ea38548801997e4cae15e2d8c0b4f07248d5e40a06baa6cddcdee",
-          "bytes": 2003
-        },
-        {
-          "name": "order_11060.pdf",
-          "path": "Company Documents - Archive 3/CompanyDocuments/shipping_orders/order_11060.pdf",
-          "sha256": "47ca7aa2c7b61ff580ce2e7e44592794945de48ae6a8c1ded76214aa6f344eaa",
-          "bytes": 2692
-        },
-        {
-          "name": "purchase_orders_11060-1.png",
-          "path": "Format Conversions/Company Documents/purchase_orders_11060-1.png",
-          "sha256": "b25472cec1bee625f0c53b0fa47d0f2406db35d7f604e8b61fa5e9814628e0ee",
-          "bytes": 66934
-        }
-      ]
     }
   ]
 }
