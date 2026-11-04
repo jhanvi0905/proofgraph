@@ -143,8 +143,7 @@ def build_entities(reads: list[DocRead]) -> Entities:
 
 
 def _numbers_differ(a: str, b: str) -> bool:
-    # Adapted from graphify dedup._numeric_tokens_differ (Graphify-Labs/graphify, MIT):
-    # digit runs compared as multisets with leading zeros stripped.
+    # Digit runs compared as multisets with leading zeros stripped, so "Section 5" and "Section 15" differ.
     if a == b:
         return False
     norm = lambda s: sorted(t.lstrip("0") or "0" for t in _DIGITS.findall(s))  # noqa: E731
