@@ -2,13 +2,47 @@
 
 **Where does it say that?** ProofGraph checks a claim against every document in the packet and opens the clause that decides it, on its page.
 
-**Try it:** open the [worked example](docs/recorded/worked-example-review.html) (download the file with GitHub's **Download raw file** button and open it in a browser; no key, no network), or use the [live app](https://proofgraph-orww.onrender.com/) and choose **See the worked example** (no account, no key, no upload). The worked example is never limited; live uploads are limited per visitor.
+**Try it:** open the [worked example](docs/recorded/worked-example-review.html) (download the file with GitHub's **Download raw file** button and open it in a browser; no key, no network), or use the [live app](https://proofgraph-orww.onrender.com/) and choose **See the worked example** (no account, no key, no upload). The worked example is never limited; live uploads are limited per visitor. To run your own check with your own key, see [Test it yourself](#test-it-yourself-for-judges).
 
 [![ProofGraph review screen: three clauses on page 1 go against the claim, the deciding clause circled on the real page](docs/media/hero.gif)](docs/media/hero.mp4)
 
 *The review screen on a claim about a real NDA (case TC40, from ContractNLI, CC BY 4.0, Koreeda and Manning 2021): each clause that goes against the claim is circled on its page. [Full-quality video](docs/media/hero.mp4).*
 
-> **Meta's Muse Spark does the reading and judging; ProofGraph checks every statement against the page.** About 99% of the 1,496 statements it extracted were found on the real page, exactly or after whitespace and punctuation normalisation. On 30 contract pairs never used while building it was right on 19, qualified 6 for a human to review, and wrong on 5; none of the 10 real contradictions was passed as supported. Moving judgement from hand-coded patches to model-labelled fixed taxonomies fixed 10 unseen pairs and broke none. Answers resting on text read from the page: 13 right out of 15, none wrongly supported. Small samples: read as *better on unseen cases*, not *proven better*. [Results](#results).
+> **Meta's Muse Spark does the reading and judging; ProofGraph checks every statement against the page.**
+>
+> - **It does not invent quotes.** About 99% of the 1,496 statements the model extracted were found on the real page.
+> - **It does not pass a real contradiction as supported.** On 30 contract pairs never used while building it, none of the 10 real contradictions was passed as supported. Overall it was right on 19, sent 6 to a human, and was wrong on 5.
+> - **Answers resting on text read from the page are the most reliable.** 12 right out of 14, none wrongly supported.
+>
+> These are small samples: read them as *better on unseen cases*, not *proven better*. Details and the failures are in [Results](#results).
+
+## Test it yourself (for judges)
+
+**No key (1 minute).** Open the [live app](https://proofgraph-orww.onrender.com/) and choose **See the worked example**. If the page is slow, it is waking up; wait a few seconds. For a fully offline copy, download [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) and open it in a browser.
+
+**With your own keys (about 10 minutes).** To run a live check on your own documents, run the app on your machine with your own Meta Model API key. Nothing is limited by our demo cap, and nothing leaves your machine except the model calls. You need [uv](https://docs.astral.sh/uv/) and Python 3.11.
+
+```bash
+git clone https://github.com/jhanvi0905/proofgraph.git && cd proofgraph
+make setup
+cp .env.example .env
+```
+
+Edit `.env`: set `MODEL_API_KEY` to your Meta Model API key. Set `BASETEN_API_KEY` too if you want the Muse Spark Open second reader (optional; without it the second reader is skipped). Then:
+
+```bash
+export $(grep -v '^#' .env | xargs)
+PROOFGRAPH_GRAPH=1 PROOFGRAPH_SAMPLES=examples/samples/samples.json uv run uvicorn app.server:app --port 8000
+```
+
+Open <http://localhost:8000>, then:
+
+1. Type a claim. For example: *The SLA commits Nimbus to at least 99.9% uptime each month, we can claim a service credit if it falls short, and Nimbus must notify us of any personal data breach within 24 hours.*
+2. Drop in the documents. The five synthetic documents for that claim are in [`examples/samples/leg-06/`](examples/samples/leg-06/) (every name is invented), or use your own PDFs or images.
+3. Choose **Check claim**. Reading each page with Muse Spark takes a little while; progress shows on screen.
+4. Open the deciding clause to see it circled on its page, then **How this was checked** for the path, which document wins, and the second-reader result.
+
+`SPEND_LIMIT_USD` in `.env` caps your own spend (default 50). `make test` runs the 1,100+ offline tests with no key. More detail: [Run it](#run-it) and [`docs/deploy.md`](docs/deploy.md).
 
 ## What it does
 
@@ -186,9 +220,27 @@ The reproduction scripts (`scripts/eval_review.py`, `scripts/report_review.py`, 
 
 ## Built during the hackathon, and what it stands on
 
-**Provenance.** The git history is the record: 260+ commits from 26 Oct 2026. The four commits before 27 Oct 00:00 IST are scaffold only (documents, licence, `.gitignore`); the first code commit is at 02:48 IST on 27 Oct (`git log --reverse --format='%h %aI %s' -- '*.py' | head -1`). The evidence graph, the review app and the evaluation scripts were written after that.
+**Provenance.** The git history is the record (`git log --reverse --format='%h %aI %s'`).
 
-No code in this repository predates the build window; the only pre-existing code is the named dependencies below.
+| When | What |
+| --- | --- |
+| Mon 26 Oct, 12:00 PM ET | Hackathon kickoff |
+| 26 Oct, 12:11 PM ET (21:41 IST) | First commit: scaffold only (documents, licence, `.gitignore`, contributor notes) |
+| 26 Oct, 5:18 PM ET (27 Oct, 02:48 IST) | First code commit: `feat: add the deterministic verification engine` |
+| 27 Oct, 12:00 AM ET | Start of the building period in the schedule |
+| 4 Nov, 9:00 PM ET | Submission deadline |
+
+Every commit, including the first scaffold, was made after the 26 Oct kickoff. The first code commit falls on the evening of kickoff day, a few hours before the building period's 27 Oct start in the schedule. We state that plainly rather than shift the dates; there is no earlier history and no earlier repository, and no code in this repository predates the kickoff. The only pre-existing code is the named dependencies below.
+
+**Earlier iterations that are still in the tree.** The repository began as a different engine and became ProofGraph. These files were all written inside the build window and are not used by the demo; they are kept for history and are listed in [`NOTICE.md`](NOTICE.md):
+
+| Path | First commit | What it was |
+| --- | --- | --- |
+| `app/streamlit_app.py` | 28 Oct (IST) | The first front end, replaced by the web review screen in `app/web/` |
+| `proofgraph/clients/sam.py`, boxed-bundle path | 29 to 31 Oct (IST) | A photo-counting check using SAM 3.1 |
+| `examples/freight/` | 31 Oct (IST) | An earlier freight example |
+
+The evidence graph, the review app and the evaluation scripts are the work shown in the demo.
 
 Not built here, used as named dependencies:
 
@@ -201,7 +253,7 @@ Not built here, used as named dependencies:
 | pydantic, Pillow, openai SDK | MIT, MIT-CMU, Apache-2.0 | Typed contracts, page images, calling the model endpoints |
 | Schibsted Grotesk, Source Serif 4 (Google Fonts) | SIL OFL | Typography |
 
-Full list and attribution in [`NOTICE.md`](NOTICE.md). Earlier-engine code (a photo-counting path using SAM 3.1, a Streamlit front end, a freight example) remains in the tree for history and is not used by the demo.
+Full list and attribution in [`NOTICE.md`](NOTICE.md). The earlier iterations are described under Provenance above; they were written in the build window and are not used by the demo.
 
 **Ideas studied, no code copied:** LangExtract (source grounding), Graphiti (declared edge schema), LightRAG (gleaning pass), LazyGraphRAG, KAG, LegalRuleML and ContractNLI (label set).
 
