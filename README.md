@@ -95,7 +95,7 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 | **92%** of the gold evidence became a statement | First full run: 73 gold relations | The model reads what matters |
 | **0 of 10** real contradictions passed as supported | 30 unseen pairs, 10 per published label | The error that costs a reviewer money did not happen |
 | **10 fixed, 0 broken** when hand-coded patches gave way to model-labelled judgement under fixed label sets | 30 unseen pairs, 9/30 to 19/30 | The approach generalises; it is not tuned to cases |
-| **13 of 15** right, none wrongly supported, when the answer rests on text read straight from the page | 26-case suite, by trust tier (small n) | A reviewer can trust the green tier |
+| **12 of 14** right, none wrongly supported, when the answer rests on text read straight from the page | 24-case suite, by trust tier (small n) | A reviewer can trust the green tier |
 
 ![What happened to the 30 unseen pairs: 19 right, 6 qualified and sent to review, 5 wrong; none of the 10 real contradictions passed as supported](docs/img/results-outcomes.svg)
 
@@ -117,14 +117,14 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 
 ### Why you can believe the green tier
 
-- **Calibrated.** Answers decided by statements read straight from the page: 13 of 15 right, none wrongly supported.
+- **Calibrated.** Answers decided by statements read straight from the page: 12 of 14 right, none wrongly supported.
 - **Faithful to the page.** Across the 29 graphs of the first full run and 1,496 statements, 84% were read from the page, 15% were the model's reading, and 0.5% (7) could not be aligned and were marked unclear, so they never decided anything.
 - **Honest abstention.** "Not mentioned" cases were 3 of 3 on the suite.
 - **Nothing dropped silently.** 165 list members not found in their quote, 29 relations whose names were not in the quote, and 2 ambiguous override targets were each rejected and counted. Instructions planted in two packets were kept out of the rules.
 
-### The 26-case suite (labelled after error analysis)
+### The 24-case suite (labelled after error analysis)
 
-Used to find failures, so not unbiased: 12 of 26 correct against 9 of 26 without the graph. Sources: 8 LegalReasonBench cases, 8 ContractNLI, 2 Pepperwind cases and 8 multi-document packs. The first full run had 29 cases; 3 whose source licence we could not confirm were dropped and the suite figures recomputed from the recorded runs, so the analysis files in `results/` still report the 29-case run; see [Data and licences](#data-and-licences).
+Used to find failures, so not unbiased: 11 of 24 correct against 9 of 24 without the graph. Sources: 8 LegalReasonBench cases, 8 ContractNLI and 8 multi-document packs. The first full run had 29 cases; 5 whose source licence we could not confirm or did not want to carry were dropped and the suite figures recomputed from the recorded runs, so the analysis files in `results/` still report the 29-case run; see [Data and licences](#data-and-licences).
 
 ## Recorded runs
 
@@ -149,7 +149,7 @@ The three suite cases whose source licence we could not confirm have been remove
 | Overrides across documents rarely decide | Suite 2/7 |
 | Normative claims backed only by facts can be wrongly supported | The one suite case, TC17: "served from May 7" read as "authorized from May 7" |
 | Emails, image pages and table rows are often not reached | 92% of gold evidence extracted, 73% reached by the walk |
-| Small samples | n = 26 and n = 30, intervals overlap |
+| Small samples | n = 24 and n = 30, intervals overlap |
 
 Out of scope, and said so on screen: arithmetic across many figures, law outside the packet (shown as "cited, not in the packet"), and subjective claims.
 
