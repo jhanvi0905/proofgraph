@@ -136,3 +136,13 @@ html, body { overflow-x: clip; }
   .map .pencil { transition: border-color .9s var(--ease), color .9s var(--ease); }
   @keyframes fade { from { opacity: 0; } }
 }
+
+/* The example is offered before the form, so a visitor with no documents has a first step that costs nothing. */
+.lede + .try { margin-top: -1rem; }
+.try { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .9rem; margin: 0 0 1.5rem; font-size: 1.0625rem; color: #fff; }
+.try[hidden] { display: none; }
+.try-q { flex-basis: 100%; font-weight: 700; }
+.try-btn { min-height: 44px; padding: .5rem 1.1rem; font: inherit; font-weight: 700; color: #fff; background: transparent; border: 2px solid #fff; border-radius: 0; cursor: pointer; }
+.try-btn:hover { background: #fff; color: var(--stamp); }
+.try-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+#try-what { opacity: .9; }
