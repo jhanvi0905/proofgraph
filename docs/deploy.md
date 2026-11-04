@@ -8,6 +8,7 @@ The app is one container: `uvicorn app.server:app`, built from the `Dockerfile`.
 | --- | --- |
 | `MODEL_API_KEY` | Secret. The key for the Meta models. Set it in the host's dashboard, never in the repository. |
 | `BASETEN_API_KEY` | Secret. The blind second reader (Muse Spark Open) runs on Baseten. Without it the second read is unavailable and a supported answer passes unchecked, so set it. |
+| `MUSE_MODEL`, `CHECKER_MODEL`, `SAM_MODEL`, `BASETEN_BASE_URL` | The model names and the Baseten address. The blueprint pins them to the values the evaluation used; the code defaults are the same. |
 | `SPEND_LIMIT_USD` | Cap on model spend. When it is reached the app refuses new requests, including cached ones. |
 | `PROOFGRAPH_GRAPH` | `1` runs the evidence graph and shows its review page; empty or `0` runs the original pipeline. |
 | `APP_PASSCODE` | Optional. When set, every run asks for it. |
