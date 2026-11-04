@@ -323,13 +323,20 @@ def test_at_most_four_parts_run_at_once(tmp_path):
     assert len(review.parts) == 9 and 1 < peak["max"] <= 4
 
 
-def test_cap_gate_runs_before_split_is_even_called(tmp_path, monkeypatch):
-    """The transport never being hit is not enough: split itself must not run when capped."""
-    called = []
-    monkeypatch.setattr(run_mod, "split", lambda *a, **k: called.append(1))
-    review = _run(CLAIM2, [PDF], _muse(tmp_path, SmartTransport(), limit="0.01")).review
-    assert called == []
+def test_capped_run_with_an_empty_cache_sends_nothing_and_says_so(tmp_path):
+    transport = SmartTransport()
+    review = _run(CLAIM2, [PDF], _muse(tmp_path, transport, limit="0.01")).review
+    assert transport.split_calls == 0 and transport.relate_started == []
     assert [b.kind for b in review.banners] == ["cap"]
+
+
+def test_capped_run_still_answers_from_the_cache(tmp_path):
+    """Cached answers cost nothing, so reaching the cap must not take them away."""
+    first = _run(CLAIM, [PDF], _muse(tmp_path, FakeTransport(SPLIT1, GOOD))).review
+    capped_transport = FakeTransport()  # no scripted replies: any real call would fail the run
+    review = _run(CLAIM, [PDF], _muse(tmp_path, capped_transport, limit="0.01")).review
+    assert review.status == first.status == "contradicted"
+    assert [b.kind for b in review.banners] == []
 
 
 # ---- R-15b: absence receipt decides cannot_tell vs not_found ----

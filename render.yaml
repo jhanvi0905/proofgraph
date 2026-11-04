@@ -25,7 +25,9 @@ services:
       - key: BASETEN_BASE_URL
         value: https://inference.baseten.co/v1
       - key: SPEND_LIMIT_USD
-        value: "10"          # the cap on model spend for this public instance
+        value: "25"          # the cap on model spend for this public instance
+      - key: LIVE_RUNS_PER_HOUR
+        value: "3"           # live runs (uploads, new claims) per visitor per hour; the worked example is never limited
       - key: MODEL_CALL_LOG
         value: "1"           # one [meta-api] line per real model call in Render's Logs: time, stage, model, tokens
       - key: MODEL_API_KEY

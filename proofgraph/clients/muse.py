@@ -296,6 +296,7 @@ class MuseClient:
         cached = self._cached_file_id(digest)
         if cached is not None:
             return cached
+        self._spend.check()  # a real upload; a cached file id above needs no budget
         response = self._read_json(
             lambda: self._files().create(
                 filename=file_path.name,

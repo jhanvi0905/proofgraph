@@ -21,12 +21,13 @@ from collections import OrderedDict
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
-from fastapi import FastAPI, Form, UploadFile
+from fastapi import FastAPI, Form, Request, UploadFile
 from proofgraph.review.models import Review
 from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.auth import passcode_refusal
+from app.limit import LiveRunLimit, visitor_id
 from app.viewer.render import render
 from proofgraph.review.ingest import ingest
 from proofgraph.review.run import AllDone, PartDone, PartsReady, default_muse, run_review
@@ -169,6 +170,7 @@ def _disagreements(review) -> list[dict]:
 def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
     app = FastAPI(title="ProofGraph", docs_url=None, redoc_url=None)
     store = Store()
+    limit = LiveRunLimit()
     muse_factory = make_muse or default_muse
 
     def stream(claim: str, packet: str, names: list[str]) -> Iterator[str]:
@@ -205,7 +207,8 @@ def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
         except Exception as exc:  # the stream ends with one plain line, never a stack trace
             yield sse("failed", {"text": f"The check stopped: {type(exc).__name__}. Nothing after this point was read."})
 
-    def start(claim: str, passcode: str, packet: str | None, uploads: list[tuple[str, bytes]] | None):
+    def start(claim: str, passcode: str, packet: str | None, uploads: list[tuple[str, bytes]] | None,
+              visitor: str | None = None):
         configured = os.environ.get("APP_PASSCODE")  # no passcode set: open; the spend cap still applies
         refusal = passcode_refusal(passcode, configured) if configured else None
         if refusal is None and not claim.strip():
@@ -221,6 +224,9 @@ def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
                 refusal = "Upload PDF, PNG or JPG files."
         if refusal is not None:  # before any client exists
             return JSONResponse({"refusal": refusal}, status_code=401 if "passcode" in refusal else 400)
+        if visitor is not None and not limit.allow(visitor):  # a live run; the cached sample passes visitor=None
+            return JSONResponse({"refusal": "This demo's live-run budget for you is used up for now. The worked example "
+                                            "is unlimited, or try again in an hour."}, status_code=429)
         names = [n for n, _ in uploads] if uploads else [p.name for p in store.paths(packet)]
         if packet is None:
             packet = store.packet(uploads)
@@ -261,16 +267,16 @@ def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
         return (WEB / "index.html").read_text(encoding="utf-8")
 
     @app.post("/api/review")
-    async def review(claim: str = Form(""), passcode: str = Form(""), files: list[UploadFile] | None = None):
+    async def review(request: Request, claim: str = Form(""), passcode: str = Form(""), files: list[UploadFile] | None = None):
         uploads = [(_clean(f.filename), await f.read()) for f in files or [] if f.filename]
-        return start(claim, passcode, None, uploads)
+        return start(claim, passcode, None, uploads, visitor_id(request.headers, request.client.host if request.client else None))
 
     @app.post("/api/review/{review_id}/ask")
-    def ask(review_id: str, claim: str = Form(""), passcode: str = Form("")):
+    def ask(request: Request, review_id: str, claim: str = Form(""), passcode: str = Form("")):
         item = store.items.get(review_id)
         if item is None or item["packet"] not in store.dirs:
             return JSONResponse({"refusal": "That packet is no longer here. Upload the files again."}, status_code=404)
-        return start(claim, passcode, item["packet"], None)
+        return start(claim, passcode, item["packet"], None, visitor_id(request.headers, request.client.host if request.client else None))
 
     @app.get("/api/review/{review_id}", response_class=HTMLResponse)
     def get_review(review_id: str):

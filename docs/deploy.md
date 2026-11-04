@@ -9,8 +9,9 @@ The app is one container: `uvicorn app.server:app`, built from the `Dockerfile`.
 | `MODEL_API_KEY` | Secret. The key for the Meta models. Set it in the host's dashboard, never in the repository. |
 | `BASETEN_API_KEY` | Secret. The blind second reader (Muse Spark Open) runs on Baseten. Without it the second read is unavailable and a supported answer passes unchecked, so set it. |
 | `MUSE_MODEL`, `CHECKER_MODEL`, `SAM_MODEL`, `BASETEN_BASE_URL` | The model names and the Baseten address. The blueprint pins them to the values the evaluation used; the code defaults are the same. |
-| `SPEND_LIMIT_USD` | Cap on model spend. When it is reached the app refuses new requests, including cached ones. |
+| `SPEND_LIMIT_USD` | Cap on model spend. When it is reached the app refuses any call that would be paid for; answers already in the cache (the worked example) still load. |
 | `PROOFGRAPH_GRAPH` | `1` runs the evidence graph and shows its review page; empty or `0` runs the original pipeline. |
+| `LIVE_RUNS_PER_HOUR` | Live runs (an upload, or a new claim on an uploaded packet) allowed per visitor per hour, 3 by default; `0` turns it off. The worked example is never limited. The visitor is the first `X-Forwarded-For` address. State is in memory, so a restart clears it. |
 | `MODEL_CALL_LOG` | `1` prints one `[meta-api]` line per real model call to the host's Logs: time, stage (`read-scan`, `split-claim`, `extract-graph`, `link-entities`, `read-part`, `relate-part`, `label-evidence`, `compare-values`, `blind-reread`, `blind-check`), model name the API returned, token counts and duration. No request text, header or key. Cached results make no call, so they print nothing; a packet that has not been reviewed before shows the full sequence. The blueprint sets it to `1`. |
 | `APP_PASSCODE` | Optional. When set, every run asks for it. |
 | `CACHE_DIR` | Where the model cache, the spend ledger and saved reviews live. Put it on a persistent disk. |

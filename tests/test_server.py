@@ -207,3 +207,16 @@ def test_image_route_rejects_unknown_and_unsafe_names(client, tmp_path, monkeypa
     rid = events(post(client).text)[-1][1]["review_id"]
     assert client.get(f"/api/review/{rid}/img/{name}").status_code == 404
     assert client.get(f"/api/review/nothing/img/{name}").status_code == 404
+
+
+def test_second_live_run_from_one_visitor_gets_429(tmp_path, monkeypatch):
+    monkeypatch.setenv("LIVE_RUNS_PER_HOUR", "1")
+    monkeypatch.delenv("APP_PASSCODE", raising=False)
+    monkeypatch.delenv("PROOFGRAPH_GRAPH", raising=False)
+    c = TestClient(create_app(lambda: _muse(tmp_path, FakeTransport(SPLIT1, GOOD, SPLIT1, GOOD))))
+    assert post(c, passcode="").status_code == 200
+    again = post(c, passcode="")
+    assert again.status_code == 429 and "live-run budget" in again.json()["refusal"]
+    other = c.post("/api/review", data={"claim": CLAIM}, files={"files": ("rate.pdf", PDF.read_bytes(), "application/pdf")},
+                   headers={"x-forwarded-for": "203.0.113.9"})
+    assert other.status_code == 200
