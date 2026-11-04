@@ -3,8 +3,8 @@
   "samples": [
     {
       "id": "leg-06",
-      "title": "A service credit and a breach notice",
-      "claim": "Nimbus owes us a 25% service credit for the October 2026 outages, and under our contract Nimbus must notify us of any personal data breach within 24 hours.",
+      "title": "An uptime commitment, a credit and a breach notice",
+      "claim": "The SLA commits Nimbus to at least 99.9% uptime each month, we can claim a service credit if it falls short, and Nimbus must notify us of any personal data breach within 24 hours.",
       "files": [
         "leg-06/Nimbus_Master_Subscription_Agreement_excerpt.pdf",
         "leg-06/Schedule_2_Service_Level_Agreement.pdf",

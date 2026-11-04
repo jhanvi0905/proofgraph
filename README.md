@@ -25,9 +25,9 @@ People trust an answer as far as they can see what it came from. Hand ProofGraph
 
 Each answer opens the deciding clause on its page, shows the path the reasoning took, and says which document wins and from when.
 
-**Worked example (the one on the live app).** A synthetic packet (every name invented): a subscription agreement excerpt, the service-level schedule, the data-processing addendum, a scanned October service report with a received stamp, and a news screenshot. Claim: *"Nimbus owes us a 25% service credit for the October 2026 outages, and under our contract Nimbus must notify us of any personal data breach within 24 hours."*
+**Worked example (the one on the live app).** A synthetic packet (every name invented): a subscription agreement excerpt, the service-level schedule, the data-processing addendum, a scanned October service report and a news screenshot. Claim: *"The SLA commits Nimbus to at least 99.9% uptime each month, we can claim a service credit if it falls short, and Nimbus must notify us of any personal data breach within 24 hours."*
 
-ProofGraph splits it into two parts. **Part 1 is Contradicted**: the scanned report's uptime row, 99.13%, falls in the 5% credit tier, not 25%. The scan is read by the model, so its box is approximate and it is labelled that way. **Part 2 is Contradicted**: the data-processing addendum requires notice within 72 hours, a quote found on the page. The news screenshot and the contract excerpt say nothing on either part and are listed as such. Both parts are Contradicted, so the whole claim is.
+ProofGraph splits it into three parts. **Part 1 is Supported**: the service-level schedule promises at least 99.9% in each month, a quote found on the page. **Part 2 is Supported**: the same schedule grants a service credit when uptime falls short. **Part 3 is Contradicted**: the data-processing addendum requires notice within 72 hours, and the agreement excerpt says the addendum prevails on personal data, so the 24 hours in the claim loses. The news screenshot also mentions credits; it is a model-read line, labelled approximate, and never decides. Two parts hold and one fails, so the claim as a whole does not.
 
 ![Worked example: each of the two claim parts, from entity to clause to answer, with the documents that were set aside](docs/img/worked-example.png)
 
