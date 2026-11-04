@@ -2,7 +2,7 @@
 
 **Where does it say that?** ProofGraph checks a claim against every document in the packet and opens the clause that decides it, on its page.
 
-Live: <https://proofgraph-orww.onrender.com/> (open it and choose **See the worked example**; no account, no key, no upload).
+Live: <https://proofgraph-orww.onrender.com/> (open it and choose **See the worked example**; no account, no key, no upload). Offline: [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) is the same review saved as one self-contained page; download it and open it in a browser, no key and no network needed.
 
 [![ProofGraph review screen: three clauses on page 1 go against the claim, the deciding clause circled on the real page](docs/media/hero.gif)](docs/media/hero.mp4)
 
@@ -38,7 +38,7 @@ ProofGraph splits it into three parts and answers each one. **Part 2** (automati
 Fastest to check first:
 
 1. **The page.** The deciding clause, circled on the real page.
-2. **The path.** For example Connors, CMO (interim), principal officer, Bylaws section 5.2: the reasoning a careful reviewer would write out.
+2. **The path.** For example Change of Control, then the license, page 2: the reasoning a careful reviewer would write out.
 3. **The override.** Which document wins, and from when.
 4. **The honesty.** "Not in these documents" and "cited, not in the packet" are answers, not failures.
 5. **How each link was made.** *Read from the page* (code verified the quote), *the model's reading*, or *unclear*. An unclear link never decides an answer, and an answer is only as strong as its weakest link.
@@ -139,6 +139,7 @@ The hosted app runs the same code. For anything you cannot rerun without a key, 
 | The 30-pair held-out check, graph on and off, and the run-1 ablation | [`runs/clean-on.jsonl`](runs/clean-on.jsonl), [`runs/clean-off.jsonl`](runs/clean-off.jsonl), [`runs/clean-on-run1.jsonl`](runs/clean-on-run1.jsonl) |
 | Analysis, with the pre-registered criteria for iteration 2 | [`results/run2-analysis.md`](results/run2-analysis.md), [`results/run2-suite-analysis.md`](results/run2-suite-analysis.md), [`results/preregistration-iteration-2.md`](results/preregistration-iteration-2.md) |
 | Health lines (quote alignment, rejections, first read against second reader, walk against full read) and the error split (graph missed the evidence, or reasoning misjudged it) | [`results/health.md`](results/health.md), [`results/error-split.md`](results/error-split.md) |
+| The full review page of the worked example, saved as one self-contained file (page images included; the live app's "ask another claim" box does not work offline) | [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) |
 | A live trace of one packet | Open the live URL and choose **See the worked example** |
 
 The three suite cases whose source licence we could not confirm have been removed from these files. The analysis files in `results/` still describe the original 29-case run.
@@ -169,7 +170,9 @@ make setup            # uv sync, Python 3.11
 make test             # 1,100+ tests, all offline, no key needed
 ```
 
-**Offline run, no key, no network** (the earlier deterministic engine on a recorded fixture; prints a JSON verdict):
+**See a full review without a key:** open [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) in a browser.
+
+**Offline command, no key, no network** (the earlier deterministic engine on a recorded fixture; prints a JSON verdict):
 
 ```bash
 uv run python -m proofgraph tests/fixtures/synthetic_pm_packet.json
@@ -191,6 +194,8 @@ The reproduction scripts (`scripts/eval_review.py`, `scripts/report_review.py`, 
 ## Built during the hackathon, and what it stands on
 
 The build window started 21:30 IST on 26 Oct 2026 (first commit 26 Oct). [`BUILT_DURING_HACKATHON.md`](BUILT_DURING_HACKATHON.md) logs the work by day, and the git history carries dated commits. The evidence graph (`proofgraph/review/graph*.py`, `precedence.py`, the review app and the evaluation scripts) was written in the window.
+
+Nothing in this repository predates the build window; the only pre-existing code is the named dependencies below.
 
 Not built here, used as named dependencies:
 
