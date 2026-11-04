@@ -167,7 +167,7 @@ def _open_items(review: Review, graph: dict) -> str:
     if not seen:
         return ""
     lis = "".join(f'<li><span class="says">{_e(t)}</span></li>' for t in seen.values())
-    return (f'<section class="open"><h2>Cited, not in your documents</h2>'
+    return (f'<section class="open" id="cited"><h2>Cited, not in your documents</h2>'
             f'<p>The documents refer to these; they were not supplied, so nothing here rests on them.</p><ul>{lis}</ul></section>')
 
 
@@ -212,7 +212,7 @@ def _signoff(graph: dict, infos: dict, replay: bool) -> str:
     lines.append(f'<li><span>Left out</span> <span class="num">{set_aside} that could not be checked against the page</span></li>')
     if replay:
         lines.append("<li><span>Saved run</span> <span>Replayed, not a live check.</span></li>")
-    return f'<section class="signoff" aria-label="Sign-off"><ul>{"".join(lines)}</ul></section>'
+    return f'<section class="signoff" id="how-checked"><h2>How this was checked</h2><ul>{"".join(lines)}</ul></section>'
 
 
 def _legend() -> str:
@@ -220,7 +220,7 @@ def _legend() -> str:
              ("question", "Can't tell, the reason is written beside it"), ("clash", "The documents disagree")]
     marks = "".join(f'<li>{mark(m)}<span>{w}</span></li>' for m, w in items)
     tiers = "".join(f"<li><span>{w}</span></li>" for w in TIER_WORD.values())
-    return (f'<section class="legend" aria-label="Legend"><h2>Legend</h2><ul class="marks">{marks}</ul>'
+    return (f'<section class="legend"><h2>Key to the marks</h2><ul class="marks">{marks}</ul>'
             f'<ul class="tiers">{tiers}</ul></section>')
 
 
@@ -259,20 +259,24 @@ def render_graph(review: Review, images: dict, replay: bool = False, ask: bool =
     n = len(review.docs)
     sharenote = (f'<p class="sharenote">Checked with ProofGraph against {n} document{"s" if n != 1 else ""}'
                  f'{f" on {_long(when)}" if when else ""}. <a href="/">Check your own claim</a></p>' if share else "")
+    open_items = _open_items(review, graph)
+    links = [("answer", "Answer"), ("evidence", "Evidence")] + ([("cited", "Cited, not supplied")] if open_items else []) \
+        + [("how-checked", "How this was checked")] + ([("ask", "Ask another claim")] if asker else [])
+    toc = '<nav class="toc" aria-label="On this page">' + "".join(f'<a href="#{i}">{t}</a>' for i, t in links) + "</nav>"
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         '<title>ProofGraph review</title><link rel="preconnect" href="https://fonts.googleapis.com">'
         f'<link rel="stylesheet" href="{FONTS}"><style>{TOKENS.read_text()}{CSS.read_text()}</style></head><body>'
-        f'<div class="wrap"><div class="layout{" share" if share else ""}"><header class="head">{claim_first if not share else ""}'
+        f'<div class="wrap">{toc}<div class="layout{" share" if share else ""}"><header class="head" id="answer">{claim_first if not share else ""}'
         f'{answer}{_trail(dinfo, docs_by_id) if driver else ""}{_strip(review, dinfo, _d(graph.get("dates"))) if driver else ""}'
         f'{claim_first if share else ""}{notes}</header>'
         f'<aside class="pane" aria-label="Page"><button type="button" class="btn quiet paneclose" id="paneclose">Close page</button>'
         f'<p class="hint" id="hint">Select a quote to see its page here.</p>{pages}</aside>'
-        f'<main><h2 class="ledger-title">What the documents say</h2><p class="ledger-help">Select a quote to see it on its page.</p>'
+        f'<main id="evidence"><h2 class="ledger-title">What the documents say</h2><p class="ledger-help">Select a quote to see it on its page.</p>'
         f'<div class="gridwrap" tabindex="0" role="region" aria-label="What the documents say">'
         f'<table class="grid"><caption class="sr">What the documents say, by part of the claim</caption>'
         f'<thead><tr><th scope="col"><span>Part of the claim</span></th>{cols}</tr></thead><tbody>{rows}</tbody></table></div>'
-        f'{_open_items(review, graph)}</main>'
+        f'{open_items}</main>'
         f'<footer class="foot">{_signoff(graph, infos, replay)}{_legend()}{asker}'
         f'<div class="actions"><button class="btn quiet" type="button" id="download">Download review</button>{copy}</div>{sharenote}</footer></div></div>'
         f'<div id="live" class="sr" role="status" aria-live="polite"></div><script>{JS.read_text()}</script></body></html>'

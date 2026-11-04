@@ -44,3 +44,43 @@ def test_the_offer_runs_the_same_example_as_the_card_below_and_stays_hidden_when
     js = (Path(__file__).resolve().parents[1] / "app" / "web" / "app.js").read_text(encoding="utf-8")
     assert "function runSample" in js and js.count("runSample(") >= 3  # defined, used by the card, used by the offer
     assert '$("try").hidden = false' in js and 'id="try" class="try" hidden' in PAGE
+
+
+def _ids(html: str) -> set[str]:
+    return set(re.findall(r'\bid="([^"]+)"', html))
+
+
+ENTRANCE = PAGE.split('<section id="entrance"')[1].split('<nav id="runbar"')[0]
+
+
+def test_the_entrance_has_a_top_bar_before_the_hero_and_every_link_in_it_lands_on_a_section():
+    assert PAGE.index('class="topnav"') < PAGE.index('class="hero"')
+    bar = re.search(r'<header class="topnav" id="top">.*?</header>', PAGE, re.S).group(0)
+    links = re.search(r"<nav[^>]*>.*?</nav>", bar, re.S).group(0)
+    assert re.findall(r"<a [^>]*>(.*?)</a>", links) == ["Check a claim", "How it works", "What the answers mean", "Questions"]
+    for target in re.findall(r'href="#([^"]+)"', bar):
+        assert target in _ids(PAGE), target
+    assert PAGE.count('class="wordmark"') == 1  # the name lives in the bar, once
+
+
+def test_sections_have_plain_titles_in_the_order_a_visitor_asks_their_questions():
+    assert '<span class="wp">' not in PAGE  # no reference numbers: nothing says what N-3 means
+    assert re.findall(r"<h2>(.*?)</h2>", ENTRANCE) == ["See it on an example", "How it works", "What the answers mean", "Beyond a citation", "Questions"]
+
+
+def test_all_five_answers_are_explained_in_one_place():
+    block = re.search(r'<section class="band states" id="answers">.*?</section>', PAGE, re.S).group(0)
+    for word in ("Supported", "Contradicted", "Qualified", "Not in these documents", "Can't tell"):
+        assert word in block, word
+
+
+def test_the_run_bar_names_the_step_the_visitor_is_on():
+    js = (Path(__file__).resolve().parents[1] / "app" / "web" / "app.js").read_text(encoding="utf-8")
+    assert 'id="stage"' in PAGE
+    for step in ("Step 1 of 3: Reading the documents", "Step 2 of 3: Checking the claim", "Step 3 of 3: Answer ready"):
+        assert step in js
+
+
+def test_notices_the_review_already_shows_are_not_repeated_above_it_but_errors_stay():
+    css = (Path(__file__).resolve().parents[1] / "app" / "web" / "app.css").read_text(encoding="utf-8")
+    assert ".live.done .notes li:not(.error) { display: none; }" in css

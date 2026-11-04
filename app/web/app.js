@@ -44,10 +44,12 @@
     li.textContent = text; li.className = cls || "";
   }
 
+  function stage(text) { $("stage").textContent = text; }
+
   function showStart(text) {
     if (runner) { runner.abort(); runner = null; }
     $("review").removeAttribute("src"); $("opening").hidden = true; state.reviewId = null;
-    $("runbar").hidden = true; $("entrance").hidden = false; $("live").hidden = true; $("result").hidden = true;
+    stage(""); $("runbar").hidden = true; $("entrance").hidden = false; $("live").hidden = true; $("result").hidden = true;
     go.disabled = false; go.textContent = "Check claim"; window.scrollTo(0, 0);
     if (text) { problem.textContent = text; problem.hidden = false; say(text); }
   }
@@ -55,7 +57,7 @@
     ["ticks", "cols", "shared", "parts", "notes"].forEach(function (id) { $(id).textContent = ""; });
     $("threads").textContent = ""; $("receipt").hidden = true; $("reopen").hidden = true; latest("");
     $("live").classList.remove("done"); $("read-title").textContent = "How the documents are being read";
-    $("runbar").hidden = false; $("reopen").setAttribute("aria-expanded", "false");
+    $("runbar").hidden = false; $("reopen").setAttribute("aria-expanded", "false"); stage("Step 1 of 3: Reading the documents");
     $("readgrid").classList.remove("collapsed"); $("map").classList.remove("deciding");
     state.parts = {}; state.cols = {}; state.byId = {}; state.chips = {}; state.shown = {};
     var c = $("claim-line"); c.textContent = claim; c.className = "claim reading";
@@ -165,6 +167,7 @@
         state.parts[p.id] = p.text;
         var li = el("li"); li.dataset.key = p.id; li.textContent = "Checking: " + p.text; $("parts").appendChild(li);
       });
+      stage("Step 2 of 3: Checking the claim");
       latest("Checking " + plural(d.parts.length, "part") + " of the claim.");
       say("Checking " + plural(d.parts.length, "part") + " of the claim.");
     },
@@ -195,7 +198,7 @@
     done: function (d) {
       state.reviewId = d.review_id;
       (d.banners || []).forEach(function (b, i) { note("b" + i, b); });
-      finishReading(); latest("Done."); $("live").classList.add("done");
+      finishReading(); latest("Done."); stage("Step 3 of 3: Answer ready"); $("live").classList.add("done");
       var frame = $("review"); $("opening").hidden = false;
       frame.onload = function () { $("opening").hidden = true; };
       frame.src = "/api/review/" + d.review_id;
@@ -205,12 +208,12 @@
         $("result").scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
       }, calm ? 0 : 400);
     },
-    failed: function (d) { note("failed", d.text, "error"); say(d.text); }
+    failed: function (d) { note("failed", d.text, "error"); say(d.text); stage("Stopped: see the note below"); }
   };
 
   $("reopen").addEventListener("click", function () {
     var g = $("readgrid"), shut = g.classList.toggle("collapsed");
-    this.textContent = shut ? "How the documents were read" : "Hide how they were read";
+    this.textContent = shut ? "How it was read" : "Hide how it was read";
     this.setAttribute("aria-expanded", String(!shut)); drawThreads();
     if (!shut) window.scrollTo({ top: 0, behavior: calm ? "auto" : "smooth" });
   });
@@ -246,7 +249,7 @@
         });
       }
       return pump();
-    }).catch(function (e) { if (e && e.name === "AbortError") return; note("failed", "The connection dropped. Nothing after this point was read.", "error"); })
+    }).catch(function (e) { if (e && e.name === "AbortError") return; note("failed", "The connection dropped. Nothing after this point was read.", "error"); stage("Stopped: see the note below"); })
       .then(function () { go.disabled = false; go.textContent = "Check claim"; });
   }
 

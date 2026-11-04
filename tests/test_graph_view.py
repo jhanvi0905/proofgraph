@@ -143,3 +143,30 @@ def test_a_narrow_screen_keeps_the_page_closed_until_a_quote_is_selected_and_dow
     css, js = (root / "graph_view.css").read_text(), (root / "graph_view.js").read_text()
     assert ".pane:not(.open)" in css and "classList.add(\"open\")" in js and "paneclose" in js
     assert "inlineImages" in js  # the offline file must not point at a server that is not there
+
+
+def _toc(html: str) -> list[str]:
+    bar = re.search(r'<nav class="toc" aria-label="On this page">(.*?)</nav>', html, re.S).group(1)
+    ids = set(re.findall(r'\bid="([^"]+)"', html))
+    for target in re.findall(r'href="#([^"]+)"', bar):
+        assert target in ids, target  # every link lands on something
+    return re.findall(r"<a [^>]*>(.*?)</a>", bar)
+
+
+def test_the_review_has_a_contents_bar_and_every_link_lands_on_a_section(review, monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    r = _graphed(review)
+    assert _toc(render(r, ask=True)) == ["Answer", "Evidence", "How this was checked", "Ask another claim"]
+    r.graph["cited"] = [{"phrase": "the CEO letter", "date": "2026-05-07", "status": "not supplied"}]
+    assert _toc(render(r, ask=True)) == ["Answer", "Evidence", "Cited, not supplied", "How this was checked", "Ask another claim"]
+
+
+def test_a_shared_review_offers_no_ask_link(review, monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    assert _toc(render(_graphed(review), share=True)) == ["Answer", "Evidence", "How this was checked"]
+
+
+def test_the_footer_sections_are_titled_in_plain_words(review, monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    html = render(_graphed(review), ask=True)
+    assert "<h2>How this was checked</h2>" in html and "<h2>Key to the marks</h2>" in html and "<h2>Legend</h2>" not in html
