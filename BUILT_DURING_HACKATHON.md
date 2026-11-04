@@ -24,3 +24,29 @@ The 2026-10-27 entry is behind the tree. Also on disk, tested offline: `clients/
 No live model call has been scored. The detention fixture prints CONTRADICTED / COMPUTED without Muse. Checkpoint A live is next. Checkpoint B was missed, so the IE half stays skipped.
 
 The remaining days were resequenced. Wednesday morning is two probes, then stop.
+
+## 2026-10-29 — MVP claim run
+
+Run a claim and an evidence packet through the engine; check the shared ship-export packet offline; check a live claim and read attached evidence; a product-decision packet the MVP can run; the same-day MVP contract and the $50 spend cap recorded.
+
+## 2026-10-31 — Review layer foundations
+
+The review package: PDF and scan ingest, the review JSON contract and a TC40 fixture, the first viewer, and a loader for gold files that stays out of product code. A suite manifest and fetch script, a probe memo, a Direct Muse baseline, boxed-bundle grounding (text in the box, blind re-read, SAM count), retries on 429 and 5xx with a total spend cap, and the judge journey screen with a passcode gate.
+
+## 2026-11-01 — Review pipeline
+
+Claim split with verified spans, a per-part relation call, quote snapping to line rectangles, the blind check of cards, parts run in parallel, scan transcription inside the run, the absence receipt that separates not found from cannot tell, and a scorer with per-pool rows. Boundary tests lock gold and the checker out of product code. A part is not marked supported on disagreed evidence alone.
+
+## 2026-11-02 — Evidence map
+
+An optional evidence map behind a flag: passages grouped by relation, a stance map, the argument ledger, an inferred timeline and plain-language copy. Offline replay tooling to show the second check changes nothing when it is off.
+
+## 2026-11-03 — Evidence graph
+
+Each document is read into rule and fact statements with exact quotes graded against the page; entities are merged by fixed rules; typed links, amendments, precedence and dates; claim linking, a typed walk, a full read, a comparator and a blind second read; the decision is made in code. All of it sits behind `PROOFGRAPH_GRAPH=1`, with the flag off unchanged. New dependencies: FastAPI, uvicorn, python-multipart, networkx and RapidFuzz. A gate table compares the flag off with the flag on.
+
+## 2026-11-04 — Iteration 2, web app, deploy
+
+The first gate run showed the graph worse than no graph (7 of 29 cases correct against 9). After error analysis, Iteration 2 was pre-registered as general rules only (comparator labels, a rule cannot establish a fact, defeat and override order, event dates for time claims, text-quality repair) and evaluated once on frozen code. Suite: 14 of 29 correct against 9 with no graph, with one wrongly supported answer. On 30 ContractNLI pairs never used before: 19 of 30 against 15, with one wrongly supported answer against two. The rules from before Iteration 2 scored 9 of 30 on the same pairs. Weaknesses are in `results/run2-analysis.md`.
+
+The web app (server, live reading page, review page, shared review links), the container and Render blueprint, a synthetic sample packet that warms itself on first start, and removal of internal planning material from the public tree.
