@@ -193,7 +193,7 @@ The reproduction scripts (`scripts/eval_review.py`, `scripts/report_review.py`, 
 
 ## Built during the hackathon, and what it stands on
 
-The build window started 21:30 IST on 26 Oct 2026 (first commit 26 Oct). [`BUILT_DURING_HACKATHON.md`](BUILT_DURING_HACKATHON.md) logs the work by day, and the git history carries dated commits. The evidence graph (`proofgraph/review/graph*.py`, `precedence.py`, the review app and the evaluation scripts) was written in the window.
+The git history carries dated commits from the first one on 26 Oct 2026. The evidence graph (`proofgraph/review/graph*.py`, `precedence.py`, the review app and the evaluation scripts) was written in the build window.
 
 Nothing in this repository predates the build window; the only pre-existing code is the named dependencies below.
 
