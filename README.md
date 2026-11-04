@@ -212,7 +212,6 @@ Code: MIT ([`LICENSE`](LICENSE)). No API key or secret is committed; `.env` is g
 | **ContractNLI** (Koreeda and Manning, Findings of EMNLP 2021) | CC BY 4.0, attribution required, no share-alike. Documents were collected from SEC filings and search results; the dataset page does not address the rights status of the original documents, so we ship none of them. | Held-out check and suite. Published gold labels are used under the same licence. Suite documents are referenced by file name and hash, not redistributed. The hero clip shows one page of one NDA (TC40) with attribution; no other ContractNLI page is shown. |
 | **LegalReasonBench** (micro1 public sample) | CC BY 4.0 per the dataset card. | Suite cases. Cite as: LegalReasonBench (micro1), <https://www.micro1.ai/benchmark/legal-reason-bench>. |
 | **Pepperwind: A Whole Fictional Company as Data** (Muhammed Rasin, Kaggle) | CC BY 4.0, checked on the dataset page; the data is synthetic. | Two suite cases, by pointer only. Cite: Muhammed Rasin, Pepperwind, <https://www.kaggle.com/datasets/rasinmuhammed/pepperwind>. |
-| NIST Special Database 2 | Forms are synthesised; terms not re-verified here. | Scanned-form tests only. |
 | Packets in `examples/` | Fictional, written for ProofGraph, MIT. | The worked example and the offline run. |
 
 Labels and transcriptions derived from a dataset's images or documents fall under that dataset's licence, so the same status applies to them.
