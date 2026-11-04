@@ -26,6 +26,8 @@ services:
         value: https://inference.baseten.co/v1
       - key: SPEND_LIMIT_USD
         value: "10"          # the cap on model spend for this public instance
+      - key: MODEL_CALL_LOG
+        value: "1"           # one [meta-api] line per real model call in Render's Logs: time, stage, model, tokens
       - key: MODEL_API_KEY
         sync: false          # secret: paste it in the Render dashboard, never into the repository
       - key: BASETEN_API_KEY
