@@ -50,3 +50,11 @@ Each document is read into rule and fact statements with exact quotes graded aga
 The first gate run showed the graph worse than no graph (7 of 29 cases correct against 9). After error analysis, Iteration 2 was pre-registered as general rules only (comparator labels, a rule cannot establish a fact, defeat and override order, event dates for time claims, text-quality repair) and evaluated once on frozen code. Suite: 14 of 29 correct against 9 with no graph, with one wrongly supported answer. On 30 ContractNLI pairs never used before: 19 of 30 against 15, with one wrongly supported answer against two. The rules from before Iteration 2 scored 9 of 30 on the same pairs. Weaknesses are in `results/run2-analysis.md`.
 
 The web app (server, live reading page, review page, shared review links), the container and Render blueprint, a synthetic sample packet that warms itself on first start, and removal of internal planning material from the public tree.
+
+Later on 2026-11-04, after the first deploy:
+
+- **Crash fix.** pdfium is not thread-safe, so two requests rendering PDF pages at the same time crashed the server process. Page rendering now goes through one process-wide lock; output is unchanged (replay check: 0 differences). Four concurrent runs crashed the built image under a 512 MB limit before the fix; six passed after it.
+- **UI clarity.** A "New check" button and a toggle for how the documents were read; the review page serves its page images from cacheable URLs instead of embedding them (the saved download still embeds them); the empty page pane stays shut until a quote is selected; each quote says "Show on page N" and the ledger has a title and one instruction.
+- **Copy.** The entrance headline, lede and three steps say in plain words what a visitor gets; copy that described the code was removed, and tests keep it out of the entrance.
+- **Example button.** The first screen offers "Run an example" before the empty form, through the same function as the example card below it.
+- **Navigation.** One sticky bar over the entrance with four labelled destinations, plain section titles in place of reference marks, and a section explaining all five answers. During a check, a run bar shows which of three steps it is on; the finished review has a contents bar and plain titles for its footer sections. `DESIGN.md` describes the three bars.

@@ -193,7 +193,7 @@ Full-width pressable white cell, 1px cyan border, serif quote, a footer row with
 Bordered 1.5px ink white list: label bold left, value right, cyan row dividers. Carries prepared-by receipt and the second-reader line, on entrance and review.
 
 ### Workpaper reference
-Small square-bordered box (1.5px ink) with a code like A-1, leading each section and cell.
+Small square-bordered box (1.5px ink) with a code like A-1, leading each cell of the review ledger. The entrance sections no longer carry codes: they have plain titles and anchors instead.
 
 ### Inputs
 Claim textarea and passcode field: white, 2px border (white on cobalt), square, caret in cobalt. The packet drop zone is a 2px dashed white box that turns solid with a 16% white tint on drag-over. The follow-up ask field is a 44px, 2px-ink bordered input beside a button.
@@ -201,15 +201,18 @@ Claim textarea and passcode field: white, 2px border (white on cobalt), square, 
 ### Trail, strip and banner
 Trail: bordered white steps joined by arrows showing which document overrides which. Strip: two answers joined by a red gap line with its label. Banner: ink-bordered white note. Open items: dashed ink box listing gaps.
 
+### Bars
+Three bars tell the visitor where they are. **Entrance top bar**: one full-width, sticky cobalt bar over the entrance, with the wordmark on the left and four labelled destinations (Check a claim, How it works, What the answers mean, Questions) on the right; every entrance section has an id and a plain title, and the old N-1 to N-4 reference marks are gone. On a phone it is not sticky and wraps. **Run bar**: a sticky sheet bar, shown from the moment a check starts, with a "New check" button, the step the check is on ("Step 1 of 3: Reading the documents", "Step 2 of 3: Checking the claim", "Step 3 of 3: Answer ready", or "Stopped" with the reason), and a "How the documents were read" toggle once reading is done; on a phone the step moves to its own row and the product name is hidden. **Review contents bar**: a sticky bar at the top of a finished review listing Answer, Evidence, Cited not supplied (only when the documents cite something not supplied), How this was checked and Ask another claim (only when the review can take a follow-up); it hides in print, is not sticky on a phone, and anchor targets keep a scroll offset below it. The review's own footer sections carry plain titles ("How this was checked", "Key to the marks").
+
 ### Live reading
-Checklist of documents and pages with a green tick revealed when read; column map of pencil labels with thin ink threads that go cyan while deciding; the active label turns bold ink.
+Under the run bar, a short heading and one sentence say what the columns, labels and lines mean. Checklist of documents and pages with a green tick revealed when read; column map of pencil labels with thin ink threads that go cyan while deciding; the active label turns bold ink.
 
 ## Do's and Don'ts
 
 ### Do:
 - **Do** give every answer all four carriers: word, pen colour, mark, underline style.
 - **Do** set quotes and document text in Source Serif 4 on Document White; set everything ProofGraph says in Schibsted Grotesk.
-- **Do** tag each section and cell with a workpaper reference and keep a legend entry for every mark.
+- **Do** tag each ledger cell with a workpaper reference and keep a legend entry for every mark; give every entrance section a plain title and an anchor.
 - **Do** write gaps as open items (dashed box), not hide them.
 - **Do** keep controls square, at least 44px, with the 3px cobalt focus ring.
 - **Do** respect reduced motion: marks and the ring animate only under no-preference; the pinned sheet stays square.
