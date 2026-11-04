@@ -240,20 +240,25 @@
     state.needPass = !!c.passcode_required; $("passcode-field").hidden = !state.needPass; $("passcode").required = state.needPass;
   }).catch(function () {});
 
+  function runSample(s) {
+    state.passcode = $("passcode").value;
+    if (state.needPass && !state.passcode) { $("passcode").focus(); problem.textContent = "Enter the passcode to open a packet."; problem.hidden = false; return; }
+    var fd = new FormData(); fd.append("passcode", state.passcode);
+    run("/api/sample/" + s.id, fd, s.claim);
+  }
+
   fetch("/api/samples").then(function (r) { return r.json(); }).then(function (list) {
     if (!list.length) return;
+    $("try-what").textContent = list[0].title;
+    $("try").hidden = false;
+    $("try-btn").addEventListener("click", function () { runSample(list[0]); });
     list.forEach(function (s) {
       var li = el("li"), slip = el("div", "slip");
       slip.appendChild(el("h3", null, s.title));
       slip.appendChild(el("q", null, s.claim));
       slip.appendChild(el("p", "docs", s.docs.map(tidy).join(", ")));
       var b = el("button", "btn quiet", "Check it"); b.type = "button";
-      b.addEventListener("click", function () {
-        state.passcode = $("passcode").value;
-        if (state.needPass && !state.passcode) { $("passcode").focus(); problem.textContent = "Enter the passcode to open a packet."; problem.hidden = false; return; }
-        var fd = new FormData(); fd.append("passcode", state.passcode);
-        run("/api/sample/" + s.id, fd, s.claim);
-      });
+      b.addEventListener("click", function () { runSample(s); });
       slip.appendChild(b); li.appendChild(slip); $("sample-list").appendChild(li);
     });
     $("samples").hidden = false;
