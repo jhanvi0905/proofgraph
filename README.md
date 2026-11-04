@@ -2,7 +2,7 @@
 
 **Where does it say that?** ProofGraph checks a claim against every document in the packet and opens the clause that decides it, on its page.
 
-Live: <https://proofgraph-orww.onrender.com/> (open it and choose **See the worked example**; no account, no key, no upload). Offline: [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) is the same review saved as one self-contained page; download it and open it in a browser, no key and no network needed.
+**See it first, no key and no network:** [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) is the worked example saved as one self-contained page. Download it (the **Download raw file** button on that page) and open it in a browser. Live app: <https://proofgraph-orww.onrender.com/> (choose **See the worked example**; no account, no key, no upload). The live app limits uploads per visitor, and the worked example is never limited.
 
 [![ProofGraph review screen: three clauses on page 1 go against the claim, the deciding clause circled on the real page](docs/media/hero.gif)](docs/media/hero.mp4)
 
