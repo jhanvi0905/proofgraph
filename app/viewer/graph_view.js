@@ -43,6 +43,8 @@
   var first = document.querySelector(".cell.decides") || cells[0];
   if (first) show(first, true);
   var framed = window.parent !== window, ask = document.getElementById("ask");
+  var askLink = document.querySelector('.toc a[href="#ask"]');
+  if (askLink && !framed) askLink.remove();  // the form only shows inside the app
   if (ask && framed) {
     ask.hidden = false;
     ask.addEventListener("submit", function (e) {
