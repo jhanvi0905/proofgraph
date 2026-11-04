@@ -23,6 +23,10 @@ ProofGraph's own code is released under the MIT licence (see `LICENSE`). It buil
 | openai (SDK) | Apache-2.0 | calling the model endpoints |
 | Streamlit | Apache-2.0 | the earlier front end, kept in the repository |
 
+## Ideas studied
+
+graphify (trust tiers, weakest-link confidence, the numeric-token merge veto), LangExtract, Graphiti, LightRAG, Microsoft LazyGraphRAG and KAG informed the design. No code was copied from them. Where logic is adapted from graphify, its licence notice must be kept here: confirm graphify's licence before submission.
+
 ## Fonts
 
 Schibsted Grotesk and Source Serif 4, loaded from Google Fonts, under the SIL Open Font License.
@@ -31,9 +35,9 @@ Schibsted Grotesk and Source Serif 4, loaded from Google Fonts, under the SIL Op
 
 The suite and the clean check use documents from the sources below. Only synthetic documents are shipped in `examples/`; the recorded runs in `runs/` and `results/` quote short passages from the others.
 
-- **ContractNLI**: Yuta Koreeda and Christopher D. Manning (2021), *ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts*, Findings of EMNLP. CC BY 4.0. <https://stanfordnlp.github.io/contract-nli/>
-- **LegalReasonBench** (micro1 public sample): micro1. CC BY 4.0 per its source card. <https://huggingface.co/datasets/micro1-inc/LegalReasonBench>
-- **Tobacco800** (YACCLAB-packaged version): David Doermann, Tobacco 800 Dataset, v1; Lewis et al., *Building a test collection for complex document information processing*, SIGIR 2006; Grana, Bolelli, Baraldi and Vezzani, YACCLAB.
+- **ContractNLI**: Yuta Koreeda and Christopher D. Manning (2021), *ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts*, Findings of EMNLP. CC BY 4.0. The dataset page names Hitachi America, Ltd. as provider and says its documents come from SEC filings and search results; it does not address the rights status of the originals, so no ContractNLI document is shipped here. <https://stanfordnlp.github.io/contract-nli/>
+- **LegalReasonBench** (micro1 public sample): micro1. CC BY 4.0, confirmed on the dataset card (4 Nov 2026). Cite as: LegalReasonBench (micro1), <https://www.micro1.ai/benchmark/legal-reason-bench>. <https://huggingface.co/datasets/micro1-inc/LegalReasonBench>
+- **Tobacco800** (YACCLAB-packaged version; **terms not verified**, so quoted passages from TC23, TC25 and TC27 are withheld from the recorded runs): David Doermann, Tobacco 800 Dataset, v1; Lewis et al., *Building a test collection for complex document information processing*, SIGIR 2006; Grana, Bolelli, Baraldi and Vezzani, YACCLAB.
 - **NIST Special Database 2** (SD02): National Institute of Standards and Technology, Structured Forms Reference Set of Binary Images. Forms are synthesized. <https://www.nist.gov/srd/nist-special-database-2>
-- **Company Documents** (a Kaggle archive): the listing, publisher and licence were not verified. Passages from it appear in recorded runs only.
+- **Company Documents** (a Kaggle archive): the listing, publisher and licence were **not verified**. Two suite cases (TC4, TC10) use it by pointer only. Quoted passages from it were withheld from the recorded runs (`[withheld: source licence unverified]`). Drop the cases from any published result unless the licence is confirmed.
 - The synthetic packs under `examples/` are fictional and were written for ProofGraph.
