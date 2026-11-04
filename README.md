@@ -42,7 +42,7 @@ Open <http://localhost:8000>, then:
 3. Choose **Check claim**. Reading each page with Muse Spark takes a little while; progress shows on screen.
 4. Open the deciding clause to see it circled on its page, then **How this was checked** for the path, which document wins, and the second-reader result.
 
-`SPEND_LIMIT_USD` in `.env` caps your own spend (default 50). `make test` runs the 1,100+ offline tests with no key. `make app` starts an earlier Streamlit front end, not the demo; use the command above. More detail: [Run it](#run-it) and [`docs/deploy.md`](docs/deploy.md).
+`SPEND_LIMIT_USD` in `.env` caps your own spend (default 50). `make test` runs the 1,100+ offline tests with no key. More detail: [Run it](#run-it) and [`docs/deploy.md`](docs/deploy.md).
 
 ## What it does
 
