@@ -361,6 +361,7 @@ class CheckerClient:
             except TimeoutError as exc:
                 raise CheckerError("blind re-read fallback timed out") from exc
 
+        started = time.monotonic()
         raw = call_with_retries(send, sleep=self._sleep)
         try:
             response = json.loads(json.dumps(raw))
@@ -368,6 +369,7 @@ class CheckerClient:
             raise CheckerError("blind re-read fallback response was not JSON") from exc
         if not isinstance(response, dict):
             raise CheckerError("blind re-read fallback response was not a JSON object")
+        self._spend.log_call("blind-reread", response, started)
         self._spend.charge(responses_cost_usd(response))
         return response
 
@@ -407,6 +409,7 @@ class CheckerClient:
             except TimeoutError as exc:
                 raise CheckerError("blind checker timed out") from exc
 
+        started = time.monotonic()
         raw = call_with_retries(send, sleep=self._sleep)
         try:
             response = json.loads(json.dumps(raw))
@@ -414,6 +417,7 @@ class CheckerClient:
             raise CheckerError("blind checker response was not JSON") from exc
         if not isinstance(response, dict):
             raise CheckerError("blind checker response was not a JSON object")
+        self._spend.log_call("blind-check", response, started)
         self._spend.charge(chat_cost_usd(response))
         return response
 
