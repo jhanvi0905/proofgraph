@@ -8,7 +8,7 @@ Live: <https://proofgraph-orww.onrender.com/> (open it and choose **See the work
 
 *The review screen on a claim about a real NDA (case TC40, from ContractNLI, CC BY 4.0, Koreeda and Manning 2021): each clause that goes against the claim is circled on its page. [Full-quality video](docs/media/hero.mp4).*
 
-> **On 30 contract pairs never used while building, ProofGraph got 19 right (63%). Replacing case-by-case patches with general rules fixed 10 unseen pairs and broke none. When an answer rests on text read straight from the page: 15 right out of 17, none wrongly supported.** Held-out, published gold labels, small sample: read as *better on unseen cases*, not *proven better*. [Results](#results).
+> **On 30 contract pairs never used while building, ProofGraph got 19 right (63%). Replacing case-by-case patches with general rules fixed 10 unseen pairs and broke none. When an answer rests on text read straight from the page: 13 right out of 15, none wrongly supported.** Held-out, published gold labels, small sample: read as *better on unseen cases*, not *proven better*. [Results](#results).
 
 ## What it does
 
@@ -91,10 +91,10 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 
 | Result | Evidence | Why it matters |
 | --- | --- | --- |
-| **15 of 17** right, and **none wrongly supported**, when the answer rests on text read straight from the page | 29-case suite, by trust tier | A reviewer can trust the green tier |
+| **13 of 15** right, and **none wrongly supported**, when the answer rests on text read straight from the page | 26-case suite, by trust tier (small n) | A reviewer can trust the green tier |
 | **10 fixed, 0 broken** when case-by-case patches were replaced by a small schema and five general rules | 30 unseen pairs, 9/30 to 19/30 | The design generalises; it is not tuned to cases |
-| **92%** of the gold evidence became a statement, and **84%** of statements were read straight from the page; 0.5% were unclear and never decided | 29 graphs, 1,496 statements, 73 gold relations | The graph is faithful to the page |
-| **4 of 4** "not in these documents" cases answered as such | 29-case suite | It says when the packet is silent instead of filling the gap |
+| **92%** of the gold evidence became a statement, and **84%** of statements were read straight from the page; 0.5% were unclear and never decided | First full run: 29 graphs, 1,496 statements, 73 gold relations (before 3 cases were dropped) | The graph is faithful to the page |
+| **3 of 3** "not in these documents" cases answered as such | 26-case suite | It says when the packet is silent instead of filling the gap |
 
 ![Held-out check: case-by-case patches 9 of 30, general rules 19 of 30, with 95 percent intervals](docs/img/results-heldout.svg)
 
@@ -114,14 +114,14 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 
 ### Why you can believe the green tier
 
-- **Calibrated.** Answers decided by statements read straight from the page: 15 of 17 right, none wrongly supported.
-- **Faithful to the page.** Across 29 graphs and 1,496 statements, 84% were read from the page, 15% were the model's reading, and 0.5% (7) could not be aligned and were marked unclear, so they never decided anything.
-- **Honest abstention.** "Not mentioned" cases were 4 of 4 on the suite.
+- **Calibrated.** Answers decided by statements read straight from the page: 13 of 15 right, none wrongly supported.
+- **Faithful to the page.** Across the 29 graphs of the first full run and 1,496 statements, 84% were read from the page, 15% were the model's reading, and 0.5% (7) could not be aligned and were marked unclear, so they never decided anything.
+- **Honest abstention.** "Not mentioned" cases were 3 of 3 on the suite.
 - **Nothing dropped silently.** 165 list members not found in their quote, 29 relations whose names were not in the quote, and 2 ambiguous override targets were each rejected and counted. Instructions planted in two packets were kept out of the rules.
 
-### The 29-case suite (labelled after error analysis)
+### The 26-case suite (labelled after error analysis)
 
-Used to find failures, so not unbiased: 14 of 29 correct against 9 of 29 without the graph. Sources: 8 LegalReasonBench cases, 8 ContractNLI, 3 Tobacco800 scanned pages, 2 Company Documents and 8 multi-document packs; see [Data and licences](#data-and-licences).
+Used to find failures, so not unbiased: 12 of 26 correct against 9 of 26 without the graph. Sources: 8 LegalReasonBench cases, 8 ContractNLI, 2 Pepperwind cases and 8 multi-document packs. The first full run had 29 cases; 3 whose source licence we could not confirm were dropped and the suite figures recomputed from the recorded runs, so the analysis files in `results/` still report the 29-case run; see [Data and licences](#data-and-licences).
 
 One number to read with its cause: the share of cards pinned to a word box on a text page fell from 91% to 79% between suite runs. About 5 of those 12 points are pages that a new text-quality check correctly sent to transcription, where boxes can only be approximate; the rest is fewer cards shown on text pages. The cause is traced in [results/health.md](results/health.md), section 6. The table above is copied from the run reports, not regenerated by a `make` target.
 
@@ -137,7 +137,7 @@ The hosted app runs the same code. For anything you cannot rerun without a key, 
 | Health lines (quote alignment, rejections, first read against second reader, walk against full read) and the error split (graph missed the evidence, or reasoning misjudged it) | [`results/health.md`](results/health.md), [`results/error-split.md`](results/error-split.md) |
 | A live trace of one packet | Open the live URL and choose **See the worked example** |
 
-Some quoted passages are withheld in these files where the source licence is unverified (marked `[withheld: source licence unverified]`); verdicts, statuses and hashes are intact.
+The three suite cases whose source licence we could not confirm have been removed from these files. The analysis files in `results/` still describe the original 29-case run.
 
 ## Limitations and next steps
 
@@ -211,8 +211,7 @@ Code: MIT ([`LICENSE`](LICENSE)). No API key or secret is committed; `.env` is g
 | --- | --- | --- |
 | **ContractNLI** (Koreeda and Manning, Findings of EMNLP 2021) | CC BY 4.0, attribution required, no share-alike. Documents were collected from SEC filings and search results; the dataset page does not address the rights status of the original documents, so we ship none of them. | Held-out check and suite. Published gold labels are used under the same licence. Suite documents are referenced by file name and hash, not redistributed. The hero clip shows one page of one NDA (TC40) with attribution; no other ContractNLI page is shown. |
 | **LegalReasonBench** (micro1 public sample) | CC BY 4.0 per the dataset card. | Suite cases. Cite as: LegalReasonBench (micro1), <https://www.micro1.ai/benchmark/legal-reason-bench>. |
-| **Tobacco800** (Doermann; YACCLAB-packaged) | **Terms not verified.** | Three suite cases, by pointer only. Quoted passages from these cases are withheld from the recorded runs. |
-| **Company Documents** (Kaggle archive) | **Listing, publisher and licence not verified.** | Two suite cases, by pointer only. Quoted passages from these cases are withheld from the recorded runs. We will drop these two cases from any future published result unless the licence is confirmed. |
+| **Pepperwind: A Whole Fictional Company as Data** (Muhammed Rasin, Kaggle) | CC BY 4.0, checked on the dataset page; the data is synthetic. | Two suite cases, by pointer only. Cite: Muhammed Rasin, Pepperwind, <https://www.kaggle.com/datasets/rasinmuhammed/pepperwind>. |
 | NIST Special Database 2 | Forms are synthesised; terms not re-verified here. | Scanned-form tests only. |
 | Packets in `examples/` | Fictional, written for ProofGraph, MIT. | The worked example and the offline run. |
 

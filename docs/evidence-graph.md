@@ -90,7 +90,7 @@ A claim is classified by the shape of the proof path that decided it, read off b
 | S10 | Evidence cited but not supplied | TC17's CEO letter of May 7 | cites link via referenced\_documents() | Yes |
 | S11 | Word-overlap distractor | Bosch §5.4, §14 | Different subject and concept; comparator says irrelevant | Yes |
 | S12 | Instruction planted in a page | frt-07, fin-08 | Data marking plus an injection field in extraction | Yes |
-| S13 | Scanned page | Tobacco800 cases | Transcription with line boxes; approximate tier | Yes |
+| S13 | Scanned page | Schedule 4 in the worked example | Transcription with line boxes; approximate tier | Yes |
 | U1 | Arithmetic across many figures | Summing invoice lines; FinDVer | engine/calc.py path, not the graph | Out of scope for the demo |
 | U2 | Depends on law outside the packet | 18 U.S.C. §1833(b) in Bosch §5.6 | Shown as a cites link to a law not supplied | Shown, not decided |
 | U3 | Subjective claim | "Reasonable care is strong protection" | Ends as cannot tell | Honest, not solved |
