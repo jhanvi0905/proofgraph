@@ -2,7 +2,7 @@
 
 **Where does it say that?** ProofGraph checks a claim against every document in the packet and opens the clause that decides it, on its page.
 
-**Try it:** open the [worked example](docs/recorded/worked-example-review.html) (download the file with GitHub's **Download raw file** button and open it in a browser; no key, no network), or use the [live app](https://proofgraph-orww.onrender.com/) and choose **See the worked example** (no account, no key, no upload). The worked example is never limited; live uploads are limited per visitor. To run your own check with your own key, see [Test it yourself](#test-it-yourself-for-judges).
+**Try it:** open the [worked example](docs/recorded/worked-example-review.html) (download the file with GitHub's **Download raw file** button and open it in a browser; no key, no network), or use the [live app](https://proofgraph-orww.onrender.com/) and choose **Run an example** (no account, no key, no upload). The worked example is never limited; live uploads are limited per visitor. To run your own check with your own key, see [Test it yourself](#test-it-yourself-for-judges).
 
 [![ProofGraph review screen: three clauses on page 1 go against the claim, the deciding clause circled on the real page](docs/media/hero.gif)](docs/media/hero.mp4)
 
@@ -18,7 +18,7 @@
 
 ## Test it yourself (for judges)
 
-**No key (1 minute).** Open the [live app](https://proofgraph-orww.onrender.com/) and choose **See the worked example**. If the page is slow, it is waking up; wait a few seconds. For a fully offline copy, download [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) and open it in a browser.
+**No key (1 minute).** Open the [live app](https://proofgraph-orww.onrender.com/) and choose **Run an example**. If the page is slow, it is waking up; wait a few seconds. For a fully offline copy, download [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) and open it in a browser.
 
 **With your own keys (about 10 minutes).** To run a live check on your own documents, run the app on your machine with your own Meta Model API key. Nothing is limited by our demo cap, and nothing leaves your machine except the model calls. You need [uv](https://docs.astral.sh/uv/) and Python 3.11.
 
@@ -128,7 +128,7 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 | **About 99%** of the statements Muse Spark extracted were found on the real page, exactly or after whitespace and punctuation normalisation | 1,496 statements on the suite (7 unmatched) and 1,192 on the held-out contracts (9 unmatched); unmatched ones are kept as unclear and never decide | The model is not inventing quotes |
 | **92%** of the gold evidence became a statement | First full run: 73 gold relations | The model reads what matters |
 | **0 of 10** real contradictions passed as supported | 30 unseen pairs, 10 per published label | The error that costs a reviewer money did not happen |
-| **10 fixed, 0 broken** when hand-coded patches gave way to model-labelled judgement under fixed label sets | 30 unseen pairs, 9/30 to 19/30 | The approach generalises; it is not tuned to cases |
+| **10 fixed, 0 broken** compared with the earlier hand-coded patches, when they gave way to model-labelled judgement under fixed label sets | 30 unseen pairs, 9/30 to 19/30 | The approach generalises; it is not tuned to cases |
 | **12 of 14** right, none wrongly supported, when the answer rests on text read straight from the page | 24-case suite, by trust tier (small n) | A reviewer can trust the green tier |
 
 ![What happened to the 30 unseen pairs: 19 right, 6 qualified and sent to review, 5 wrong; none of the 10 real contradictions passed as supported](docs/img/results-outcomes.svg)
@@ -147,7 +147,7 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 
 **Why the patches row matters.** Run 1 let hand-coded code patches decide each case we had seen fail. That scored 9 of 30 on unseen pairs, worse than no graph. Iteration 2 threw the patches out. It asked Muse Spark to judge under fixed label sets (does this statement address the claim part; does it agree, conflict or not mention it; does an exception apply; which of ten event types is this) and kept only a small frozen verifier in code, with no rule naming a document type, a domain or a case. It scored 19 of 30 and got 10 pairs right that run 1 got wrong, and none the other way. The models handle the variety of contract wording; code only reads their labels and checks them against the page.
 
-**What got worse, and the one miss.** Three pairs broke (cnli-62, 157, 289): all are exceptions that agree with the claim, a known limit (see [Limitations](#limitations)). The one wrongly supported answer (cnli-85) read a blank-template statement as supporting "all information shall be expressly identified".
+**What got worse, and the one miss.** Compared with the graph switched off, 7 pairs were fixed and three broke (cnli-62, 157, 289): all are exceptions that agree with the claim, a known limit (see [Limitations](#limitations)). The one wrongly supported answer (cnli-85) read a blank-template statement as supporting "all information shall be expressly identified".
 
 ### Why you can believe the green tier
 
@@ -171,9 +171,9 @@ The hosted app runs the same code. For anything you cannot rerun without a key, 
 | Analysis, with the pre-registered criteria for iteration 2 | [`results/run2-analysis.md`](results/run2-analysis.md), [`results/run2-suite-analysis.md`](results/run2-suite-analysis.md), [`results/preregistration-iteration-2.md`](results/preregistration-iteration-2.md) |
 | Health lines (quote alignment, rejections, first read against second reader, walk against full read) and the error split (graph missed the evidence, or reasoning misjudged it) | [`results/health.md`](results/health.md), [`results/error-split.md`](results/error-split.md) |
 | The full review page of the worked example, saved as one self-contained file (page images included; the live app's "ask another claim" box does not work offline) | [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) |
-| A live trace of one packet | Open the live URL and choose **See the worked example** |
+| A live trace of one packet | Open the live URL and choose **Run an example** |
 
-The three suite cases whose source licence we could not confirm have been removed from these files. The analysis files in `results/` still describe the original 29-case run.
+The five suite cases whose source licence we could not confirm have been removed from these files. The analysis files in `results/` still describe the original 29-case run.
 
 ## Limitations
 
