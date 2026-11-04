@@ -25,6 +25,13 @@
 .agree, .tierline, .scen, .why { font-size: var(--t-13); margin: .4rem 0 0; color: var(--grey); }
 .why { color: var(--ink); font-size: .9rem; }
 
+.ledger-title { font-size: var(--t-20); line-height: 1.25; margin: 0 0 .2rem; }
+.ledger-help { margin: 0 0 1rem; max-width: 40rem; font-size: .95rem; color: var(--grey); }
+.cell .go { display: block; margin-top: .55rem; font-size: var(--t-13); font-weight: 700; color: var(--stamp); text-decoration: underline; text-underline-offset: .2em; }
+.cell[aria-pressed=true] .go { color: var(--ink); text-decoration: none; }
+.paneclose { display: none; margin-bottom: .5rem; }
+/* Below 1100px the page is not a column: it stays shut until a quote is selected, then opens under that quote. */
+@media (max-width: 1099px) { .pane:not(.open) { display: none; } .pane.open { margin: .25rem 0 .75rem; } .pane.open .paneclose { display: inline-flex; } }
 .gridwrap { overflow-x: auto; border-top: 2px solid var(--ink); }
 .grid { width: 100%; border-collapse: collapse; background: transparent; }
 .grid th, .grid td { text-align: left; vertical-align: top; padding: .9rem .9rem .9rem 0; border-bottom: 1px solid var(--cyan); min-width: 11rem; }

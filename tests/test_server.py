@@ -1,13 +1,15 @@
 """app/server.py: gate, streamed events, review page, ask again. Offline, scripted model answers."""
 
+import base64
 import json
+import re
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.auth import passcode_ok, passcode_refusal
-from app.server import create_app
+from app.server import create_app, externalize
 from tests.test_review_run import CLAIM, DOC_ID, GOOD, PDF, SPLIT1, FakeTransport, _muse
 
 
@@ -160,3 +162,48 @@ def test_review_is_saved_and_shared_read_only(client, tmp_path, monkeypatch):
 @pytest.mark.parametrize("bad", ["nope", "..%2f..%2fetc", "0" * 12, "ABCDEF123456"])
 def test_share_route_rejects_unknown_and_unsafe_ids(client, bad):
     assert client.get(f"/r/{bad}").status_code == 404
+
+
+PNG = b"\x89PNG\r\n\x1a\nfake"
+
+
+def test_externalize_swaps_inline_page_images_for_urls():
+    html = f'<img alt="a" src="data:image/png;base64,{base64.b64encode(PNG).decode()}"><p>x</p>'
+    out, pics = externalize(html, "abcdef012345")
+    (name, data), = pics.items()
+    assert "data:image" not in out and "<p>x</p>" in out and data == PNG
+    assert f'src="/api/review/abcdef012345/img/{name}.png" loading="lazy"' in out  # a closed page does not load its images
+    assert externalize("<p>none</p>", "abcdef012345") == ("<p>none</p>", {})
+
+
+def _images(page: str, rid: str) -> list[str]:
+    return re.findall(rf'src="(/api/review/{rid}/img/[0-9a-f]+\.png)"', page)
+
+
+def test_review_pages_serve_page_images_as_cacheable_files_not_inline(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("CACHE_DIR", str(tmp_path / "c"))
+    rid = events(post(client).text)[-1][1]["review_id"]
+    for url in (f"/api/review/{rid}", f"/r/{rid}"):
+        page = client.get(url).text
+        assert "data:image/png;base64" not in page
+        urls = _images(page, rid)
+        assert urls
+        img = client.get(urls[0])
+        assert img.status_code == 200 and img.headers["content-type"] == "image/png"
+        assert "immutable" in img.headers["cache-control"] and img.content.startswith(b"\x89PNG")
+
+
+def test_a_restarted_server_still_serves_a_saved_reviews_images(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("CACHE_DIR", str(tmp_path / "c"))
+    rid = events(post(client).text)[-1][1]["review_id"]
+    fresh = TestClient(create_app(lambda: None))
+    urls = _images(fresh.get(f"/r/{rid}").text, rid)
+    assert urls and fresh.get(urls[0]).status_code == 200
+
+
+@pytest.mark.parametrize("name", ["nope.png", "..%2fx.png", "0123456789abcdef.png", "ABCDEF0123456789.png"])
+def test_image_route_rejects_unknown_and_unsafe_names(client, tmp_path, monkeypatch, name):
+    monkeypatch.setenv("CACHE_DIR", str(tmp_path / "c"))
+    rid = events(post(client).text)[-1][1]["review_id"]
+    assert client.get(f"/api/review/{rid}/img/{name}").status_code == 404
+    assert client.get(f"/api/review/nothing/img/{name}").status_code == 404

@@ -75,6 +75,15 @@ html, body { overflow-x: clip; }
 }
 .bigname { margin: 3rem 0 0; font-size: clamp(3rem, 10vw, 6rem); font-weight: 700; letter-spacing: -.04em; line-height: .9; color: var(--ink); overflow: hidden; white-space: nowrap; }
 
+.runbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: .75rem; margin: 0 -1rem; padding: .5rem 1rem; background: var(--sheet); border-bottom: 1px solid var(--cyan); }
+.runbar[hidden] { display: none; }
+.runbar .btn { min-height: 40px; display: inline-flex; align-items: center; gap: .45rem; }
+.runbar-name { margin-right: auto; font-weight: 700; }
+.readhead { grid-column: 1 / -1; }
+.readhead h2 { margin: 0 0 .25rem; font-size: 1.25rem; line-height: 1.25; }
+.readhead .help { margin: 0; max-width: 46rem; color: var(--grey); }
+.live.done #claim-line, .live.done .plist, .live.done .receipt { display: none; }
+.opening { margin: 1rem 0; color: var(--grey); }
 .live { margin-top: 1.5rem; }
 .claim { font-size: clamp(1.4rem, 2.6vw, 1.94rem); line-height: 1.35; margin: 0 0 1.5rem; max-width: 56rem; text-wrap: pretty; }
 .u { }
@@ -117,7 +126,8 @@ html, body { overflow-x: clip; }
 .plist .path { font-weight: 700; margin-top: .2rem; }
 .notes li.error { outline: 2px solid var(--pen-red); border: 0; padding: .6rem .8rem; margin: .4rem 0; border-radius: 4px; font-weight: 700; }
 .result { margin-top: 1.5rem; }
-.result iframe { width: 100%; height: 90vh; min-height: 40rem; border: 0; background: transparent; }
+.result { margin-top: 0; scroll-margin-top: 3.5rem; }
+.result iframe { display: block; width: 100%; height: calc(100vh - 3.5rem); min-height: 32rem; border: 0; background: transparent; }
 
 @media (prefers-reduced-motion: no-preference) {
   .pencil, .checklist .tk { animation: fade .15s ease-out both; }

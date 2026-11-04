@@ -8,7 +8,9 @@ read once). ``GET /api/review/{id}`` is the review page. The only model path is 
 
 from __future__ import annotations
 
+import base64
 import dataclasses
+import hashlib
 import json
 import os
 import re
@@ -40,6 +42,22 @@ _EVENT = {"DocStarted": "docstarted", "DocRead": "docread", "PageRead": "pagerea
 
 
 REVIEW_ID = re.compile(r"^[0-9a-f]{12}$")
+_INLINE_PNG = re.compile(r'src="data:image/png;base64,([A-Za-z0-9+/=]+)"')
+_IMAGE_NAME = re.compile(r"^[0-9a-f]{16}\.png$")
+
+
+def externalize(html: str, rid: str) -> tuple[str, dict[str, bytes]]:
+    """Swap each inline page image for a URL, so the review page is a small document and its images load in
+    parallel and cache. The images come back keyed by a content hash. "Download review" puts them back inline."""
+    pics: dict[str, bytes] = {}
+
+    def swap(m: re.Match) -> str:
+        data = base64.b64decode(m.group(1))
+        key = hashlib.sha1(data).hexdigest()[:16]
+        pics[key] = data
+        return f'src="/api/review/{rid}/img/{key}.png" loading="lazy" decoding="async"'
+
+    return _INLINE_PNG.sub(swap, html), pics
 
 
 def reviews_dir() -> Path:
@@ -86,6 +104,13 @@ class Store:
         self.keep = keep
         self.items: OrderedDict[str, dict] = OrderedDict()
         self.dirs: dict[str, Path] = {}
+        self.pics: OrderedDict[str, dict[str, bytes]] = OrderedDict()  # page images by review, newest last
+
+    def remember(self, rid: str, pics: dict[str, bytes]) -> None:
+        self.pics[rid] = pics
+        self.pics.move_to_end(rid)
+        while len(self.pics) > self.keep:
+            self.pics.popitem(last=False)
 
     def packet(self, files: list[tuple[str, bytes]]) -> str:
         pid = uuid.uuid4().hex[:12]
@@ -103,9 +128,11 @@ class Store:
     def paths(self, pid: str) -> list[Path]:
         return [next((self.dirs[pid] / d.name).iterdir()) for d in sorted(self.dirs[pid].iterdir(), key=lambda d: int(d.name))]
 
-    def add(self, packet: str, html: str, rid: str | None = None) -> str:
+    def add(self, packet: str, html: str, rid: str | None = None, pics: dict[str, bytes] | None = None) -> str:
         rid = rid or uuid.uuid4().hex[:12]
         self.items[rid] = {"packet": packet, "html": html}
+        if pics:
+            self.remember(rid, pics)
         return rid
 
 
@@ -164,7 +191,8 @@ def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
                     saved = save_review(rid, review, ev.result.page_images)
                     page = render(review, ev.result.page_images, replay=review.run.mode == "replayed",
                                   ask=True, share_url=f"/r/{rid}" if saved else None)
-                    store.add(packet, page, rid)
+                    light, pics = externalize(page, rid)
+                    store.add(packet, light, rid, pics)
                     for note in _disagreements(review):
                         yield sse("disagreement", note)
                     yield sse("done", {"review_id": rid, "status": review.status,
@@ -253,7 +281,9 @@ def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
         if loaded is None:
             return HTMLResponse("<p>That review is no longer here.</p>", status_code=404)
         review, images = loaded
-        return render(review, images, replay=review.run.mode == "replayed", share_url=f"/r/{review_id}")
+        html, pics = externalize(render(review, images, replay=review.run.mode == "replayed", share_url=f"/r/{review_id}"), review_id)
+        store.remember(review_id, pics)
+        return html
 
     @app.get("/r/{review_id}", response_class=HTMLResponse)
     def shared_review(review_id: str):
@@ -261,7 +291,24 @@ def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
         if loaded is None:
             return HTMLResponse("<p>That review is not available.</p>", status_code=404)
         review, images = loaded
-        return render(review, images, replay=review.run.mode == "replayed", share=True)
+        html, pics = externalize(render(review, images, replay=review.run.mode == "replayed", share=True), review_id)
+        store.remember(review_id, pics)
+        return html
+
+    @app.get("/api/review/{review_id}/img/{name}")
+    def review_image(review_id: str, name: str):
+        if not REVIEW_ID.match(review_id) or not _IMAGE_NAME.match(name):
+            return Response(status_code=404)
+        key = name[:-4]
+        pic = store.pics.get(review_id, {}).get(key)
+        if pic is None and (loaded := load_review(review_id)) is not None:  # a restarted server rebuilds them from disk
+            review, images = loaded
+            _, pics = externalize(render(review, images, replay=review.run.mode == "replayed"), review_id)
+            store.remember(review_id, pics)
+            pic = pics.get(key)
+        if pic is None:
+            return Response(status_code=404)
+        return Response(pic, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
     @app.get("/web/tokens.css")
     def tokens():

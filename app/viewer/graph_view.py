@@ -148,7 +148,7 @@ def _cell(card: Card, codes: dict[str, str]) -> str:
         f'data-card-id="{_e(card.id)}" data-doc="{_e(card.doc)}" data-page="{card.page}">'
         f'{q}<span class="cm">{mark(RELATION_MARK[card.relation])}<span class="sr">{TIER_WORD[tier]}. </span>'
         f'<span>{_e(RELATION[card.relation])}{" (exception)" if exception else ""}</span>{ref}</span>'
-        f'{over}{CIRCLE if deciding else ""}</button>'
+        f'<span class="go">Show on page {card.page}</span>{over}{CIRCLE if deciding else ""}</button>'
     )
 
 
@@ -266,8 +266,10 @@ def render_graph(review: Review, images: dict, replay: bool = False, ask: bool =
         f'<div class="wrap"><div class="layout{" share" if share else ""}"><header class="head">{claim_first if not share else ""}'
         f'{answer}{_trail(dinfo, docs_by_id) if driver else ""}{_strip(review, dinfo, _d(graph.get("dates"))) if driver else ""}'
         f'{claim_first if share else ""}{notes}</header>'
-        f'<aside class="pane" aria-label="Page"><p class="hint" id="hint">Open a quote to see its page.</p>{pages}</aside>'
-        f'<main><div class="gridwrap" tabindex="0" role="region" aria-label="What the documents say">'
+        f'<aside class="pane" aria-label="Page"><button type="button" class="btn quiet paneclose" id="paneclose">Close page</button>'
+        f'<p class="hint" id="hint">Select a quote to see its page here.</p>{pages}</aside>'
+        f'<main><h2 class="ledger-title">What the documents say</h2><p class="ledger-help">Select a quote to see it on its page.</p>'
+        f'<div class="gridwrap" tabindex="0" role="region" aria-label="What the documents say">'
         f'<table class="grid"><caption class="sr">What the documents say, by part of the claim</caption>'
         f'<thead><tr><th scope="col"><span>Part of the claim</span></th>{cols}</tr></thead><tbody>{rows}</tbody></table></div>'
         f'{_open_items(review, graph)}</main>'
