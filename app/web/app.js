@@ -353,7 +353,7 @@ $("readgrid").classList.remove("read"); $("map-key").hidden = true;
   form.addEventListener("submit", function (e) {
     e.preventDefault();
     state.passcode = $("passcode").value;
-    run("/api/review", addKeys(new FormData(form)), $("claim").value.trim());
+    run("/api/review", new FormData(form), $("claim").value.trim());
   });
 
   var drop = $("drop");
@@ -367,18 +367,10 @@ $("readgrid").classList.remove("read"); $("map-key").hidden = true;
     state.needPass = !!c.passcode_required; $("passcode-field").hidden = !state.needPass; $("passcode").required = state.needPass;
   }).catch(function () {});
 
-  // The optional keys live only in the two password fields (never in storage) and go out with the one request.
-  function addKeys(fd) {
-    fd.delete("meta_api_key"); fd.delete("baseten_api_key");
-    if ($("meta-key").value.trim()) fd.append("meta_api_key", $("meta-key").value.trim());
-    if ($("baseten-key").value.trim()) fd.append("baseten_api_key", $("baseten-key").value.trim());
-    return fd;
-  }
-
   function runSample(s) {
     state.passcode = $("passcode").value;
     if (state.needPass && !state.passcode) { $("passcode").focus(); problem.textContent = "Enter the passcode to open a packet."; problem.hidden = false; return; }
-    var fd = new FormData(); fd.append("passcode", state.passcode); addKeys(fd);
+    var fd = new FormData(); fd.append("passcode", state.passcode);
     run("/api/sample/" + s.id, fd, s.claim);
   }
 
@@ -397,7 +389,7 @@ $("readgrid").classList.remove("read"); $("map-key").hidden = true;
       frame.style.height = e.data.height + "px"; buildSub(trip.sections); spy(); return;
     }
     if (e.data.type !== "proofgraph-ask" || !state.reviewId) return;
-    var fd = new FormData(); fd.append("claim", e.data.claim); fd.append("passcode", state.passcode); addKeys(fd);
+    var fd = new FormData(); fd.append("claim", e.data.claim); fd.append("passcode", state.passcode);
     run("/api/review/" + state.reviewId + "/ask", fd, e.data.claim);
   });
 })();

@@ -26,12 +26,6 @@ html, body { overflow-x: clip; }
 .drop:focus-within { outline: 3px solid #fff; outline-offset: 3px; }
 .drop p { margin: 0; }
 .field.narrow { max-width: 16rem; }
-.own-key { border-top: 1px solid rgba(255, 255, 255, .55); padding-top: .25rem; }
-.own-key summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
-.own-key summary::after { content: "+"; margin-left: .6rem; font-weight: 400; } .own-key[open] summary::after { content: "\2212"; }
-.own-key-body { display: grid; gap: .9rem; padding: .25rem 0 .5rem; }
-.own-key-note { margin: 0; font-size: var(--t-13); line-height: 1.5; max-width: 34rem; }
-.own-key .field .own-key-note { margin-top: .4rem; }
 .btn.inv { justify-self: start; background: #fff; color: var(--stamp); border-color: #fff; }
 .btn.inv:hover { background: var(--ink); color: #fff; border-color: var(--ink); }
 .btn.inv-dark:hover { background: #fff; color: var(--stamp); }

@@ -4,10 +4,6 @@
 every event of ``run_review`` becomes one named server-sent event, and the last one (``done``) carries the review id.
 ``POST /api/review/{id}/ask`` runs another claim on the same files (the graph is cached by packet hash, so it is
 read once). ``GET /api/review/{id}`` is the review page. The only model path is ``run_review``.
-
-The review, ask and sample routes also take optional ``meta_api_key`` and ``baseten_api_key`` form fields: a run on the
-caller's own keys (``app/keyed.py``), outside the demo's spend cap and visitor limit, with the keys kept out of every
-log, event, cache entry and saved review. The passcode, when one is set, is still required.
 """
 
 from __future__ import annotations
@@ -31,7 +27,6 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 
 from app.auth import passcode_refusal
-from app.keyed import META_REJECTED, KeyedRun, clean_key, keyed_clients
 from app.limit import LiveRunLimit, visitor_id
 from app.viewer.render import render
 from proofgraph.review.ingest import ingest
@@ -172,24 +167,18 @@ def _disagreements(review) -> list[dict]:
     return out
 
 
-def create_app(make_muse: Callable[[], object] | None = None, make_keyed: Callable[..., tuple] | None = None) -> FastAPI:
+def create_app(make_muse: Callable[[], object] | None = None) -> FastAPI:
     app = FastAPI(title="ProofGraph", docs_url=None, redoc_url=None)
     store = Store()
     limit = LiveRunLimit()
     muse_factory = make_muse or default_muse
-    keyed_factory = make_keyed or keyed_clients
 
-    def stream(claim: str, packet: str, names: list[str], keyed: tuple | None = None) -> Iterator[str]:
-        # keyed: (muse, checker, KeyedRun) built from the caller's own key for this one request, else None.
+    def stream(claim: str, packet: str, names: list[str]) -> Iterator[str]:
         paths = store.paths(packet)
         yield sse("files", {"files": _file_lines(paths, names)})
         labels: dict[str, list[str]] = {}
         try:
-            if keyed is None:
-                events = run_review(claim, paths, muse_factory())
-            else:
-                events = run_review(claim, paths, keyed[0], checker=keyed[1])
-            for ev in events:
+            for ev in run_review(claim, paths, muse_factory()):
                 kind = type(ev).__name__
                 if isinstance(ev, PartsReady):
                     yield sse("parts", {"parts": [{"id": p.id, "text": p.text, "span": list(p.span)} for p in ev.parts]})
@@ -197,9 +186,6 @@ def create_app(make_muse: Callable[[], object] | None = None, make_keyed: Callab
                     yield sse("partdone", dataclasses.asdict(ev))
                 elif isinstance(ev, AllDone):
                     review = ev.result.review
-                    if keyed is not None and keyed[2].meta_rejected:  # a bad key is a refusal, not a review to save or share
-                        yield sse("failed", {"text": META_REJECTED})
-                        return
                     for pid, info in ((review.graph or {}).get("parts") or {}).items():
                         if pid in labels and "path_labels" not in info:
                             info["path_labels"] = labels[pid]
@@ -221,12 +207,8 @@ def create_app(make_muse: Callable[[], object] | None = None, make_keyed: Callab
         except Exception as exc:  # the stream ends with one plain line, never a stack trace
             yield sse("failed", {"text": f"The check stopped: {type(exc).__name__}. Nothing after this point was read."})
 
-    def scrubbed(chunks: Iterator[str], run: KeyedRun) -> Iterator[str]:
-        for chunk in chunks:  # last line of defence: no event can carry the caller's key
-            yield run.scrub(chunk)
-
     def start(claim: str, passcode: str, packet: str | None, uploads: list[tuple[str, bytes]] | None,
-              visitor: str | None = None, meta_key: str = "", baseten_key: str = ""):
+              visitor: str | None = None):
         configured = os.environ.get("APP_PASSCODE")  # no passcode set: open; the spend cap still applies
         refusal = passcode_refusal(passcode, configured) if configured else None
         if refusal is None and not claim.strip():
@@ -240,35 +222,15 @@ def create_app(make_muse: Callable[[], object] | None = None, make_keyed: Callab
                 refusal = f"Each file must be under {MAX_FILE_BYTES // 2**20} MB."
             elif any(Path(n).suffix.lower() not in ALLOWED for n, _ in uploads):
                 refusal = "Upload PDF, PNG or JPG files."
-        keys: tuple[str, str | None] | None = None
-        if refusal is None:
-            try:  # a caller's own keys: shape-checked, never echoed
-                meta, baseten = clean_key(meta_key), clean_key(baseten_key)
-            except ValueError as exc:
-                refusal = str(exc)
-            else:
-                if baseten and not meta:
-                    refusal = "A Baseten key works together with a Meta Model API key. Add the Meta key too."
-                elif meta:
-                    keys = (meta, baseten)
         if refusal is not None:  # before any client exists
             return JSONResponse({"refusal": refusal}, status_code=401 if "passcode" in refusal else 400)
-        # A run on the caller's own key is theirs to pay for: neither the demo's visitor limit nor its spend cap applies.
-        if keys is None and visitor is not None and not limit.allow(visitor):  # a live run; the sample passes visitor=None
+        if visitor is not None and not limit.allow(visitor):  # a live run; the cached sample passes visitor=None
             return JSONResponse({"refusal": "This demo's live-run budget for you is used up for now. The worked example "
                                             "is unlimited, or try again in an hour."}, status_code=429)
         names = [n for n, _ in uploads] if uploads else [p.name for p in store.paths(packet)]
         if packet is None:
             packet = store.packet(uploads)
-        if keys is None:
-            body = stream(claim.strip(), packet, names)
-        else:
-            try:
-                clients = keyed_factory(*keys)
-            except Exception:  # never the exception's text: it could quote the key
-                return JSONResponse({"refusal": "Your key could not be set up for this run. Check it and try again."}, status_code=400)
-            body = scrubbed(stream(claim.strip(), packet, names, clients), clients[2])
-        return StreamingResponse(body, media_type="text/event-stream",
+        return StreamingResponse(stream(claim.strip(), packet, names), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     def samples() -> list[dict]:
@@ -293,33 +255,28 @@ def create_app(make_muse: Callable[[], object] | None = None, make_keyed: Callab
                 for s in samples()]
 
     @app.post("/api/sample/{sample_id}")
-    def run_sample(sample_id: str, passcode: str = Form(""), meta_api_key: str = Form(""), baseten_api_key: str = Form("")):
+    def run_sample(sample_id: str, passcode: str = Form("")):
         sample = next((s for s in samples() if s["id"] == sample_id), None)
         if sample is None:
             return JSONResponse({"refusal": "That packet is not available."}, status_code=404)
         base = Path(os.environ["PROOFGRAPH_SAMPLES"]).parent
-        return start(sample["claim"], passcode, None, [(Path(f).name, (base / f).read_bytes()) for f in sample["files"]],
-                     meta_key=meta_api_key, baseten_key=baseten_api_key)
+        return start(sample["claim"], passcode, None, [(Path(f).name, (base / f).read_bytes()) for f in sample["files"]])
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
         return (WEB / "index.html").read_text(encoding="utf-8")
 
     @app.post("/api/review")
-    async def review(request: Request, claim: str = Form(""), passcode: str = Form(""), files: list[UploadFile] | None = None,
-                     meta_api_key: str = Form(""), baseten_api_key: str = Form("")):
+    async def review(request: Request, claim: str = Form(""), passcode: str = Form(""), files: list[UploadFile] | None = None):
         uploads = [(_clean(f.filename), await f.read()) for f in files or [] if f.filename]
-        return start(claim, passcode, None, uploads, visitor_id(request.headers, request.client.host if request.client else None),
-                     meta_api_key, baseten_api_key)
+        return start(claim, passcode, None, uploads, visitor_id(request.headers, request.client.host if request.client else None))
 
     @app.post("/api/review/{review_id}/ask")
-    def ask(request: Request, review_id: str, claim: str = Form(""), passcode: str = Form(""),
-            meta_api_key: str = Form(""), baseten_api_key: str = Form("")):
+    def ask(request: Request, review_id: str, claim: str = Form(""), passcode: str = Form("")):
         item = store.items.get(review_id)
         if item is None or item["packet"] not in store.dirs:
             return JSONResponse({"refusal": "That packet is no longer here. Upload the files again."}, status_code=404)
-        return start(claim, passcode, item["packet"], None, visitor_id(request.headers, request.client.host if request.client else None),
-                     meta_api_key, baseten_api_key)
+        return start(claim, passcode, item["packet"], None, visitor_id(request.headers, request.client.host if request.client else None))
 
     @app.get("/api/review/{review_id}", response_class=HTMLResponse)
     def get_review(review_id: str):

@@ -24,17 +24,6 @@ The app is one container: `uvicorn app.server:app`, built from the `Dockerfile`.
 
 It runs on the serving machine because a scanned page's cache key depends on how the platform renders it, so a cache built on another machine would not match. Only synthetic documents belong in the manifest.
 
-## Runs on a visitor's own key
-
-The entrance has a collapsed "Test with your own Meta Model API key" section, so a judge can test their own packet when the demo's spend cap or the per-visitor limit has been reached. The key (and an optional Baseten key for the second reader) is posted as the form fields `meta_api_key` and `baseten_api_key` on `POST /api/review`, `POST /api/review/{id}/ask` and `POST /api/sample/{id}`.
-
-- The key builds a client for that one request (`app/keyed.py`). It is not read from or written to the environment, and it is not part of any cache key, so the cached worked example loads for everyone as before.
-- Those runs skip the live-run limit and the spend cap, and add nothing to the spend ledger: the key's owner pays.
-- Without a Baseten key the second reader is skipped for that run; the server's `BASETEN_API_KEY` is never used for it.
-- The key is never logged, echoed, put in an event, a saved review or an error message; anything a model call raises is stripped of it first. A key Meta rejects ends the run with a plain refusal and saves nothing.
-- `APP_PASSCODE`, when set, is still required.
-- Behind a proxy, make sure request bodies are not logged. The model-call log (`MODEL_CALL_LOG`) never holds a key.
-
 ## Check a running deploy
 
     uv run python scripts/smoke_deploy.py https://your-service.onrender.com

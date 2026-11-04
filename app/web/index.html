@@ -39,21 +39,6 @@
               <label for="passcode">Passcode, needed to run a check</label>
               <input id="passcode" name="passcode" type="password" autocomplete="current-password">
             </div>
-            <details class="own-key" id="own-key">
-              <summary>Test with your own Meta Model API key</summary>
-              <div class="own-key-body">
-                <p class="own-key-note">Optional. Your key is sent only with your run, used for that run's Meta API calls, and never stored, logged or cached on the server. Runs on your key are not limited by the demo's spend cap or the per-visitor limit; the cost is on your account. The worked example never needs a key.</p>
-                <div class="field">
-                  <label for="meta-key">Meta Model API key</label>
-                  <input id="meta-key" name="meta_api_key" type="password" autocomplete="off" spellcheck="false" autocapitalize="off">
-                </div>
-                <div class="field">
-                  <label for="baseten-key">Baseten API key for the second reader (optional)</label>
-                  <input id="baseten-key" name="baseten_api_key" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" aria-describedby="baseten-note">
-                  <p class="own-key-note" id="baseten-note">The second reader (Muse Spark Open) runs on Baseten. Without your Baseten key it is skipped for your run: the demo's own Baseten key is never used for runs on your key, so answers are not re-checked and the review says so.</p>
-                </div>
-              </div>
-            </details>
             <button class="btn inv" type="submit" id="go">Check claim</button>
             <p id="problem" class="problem" role="alert" hidden></p>
           </form>
