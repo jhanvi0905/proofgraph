@@ -76,7 +76,6 @@ The graph is built once per packet and cached on the packet's content hash, so a
 | --- | --- | --- |
 | **Muse Spark** (`muse-spark-1.3`) | Meta Model API | Step 1 reading and gleaning pass; step 5 claim splitting and enum-constrained linking; step 6 full read; step 7 pairwise comparison; transcription of scanned pages with a box per line |
 | **Muse Spark Open** (`meta-models/muse-spark-open-1026`) | Baseten (partner inference) | Step 7: a blind second reader of deciding links, capped per claim. It never sees the relation or the verdict. The review page reports how many were re-read and how many it confirmed. |
-| **SAM 3.1** | Baseten | Counting items in photos, in the earlier engine path only. **Not used in the graph demo.** |
 
 All graph building, alignment, merging, walking, precedence, dating and the final verdict run on our own compute (a Docker container on Render, or your machine). Every model call goes through one client with a disk cache, a spend cap, and fencing against instructions planted in documents.
 
@@ -139,6 +138,8 @@ Each known weakness has a traced cause and a planned fix that follows the same r
 | Emails, image pages and table rows not reached | 92% of gold evidence extracted, 73% reached by the walk | "About" edges from each document to its subjects |
 | Small samples | n = 29 and n = 30, intervals overlap | A larger held-out slice |
 
+**Next field: photo and video evidence.** Meta's SAM 3.1 can segment and count objects in images and video, so the same claim-to-evidence loop could check claims backed by photos or footage (for example damage, quantities or site conditions) and circle the deciding region, the way ProofGraph circles a clause today. We built an early counting path with it and have not brought it into the graph demo.
+
 Out of scope, and said so on screen: arithmetic across many figures, law outside the packet (shown as "cited, not in the packet"), and subjective claims.
 
 ## Run it
@@ -185,7 +186,7 @@ Not built here, used as named dependencies:
 | pydantic, Pillow, openai SDK | MIT, MIT-CMU, Apache-2.0 | Typed contracts, page images, calling the model endpoints |
 | Schibsted Grotesk, Source Serif 4 (Google Fonts) | SIL OFL | Typography |
 
-Full list and attribution in [`NOTICE.md`](NOTICE.md). Left in the tree but **not part of the graph demo**: the SAM 3.1 counting path, the Streamlit front end (`app/streamlit_app.py`) and the freight example in `examples/freight/`.
+Full list and attribution in [`NOTICE.md`](NOTICE.md). Earlier-engine code (a photo-counting path using SAM 3.1, a Streamlit front end, a freight example) remains in the tree for history and is not used by the demo.
 
 **Ideas studied, not code copied.** graphify (trust tiers and weakest-link confidence), LangExtract (graded source grounding with offsets), Graphiti (a small declared edge schema, "unsure" allowed), LightRAG (the gleaning recall pass), Microsoft LazyGraphRAG (cheap build, model calls only where a verdict depends on them), KAG (schema-constrained extraction), the deontic-formalisation literature and LegalRuleML (rule-shaped statements), and ContractNLI (the label set). Each was adapted to the one rule here: code decides, and nothing the code cannot verify against a quote is allowed to decide. See [docs/evidence-graph.md](docs/evidence-graph.md).
 
