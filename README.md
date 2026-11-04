@@ -18,34 +18,31 @@
 
 ## Test it yourself (for judges)
 
-Three ways in, from fastest to most hands-on. None needs an account with us.
+**No key (1 minute).** Open the [live app](https://proofgraph-orww.onrender.com/) and choose **See the worked example**. If the page is slow, it is waking up; wait a few seconds. For a fully offline copy, download [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) and open it in a browser.
 
-**1. Look (1 minute, no key).** Open the [live app](https://proofgraph-orww.onrender.com/) and choose **See the worked example**. If the page is slow to load, it is waking up; wait a few seconds. For a fully offline copy, download [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) and open it in a browser.
-
-**2. Run a live check on the hosted app with your own key (about 5 minutes).** Live runs use your key, so they are not limited by the demo's spend cap or per-visitor limit.
-
-1. Have a Meta Model API key ready. A Baseten key is optional; it turns on the Muse Spark Open second reader.
-2. Open the [live app](https://proofgraph-orww.onrender.com/) and expand **Test with your own Meta Model API key** on the entrance screen. Paste the key (and the Baseten key if you have one). It is sent only with your run and never stored, logged or cached.
-3. Get a packet. The five synthetic documents of the worked example are in [`examples/samples/leg-06/`](examples/samples/leg-06/) (every name is invented); download them, or use any PDFs or images of your own.
-4. Type a claim, for example: *The SLA commits Nimbus to at least 99.9% uptime each month, we can claim a service credit if it falls short, and Nimbus must notify us of any personal data breach within 24 hours.*
-5. Drop in the documents and choose **Check claim**. The run reads each page with Muse Spark, which takes a little while; progress shows on screen.
-6. Read the answer. Open the deciding clause to see it circled on its page, then open **How this was checked** for the path, which document wins, and the second-reader result.
-
-Things worth trying: change one number in the claim and see whether the answer and the circled clause change; ask something the documents never say and look for "Not found" instead of a guess; add your own contract.
-
-**3. Run the code on your machine (about 10 minutes).** You need [uv](https://docs.astral.sh/uv/) and Python 3.11.
+**With your own keys (about 10 minutes).** To run a live check on your own documents, run the app on your machine with your own Meta Model API key. Nothing is limited by our demo cap, and nothing leaves your machine except the model calls. You need [uv](https://docs.astral.sh/uv/) and Python 3.11.
 
 ```bash
 git clone https://github.com/jhanvi0905/proofgraph.git && cd proofgraph
-make setup                    # installs dependencies
-make test                     # 1,100+ tests, all offline, no key needed
-cp .env.example .env          # .env is gitignored
-# edit .env: set MODEL_API_KEY (Meta Model API); set BASETEN_API_KEY for the second reader (optional)
+make setup
+cp .env.example .env
+```
+
+Edit `.env`: set `MODEL_API_KEY` to your Meta Model API key. Set `BASETEN_API_KEY` too if you want the Muse Spark Open second reader (optional; without it the second reader is skipped). Then:
+
+```bash
 export $(grep -v '^#' .env | xargs)
 PROOFGRAPH_GRAPH=1 PROOFGRAPH_SAMPLES=examples/samples/samples.json uv run uvicorn app.server:app --port 8000
 ```
 
-Open <http://localhost:8000>. Use the same steps as in way 2. `make app` starts an earlier Streamlit front end, not the demo; use the command above. `SPEND_LIMIT_USD` in `.env` caps your own spend (default 50). More on what runs where: [Run it](#run-it) and [`docs/deploy.md`](docs/deploy.md).
+Open <http://localhost:8000>, then:
+
+1. Type a claim. For example: *The SLA commits Nimbus to at least 99.9% uptime each month, we can claim a service credit if it falls short, and Nimbus must notify us of any personal data breach within 24 hours.*
+2. Drop in the documents. The five synthetic documents for that claim are in [`examples/samples/leg-06/`](examples/samples/leg-06/) (every name is invented), or use your own PDFs or images.
+3. Choose **Check claim**. Reading each page with Muse Spark takes a little while; progress shows on screen.
+4. Open the deciding clause to see it circled on its page, then **How this was checked** for the path, which document wins, and the second-reader result.
+
+`SPEND_LIMIT_USD` in `.env` caps your own spend (default 50). `make test` runs the 1,100+ offline tests with no key. `make app` starts an earlier Streamlit front end, not the demo; use the command above. More detail: [Run it](#run-it) and [`docs/deploy.md`](docs/deploy.md).
 
 ## What it does
 
