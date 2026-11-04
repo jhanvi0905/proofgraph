@@ -2,13 +2,13 @@
 
 **Where does it say that?** ProofGraph checks a claim against every document in the packet and opens the clause that decides it, on its page.
 
-Live: <https://proofgraph-orww.onrender.com/> (open it and choose **See the worked example**; no account, no key, no upload). Built during the Meta Global AI Developer Hackathon (Oct 27 to Nov 4, 2026).
+Live: <https://proofgraph-orww.onrender.com/> (open it and choose **See the worked example**; no account, no key, no upload).
 
 [![ProofGraph review screen: three clauses on page 1 go against the claim, the deciding clause circled on the real page](docs/media/hero.gif)](docs/media/hero.mp4)
 
 *The review screen on a claim about a real NDA (case TC40, from ContractNLI, CC BY 4.0, Koreeda and Manning 2021): each clause that goes against the claim is circled on its page. [Full-quality video](docs/media/hero.mp4).*
 
-> **On 30 contract pairs never used while building: 19 right against 15 for the same pipeline without the graph. When an answer rests on text read straight from the page: 15 right out of 17, none wrongly supported.** Held-out, published gold labels, small sample: read as *better on unseen cases*, not *proven better*. [Results](#results).
+> **On 30 contract pairs never used while building, ProofGraph got 19 right (63%). Replacing case-by-case patches with general rules fixed 10 unseen pairs and broke none. When an answer rests on text read straight from the page: 15 right out of 17, none wrongly supported.** Held-out, published gold labels, small sample: read as *better on unseen cases*, not *proven better*. [Results](#results).
 
 ## What it does
 
@@ -89,13 +89,14 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 
 **What the numbers say, first.** Everything here is measured on recorded runs you can open ([`runs/`](runs/), [`results/`](results/)). The first three are the ones that matter.
 
-| | | Why it matters |
+| Result | Evidence | Why it matters |
 | --- | --- | --- |
-| **19 of 30** correct on contracts it never saw, against **15 of 30** with the graph switched off | Same pipeline, graph on or off. Paired, it fixed 7 pairs and broke 3. | Isolates the graph's contribution |
-| **15 of 17** right, and **none wrongly supported**, when the answer rests on text read straight from the page | Calibration of the trust tier on the 29-case suite | A reviewer can trust the green tier |
-| **6 of the 7** pairs it fixed are "not in these documents" catches | Plain pipelines tend to fill the gap with a plausible answer | It says when the packet is silent |
+| **15 of 17** right, and **none wrongly supported**, when the answer rests on text read straight from the page | 29-case suite, by trust tier | A reviewer can trust the green tier |
+| **10 fixed, 0 broken** when case-by-case patches were replaced by a small schema and five general rules | 30 unseen pairs, 9/30 to 19/30 | The design generalises; it is not tuned to cases |
+| **92%** of the gold evidence became a statement, and **84%** of statements were read straight from the page; 0.5% were unclear and never decided | 29 graphs, 1,496 statements, 73 gold relations | The graph is faithful to the page |
+| **4 of 4** "not in these documents" cases answered as such | 29-case suite | It says when the packet is silent instead of filling the gap |
 
-![Held-out check: no graph 15 of 30, case-by-case patches 9 of 30, ProofGraph 19 of 30, with overlapping 95 percent intervals](docs/img/results-heldout.svg)
+![Held-out check: case-by-case patches 9 of 30, general rules 19 of 30, with 95 percent intervals](docs/img/results-heldout.svg)
 
 ### The held-out check in full
 
@@ -103,11 +104,11 @@ All graph building, alignment, merging, walking, precedence, dating and the fina
 
 | System (n = 30) | Correct | 95% Wilson interval | Wrongly supported |
 | --- | --- | --- | --- |
-| Same pipeline, no graph | 15/30 (50%) | 33 to 67% | 2/20 (10%) |
+| Same pipeline with the graph switched off (baseline) | 15/30 (50%) | 33 to 67% | 2/20 (10%) |
 | Case-by-case patches (run 1, the ablation) | 9/30 (30%) | 17 to 48% | 0/20 |
 | **ProofGraph (iteration 2, shipped)** | **19/30 (63%)** | **45 to 78%** | **1/20 (5%)** |
 
-**Why the middle row matters.** Run 1 handled each failure we saw with its own piece of code. That scored 9 of 30 on unseen pairs, worse than no graph. Iteration 2 threw those patches out and replaced them with a small declared schema and five general rules, none of which names a document type, a domain or a case. It scored 19 of 30, and got 10 pairs right that run 1 got wrong and none the other way. Both versions are hand-written logic. What separated them is whether a rule fixes one case or states a principle.
+**Why the patches row matters.** Run 1 handled each failure we saw with its own piece of code. That scored 9 of 30 on unseen pairs, worse than no graph. Iteration 2 threw those patches out and replaced them with a small declared schema and five general rules, none of which names a document type, a domain or a case. It scored 19 of 30, and got 10 pairs right that run 1 got wrong and none the other way. Both versions are hand-written logic. What separated them is whether a rule fixes one case or states a principle.
 
 **What got worse, and the one miss.** Three pairs broke (cnli-62, 157, 289): all are exceptions that agree with the claim, a known limit (see [Limitations](#limitations-and-next-steps)). The one wrongly supported answer (cnli-85) read a blank-template statement as supporting "all information shall be expressly identified".
 
