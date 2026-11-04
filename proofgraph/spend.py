@@ -26,6 +26,7 @@ import fcntl
 import json
 import os
 import random
+import sys
 import tempfile
 import time
 from collections.abc import Callable, Mapping
@@ -151,6 +152,30 @@ class SpendGuard:
         if self._offline or cost <= 0:
             return
         self.ledger.add(cost)
+
+    def log_call(self, label: str, response: Mapping[str, Any], started: float) -> None:
+        """Print one line for a real call: the model name is the one the API echoed back.
+
+        Silent for the offline replay and unless MODEL_CALL_LOG=1, so tests,
+        cached runs and long evals print nothing. The line holds no request,
+        no header and no key.
+        """
+
+        if self._offline or os.environ.get("MODEL_CALL_LOG") != "1":
+            return
+        usage = response.get("usage")
+        usage = usage if isinstance(usage, Mapping) else {}
+        tokens_in = usage.get("input_tokens", usage.get("prompt_tokens", 0))
+        tokens_out = usage.get("output_tokens", usage.get("completion_tokens", 0))
+        model = response.get("model")
+        print(
+            f"[meta-api] {time.strftime('%H:%M:%S')} {label:<22} "
+            f"model={model if isinstance(model, str) and model else 'unreported'} "
+            f"id={str(response.get('id') or '-')[:18]} "
+            f"in={tokens_in} out={tokens_out} {time.monotonic() - started:.1f}s",
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def _tokens(container: object, key: str) -> int:

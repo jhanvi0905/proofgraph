@@ -436,9 +436,11 @@ class MuseClient:
                 api_key=self._api_key,
                 base_url=self.settings.muse_base_url,
             )
+        started = time.monotonic()
         response = self._read_json(
             lambda: call_with_retries(lambda: transport.create(body), sleep=self._sleep)
         )
+        self._spend.log_call("POST /v1/responses", response, started)
         self._spend.charge(responses_cost_usd(response))
         return response
 
