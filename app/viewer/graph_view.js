@@ -39,6 +39,12 @@
     cells.forEach(function (c) { c.setAttribute("aria-pressed", "false"); var go = c.querySelector(".go"); if (go) go.textContent = "Show on page " + c.dataset.page; });
     if (was) was.focus();
   });
+  Array.prototype.forEach.call(document.querySelectorAll(".side-go"), function (b) {
+    b.addEventListener("click", function () {
+      var c = document.querySelector('.cell[data-card-id="' + b.getAttribute("data-for") + '"]');
+      if (c) { c.click(); c.focus({ preventScroll: true }); }
+    });
+  });
   document.querySelectorAll(".page").forEach(function (p) { p.hidden = true; });
   var first = document.querySelector(".cell.decides") || cells[0];
   if (first) show(first, true);
@@ -51,6 +57,30 @@
       e.preventDefault();
       var v = document.getElementById("ask-claim").value.trim();
       if (v) window.parent.postMessage({ type: "proofgraph-ask", claim: v }, location.origin);
+    });
+  }
+  // Framed by the app: tell the page above how tall this is and where each section starts, so it can draw the one
+  // contents bar and keep one scrollbar. It also says where the visible edge is, so the page column can follow it.
+  if (framed) {
+    var wrap = document.querySelector(".wrap"), offset = 0;
+    var tell = function () {
+      var sections = Array.prototype.map.call(document.querySelectorAll(".toc a"), function (a) {
+        var t = document.getElementById(a.getAttribute("href").slice(1));
+        return { id: a.getAttribute("href").slice(1), label: a.textContent, hint: a.getAttribute("data-hint") || "",
+                 top: t ? Math.round(t.getBoundingClientRect().top + window.scrollY) : 0 };
+      });
+      window.parent.postMessage({ type: "proofgraph-layout", height: Math.ceil(wrap.getBoundingClientRect().height), sections: sections }, location.origin);
+    };
+    if (window.ResizeObserver) new ResizeObserver(tell).observe(wrap);
+    window.addEventListener("load", tell);
+    var wide = matchMedia("(min-width: 1100px)"), main = document.querySelector("main");
+    window.addEventListener("message", function (e) {
+      if (e.origin !== location.origin || !e.data || e.data.type !== "proofgraph-view" || !pane) return;
+      if (!wide.matches || pane.parentNode !== home) { pane.style.transform = ""; offset = 0; return; }
+      var natural = pane.getBoundingClientRect().top + window.scrollY - offset;
+      var room = main.getBoundingClientRect().bottom + window.scrollY - natural - pane.offsetHeight;
+      offset = Math.round(Math.max(0, Math.min(e.data.top + 16 - natural, room)));
+      pane.style.transform = offset ? "translateY(" + offset + "px)" : "";
     });
   }
   var copyBtn = document.getElementById("copylink");
@@ -72,6 +102,7 @@
   document.getElementById("download").addEventListener("click", function () {
     var copy = document.documentElement.cloneNode(true);
     var f = copy.querySelector("#ask"); if (f) f.hidden = true;
+    copy.classList.remove("framed"); var pn = copy.querySelector(".pane"); if (pn) pn.style.transform = "";
     inlineImages(copy).then(function () {
       var blob = new Blob(["<!doctype html>" + copy.outerHTML], { type: "text/html" });
       var a = document.createElement("a");

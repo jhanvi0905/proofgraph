@@ -116,7 +116,7 @@ def test_share_page_leads_with_the_answer_and_has_no_ask(review, monkeypatch):
 def test_document_cells_are_labelled_for_the_stacked_layout_and_boxes_take_the_relation_colour(review, monkeypatch):
     monkeypatch.setenv(FLAG, "1")
     html = render(_graphed(review))
-    assert re.search(r'<td data-label="A  [^"]+">', html)
+    assert re.search(r'<td class="[^"]*"><p class="docbar"><span class="wp">A</span><span class="dn">[^<]+</span>', html)  # a labelled bar opens each stack
     assert "data-rel" in html and ".box[data-rel=supports]" in html and ".box[data-rel=weakens]" in html
     assert "narrow.matches" in html  # the page opens under the tapped quote on a phone
 
@@ -170,3 +170,25 @@ def test_the_footer_sections_are_titled_in_plain_words(review, monkeypatch):
     monkeypatch.setenv(FLAG, "1")
     html = render(_graphed(review), ask=True)
     assert "<h2>How this was checked</h2>" in html and "<h2>Key to the marks</h2>" in html and "<h2>Legend</h2>" not in html
+
+
+def test_a_clash_names_the_two_documents_with_the_passage_the_decision_set_against_each_other(review, monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    r = _graphed(review)
+    part = r.parts[0]
+    doc = r.docs[0]
+    first = next(c for c in r.cards if c.part == part.id)
+    other = first.model_copy(update={"id": "x-c9", "doc": "d2", "quote": "A different document says the opposite."})
+    r.docs.append(doc.model_copy(update={"id": "d2", "name": "Second_Agreement.pdf"}))
+    r.cards.append(other)
+    info = r.graph["parts"][part.id]
+    info["documents_disagree"] = True
+    info["clash"] = [{"for": {"doc": first.doc, "page": first.page, "quote": first.quote},
+                      "against": {"doc": "d2", "page": other.page, "quote": other.quote}}]
+    html = render(r)
+    assert 'class="clash"' in html and "A different document says the opposite." in html and "Second Agreement" in html
+    assert 'data-for="x-c9"' in html and f'data-for="{first.id}"' in html
+    del info["clash"]  # a review saved before the pair was recorded still names two documents
+    assert 'class="clash"' in render(r)
+    info["documents_disagree"] = False
+    assert 'class="clash"' not in render(r)

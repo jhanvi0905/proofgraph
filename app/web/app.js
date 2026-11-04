@@ -1,7 +1,7 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var form = $("start"), go = $("go"), problem = $("problem");
-  var state = { reviewId: null, parts: {}, passcode: "", cols: {}, byId: {}, chips: {}, shown: {} };
+  var state = { answered: [], reviewId: null, parts: {}, passcode: "", cols: {}, byId: {}, chips: {}, shown: {} };
   var calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
   var NS = "http://www.w3.org/2000/svg";
   var runner = null;  // the running check, so going back can stop it
@@ -35,7 +35,11 @@
   }
   function say(text) { $("status").textContent = text; }
   function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
-  function role(r) { r = (r || "").replace(/_/g, " "); return r ? r.charAt(0).toUpperCase() + r.slice(1) : "Document"; }
+  function role(r) { r = (r || "").replace(/_/g, " "); return !r || r === "other" ? "Document" : r.charAt(0).toUpperCase() + r.slice(1); }
+  function day(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); if (!m) return iso || "";
+    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  }
   function tidy(name) { return name.replace(/\.(pdf|png|jpe?g)$/i, "").replace(/[_]+/g, " "); }
   function latest(text) { $("latest").textContent = text; }
   function note(key, text, cls) {
@@ -44,21 +48,104 @@
     li.textContent = text; li.className = cls || "";
   }
 
-  function stage(text) { $("stage").textContent = text; }
+  // The journey: three steps, each a section of the page. A step is a link to its section once it exists.
+  var STEPS = ["sec-read", "sec-parts", "result"], bar = $("runbar"), frame = $("review");
+  var trip = { phase: 1, finished: false, sections: [], auto: false };
+  function barH() { return bar.hidden ? 0 : Math.ceil(bar.getBoundingClientRect().height); }
+  function scrollTo(y) { window.scrollTo({ top: Math.max(0, y), behavior: calm ? "auto" : "smooth" }); }
+  function phase(n) {
+    trip.phase = n;
+    $("sec-parts").hidden = n < 2;
+    spy();
+  }
+  function paint(cur) {
+    STEPS.forEach(function (_, i) {
+      var b = $("st" + (i + 1)), reached = i + 1 <= trip.phase, passed = i + 1 < trip.phase;
+      b.setAttribute("aria-disabled", String(!reached));
+      b.classList.toggle("passed", passed);
+      b.classList.toggle("here", i + 1 === cur);
+      if (i + 1 === cur) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
+      var n = b.querySelector(".num");
+      if (passed && !n.firstChild.tagName) { n.textContent = ""; n.appendChild(svg(TICK, "tk")); } else if (!passed && n.firstChild.tagName) n.textContent = String(i + 1);
+    });
+  }
+  function setOpen(sec, open) {
+    sec.classList.toggle("collapsed", !open);
+    var t = sec.querySelector(".sec-toggle"); t.setAttribute("aria-expanded", String(open)); t.textContent = open ? "Hide details" : "Show details";
+    if (open && sec.id === "sec-read") drawThreads();
+  }
+  function goTo(id) {
+    var sec = $(id); if (!sec || sec.hidden) return;
+    if (sec.classList.contains("collapsed")) setOpen(sec, true);
+    scrollTo(window.scrollY + sec.getBoundingClientRect().top - barH());
+    sec.querySelector("h2").focus({ preventScroll: true });
+  }
+  // Which section is under the bar now: it lights up its step, and inside the answer its sub-section.
+  var spying = false;
+  function spy() {
+    if (spying) return; spying = true;
+    requestAnimationFrame(function () {
+      spying = false;
+      if (bar.hidden) return;
+      var line = barH() + 24, cur = trip.phase;
+      if (trip.finished) {
+        cur = 1;
+        STEPS.forEach(function (id, i) { var n = $(id); if (!n.hidden && n.getBoundingClientRect().top <= line) cur = i + 1; });
+        if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) cur = 3;
+      }
+      paint(cur);
+      var sub = $("j-sub"), fr = frame.getBoundingClientRect();
+      sub.hidden = !(trip.auto && cur === 3 && trip.sections.length);
+      if (!sub.hidden) {
+        var y = line - fr.top, at = trip.sections[0].id;
+        trip.sections.forEach(function (s) { if (s.top <= y + 8) at = s.id; });
+        if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) at = trip.sections[trip.sections.length - 1].id;
+        Array.prototype.forEach.call(sub.querySelectorAll("button"), function (b) {
+          if (b.dataset.id === at) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current");
+        });
+      }
+      if (trip.auto && frame.contentWindow) frame.contentWindow.postMessage({ type: "proofgraph-view", top: Math.max(0, barH() - fr.top), height: window.innerHeight - barH() }, location.origin);
+    });
+  }
+  function buildSub(sections) {
+    var sub = $("j-sub"); sub.textContent = "";
+    sub.appendChild(el("span", "j-in", "In the answer"));
+    sections.forEach(function (s) {
+      var b = el("button", "j-link", s.label); b.type = "button"; b.dataset.id = s.id; if (s.hint) b.title = s.hint;
+      b.addEventListener("click", function () { scrollTo(window.scrollY + frame.getBoundingClientRect().top + s.top - barH()); });
+      sub.appendChild(b);
+    });
+  }
+  function tally() {
+    var words = state.answered.map(function (w) { return w; });
+    return plural(words.length, "part") + (words.length ? ": " + words.join(", ") : "");
+  }
+  window.addEventListener("scroll", spy, { passive: true });
+  window.addEventListener("resize", spy);
+  if (window.ResizeObserver) new ResizeObserver(function () { document.documentElement.style.setProperty("--bar-h", barH() + "px"); spy(); }).observe(bar);
+  STEPS.forEach(function (id, i) {
+    $("st" + (i + 1)).addEventListener("click", function () { if (this.getAttribute("aria-disabled") !== "true") goTo(id); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".sec-toggle"), function (t) {
+    t.addEventListener("click", function () { var sec = t.closest(".sec"); setOpen(sec, sec.classList.contains("collapsed")); });
+  });
 
   function showStart(text) {
     if (runner) { runner.abort(); runner = null; }
     $("review").removeAttribute("src"); $("opening").hidden = true; state.reviewId = null;
-    stage(""); $("runbar").hidden = true; $("entrance").hidden = false; $("live").hidden = true; $("result").hidden = true;
+    bar.hidden = true; document.documentElement.classList.remove("running"); $("entrance").hidden = false; $("live").hidden = true; $("result").hidden = true;
     go.disabled = false; go.textContent = "Check claim"; window.scrollTo(0, 0);
     if (text) { problem.textContent = text; problem.hidden = false; say(text); }
   }
   function reset(claim) {
     ["ticks", "cols", "shared", "parts", "notes"].forEach(function (id) { $(id).textContent = ""; });
-    $("threads").textContent = ""; $("receipt").hidden = true; $("reopen").hidden = true; latest("");
-    $("live").classList.remove("done"); $("read-title").textContent = "How the documents are being read";
-    $("runbar").hidden = false; $("reopen").setAttribute("aria-expanded", "false"); stage("Step 1 of 3: Reading the documents");
-    $("readgrid").classList.remove("collapsed"); $("map").classList.remove("deciding");
+    $("threads").textContent = ""; $("receipt").hidden = true; latest("");
+    $("read-sum").textContent = ""; $("parts-sum").textContent = ""; trip = { phase: 1, finished: false, sections: [], auto: false };
+    $("result").classList.remove("auto"); $("j-sub").hidden = true; frame.style.height = ""; state.answered = [];
+    setOpen($("sec-read"), true); setOpen($("sec-parts"), true); $("sec-parts").hidden = true;
+    $("live").classList.remove("done"); $("read-name").textContent = "Reading the documents";
+$("readgrid").classList.remove("read"); $("map-key").hidden = true;
+    bar.hidden = false; document.documentElement.classList.add("running"); paint(1); $("map").classList.remove("deciding");
     state.parts = {}; state.cols = {}; state.byId = {}; state.chips = {}; state.shown = {};
     var c = $("claim-line"); c.textContent = claim; c.className = "claim reading";
     problem.hidden = true; $("entrance").hidden = true; $("live").hidden = false; $("result").hidden = true;
@@ -103,7 +190,7 @@
       c.classList.remove("reading");
       var r = c.querySelector(".role"); if (r && !r.textContent) r.textContent = "Read";
     });
-    $("read-title").textContent = "How the documents were read";
+    $("read-name").textContent = "How the documents were read"; $("readgrid").classList.add("read"); $("map-key").hidden = false;
   }
 
   var on = {
@@ -114,8 +201,8 @@
         n++; pages += f.pages;
         var col = el("div", "col reading"), h = el("h3", null, tidy(f.name));
         var labels = el("ul", "labels");
-        col.appendChild(h); col.appendChild(el("p", "role")); col.appendChild(labels); $("cols").appendChild(col);
-        state.cols[f.name] = { col: col, ticks: {}, labels: labels };
+        col.appendChild(h); col.appendChild(el("p", "role")); col.appendChild(el("div", "proof")); col.appendChild(labels); $("cols").appendChild(col);
+        state.cols[f.name] = { col: col, ticks: {}, labels: labels, pages: f.pages, scan: f.note || "" };
         if (f.id) state.byId[f.id] = state.cols[f.name];  // same ids as DocRead.doc, so a cached graph still finds its columns
         var d1 = el("li", "d"); d1.appendChild(document.createTextNode(tidy(f.name)));
         var ul = el("ul");
@@ -144,6 +231,21 @@
       c.ticks[d.page].classList.add("ok");
       latest("Reading " + tidy(d.name) + ", page " + d.page + " of " + d.of);
     },
+    docsummary: function (d) {
+      var c = state.byId[d.doc]; if (!c) return;
+      c.col.classList.remove("reading");
+      c.col.querySelector(".role").textContent = role(d.role) + (d.date ? ", " + day(d.date) : "");
+      var box = c.col.querySelector(".proof"); box.textContent = "";
+      box.appendChild(el("p", "stat", plural(c.pages, "page") + " read. " + plural(d.rules, "statement") + " kept, " + plural(d.names, "name") + " found."));
+      if (d.rules) {
+        var how = [];
+        if (d.exact) how.push(d.exact + " word for word");
+        if (d.tidied) how.push(d.tidied + " after tidying spacing and punctuation");
+        if (d.close) how.push(d.close + " as a close match");
+        box.appendChild(el("p", "ok", "Each one is a quote found on the page: " + how.join(", ") + "."));
+      } else box.appendChild(el("p", "ok", "Nothing in it stated who must, may or must not do something."));
+      if (c.scan) box.appendChild(el("p", "warn", c.scan.replace(/ will be transcribed;/, " was transcribed by the model;")));
+    },
     entity: function (d) {
       var key = d.name.toLowerCase(), holders = (d.doc_ids || []).map(function (id) { return state.byId[id]; }).filter(Boolean);
       var made = [];
@@ -158,7 +260,7 @@
     },
     graphready: function (d) {
       var r = $("receipt"); r.hidden = false;
-      r.textContent = (d.cached ? "These documents were already read. " : "") + "ProofGraph read " + plural(d.pages, "page") + " and listed " + plural(d.rules, "statement") + " (who must, may or must not do what) and " + plural(d.entities, "name") + " (people, offices, sections and terms).";
+      r.textContent = (d.cached ? "These documents were already read, so this step was not repeated. " : "") + "ProofGraph read " + plural(d.pages, "page") + " and kept " + plural(d.rules, "statement") + " (who must, may or must not do what), each one a quote found on its page. It named " + plural(d.entities, "name") + " (people, offices, sections and terms)" + (d.entities > 12 ? "; the map above shows the 12 named in the most documents." : ".");
       finishReading(); drawThreads(); say(r.textContent);
     },
     parts: function (d) {
@@ -167,7 +269,7 @@
         state.parts[p.id] = p.text;
         var li = el("li"); li.dataset.key = p.id; li.textContent = "Checking: " + p.text; $("parts").appendChild(li);
       });
-      stage("Step 2 of 3: Checking the claim");
+      phase(2);
       latest("Checking " + plural(d.parts.length, "part") + " of the claim.");
       say("Checking " + plural(d.parts.length, "part") + " of the claim.");
     },
@@ -192,31 +294,26 @@
       if (path) li.appendChild(path);
       var u = document.querySelector('.u[data-part="' + d.part_id + '"]');
       if (u) u.className = "u " + a.cls;
+      state.answered.push(a.word);
       say(a.word + ": " + text);
     },
     disagreement: function (d) { note("n" + d.part_id, d.text); },
     done: function (d) {
       state.reviewId = d.review_id;
       (d.banners || []).forEach(function (b, i) { note("b" + i, b); });
-      finishReading(); latest("Done."); stage("Step 3 of 3: Answer ready"); $("live").classList.add("done");
-      var frame = $("review"); $("opening").hidden = false;
+      finishReading(); latest("Done."); $("live").classList.add("done");
+      trip.finished = true; phase(3); $("opening").hidden = false;
       frame.onload = function () { $("opening").hidden = true; };
       frame.src = "/api/review/" + d.review_id;
       $("result").hidden = false; say("Answer ready. The review is below.");
       setTimeout(function () {
-        $("readgrid").classList.add("collapsed"); $("reopen").hidden = false;
-        $("result").scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
+        $("read-sum").textContent = $("receipt").textContent; $("parts-sum").textContent = tally();
+        setOpen($("sec-read"), false); setOpen($("sec-parts"), false);
+        scrollTo(window.scrollY + $("result").getBoundingClientRect().top - barH());
       }, calm ? 0 : 400);
     },
-    failed: function (d) { note("failed", d.text, "error"); say(d.text); stage("Stopped: see the note below"); }
+    failed: function (d) { note("failed", d.text, "error"); say(d.text); }
   };
-
-  $("reopen").addEventListener("click", function () {
-    var g = $("readgrid"), shut = g.classList.toggle("collapsed");
-    this.textContent = shut ? "How it was read" : "Hide how it was read";
-    this.setAttribute("aria-expanded", String(!shut)); drawThreads();
-    if (!shut) window.scrollTo({ top: 0, behavior: calm ? "auto" : "smooth" });
-  });
 
   $("back").addEventListener("click", function () {
     if (history.state && history.state.run) history.back(); else showStart();
@@ -249,7 +346,7 @@
         });
       }
       return pump();
-    }).catch(function (e) { if (e && e.name === "AbortError") return; note("failed", "The connection dropped. Nothing after this point was read.", "error"); stage("Stopped: see the note below"); })
+    }).catch(function (e) { if (e && e.name === "AbortError") return; note("failed", "The connection dropped. Nothing after this point was read.", "error"); })
       .then(function () { go.disabled = false; go.textContent = "Check claim"; });
   }
 
@@ -282,20 +379,16 @@
     $("try-what").textContent = list[0].title;
     $("try").hidden = false;
     $("try-btn").addEventListener("click", function () { runSample(list[0]); });
-    list.forEach(function (s) {
-      var li = el("li"), slip = el("div", "slip");
-      slip.appendChild(el("h3", null, s.title));
-      slip.appendChild(el("q", null, s.claim));
-      slip.appendChild(el("p", "docs", s.docs.map(tidy).join(", ")));
-      var b = el("button", "btn quiet", "Check it"); b.type = "button";
-      b.addEventListener("click", function () { runSample(s); });
-      slip.appendChild(b); li.appendChild(slip); $("sample-list").appendChild(li);
-    });
-    $("samples").hidden = false;
+    $("sheet-run").hidden = false; $("sheet-run").addEventListener("click", function () { runSample(list[0]); });
   }).catch(function () {});
 
   window.addEventListener("message", function (e) {
-    if (e.origin !== location.origin || !e.data || e.data.type !== "proofgraph-ask" || !state.reviewId) return;
+    if (e.origin !== location.origin || !e.data) return;
+    if (e.data.type === "proofgraph-layout" && e.source === frame.contentWindow) {
+      trip.auto = true; trip.sections = e.data.sections || []; $("result").classList.add("auto");
+      frame.style.height = e.data.height + "px"; buildSub(trip.sections); spy(); return;
+    }
+    if (e.data.type !== "proofgraph-ask" || !state.reviewId) return;
     var fd = new FormData(); fd.append("claim", e.data.claim); fd.append("passcode", state.passcode);
     run("/api/review/" + state.reviewId + "/ask", fd, e.data.claim);
   });

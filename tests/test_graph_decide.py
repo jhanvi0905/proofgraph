@@ -38,6 +38,17 @@ def test_same_rank_clash_is_documents_disagree_cannot_tell():
     assert (d.status, d.scenario) == ("cannot_tell", "S5") and "nothing decides" in d.reason
 
 
+def test_a_clash_records_the_statements_set_against_each_other_and_nothing_else_does():
+    g, ranked, linked = _setup()
+    g.graph["docs"]["res"].update(role="memo", date=None)
+    g.graph["docs"]["byl"].update(role="other", date=None)
+    items = {"res-r1": Item(id="res-r1", label="agrees"), "byl-r2": Item(id="byl-r2", label="conflicts")}
+    d = graph_status("p", g, ranked, items, {}, Agreement("agree"), linked)
+    assert d.status == "cannot_tell" and d.clash == (("res-r1", "byl-r2"),)
+    assert _ask({"res-r1": "agrees", "byl-r2": "conflicts"}).clash == ()  # one document outranks: decided, no clash
+    assert _ask({"res-r1": "agrees"}).clash == () and _ask({"byl-r1": "agrees", "byl-r2": "conflicts"}).clash == ()
+
+
 def test_precedence_off_ablation_lets_conflict_win_without_ranking():
     d = _ask({"res-r1": "agrees", "byl-r2": "conflicts"}, precedence_on=False)
     assert d.status == "contradicted"

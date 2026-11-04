@@ -73,6 +73,20 @@ class EntityFound:
 
 
 @dataclass(frozen=True)
+class DocSummary:
+    """What reading one document produced, taken from the finished graph so a cached packet reports it too."""
+
+    doc: str
+    role: str
+    date: str | None
+    rules: int  # statements kept: each is a quote found on a page
+    exact: int  # of those, found word for word
+    tidied: int  # found once spacing, quotes and punctuation were tidied
+    close: int  # found as a close match
+    names: int  # people, offices, sections and terms named in it
+
+
+@dataclass(frozen=True)
 class GraphReady:
     pages: int
     rules: int
@@ -149,7 +163,23 @@ def _ready(g: nx.MultiDiGraph, cached: bool = False):
     for _, d in ents[:12]:
         yield EntityFound(d["name"], d["type"], len(d["docs"]), tuple(sorted(d["docs"])))
     s = g.graph["stats"]
+    yield from _summaries(g)
     yield GraphReady(s["pages"], s["rules"], s["entities"], cached)
+
+
+def _summaries(g: nx.MultiDiGraph):
+    align = g.graph["stats"].get("alignment", {})
+    rules = Counter(d["doc"] for _, d in g.nodes(data=True) if d["kind"] == "rule")
+    names: Counter = Counter()
+    for _, d in g.nodes(data=True):
+        if d["kind"] == "entity":
+            names.update(d["docs"])
+    for n, d in sorted(g.nodes(data=True)):
+        if d["kind"] != "doc":
+            continue
+        doc, level = n.split(":", 1)[1], align.get(n.split(":", 1)[1], {})
+        yield DocSummary(doc, d.get("role") or "", d.get("date"), rules[doc], level.get("exact", 0),
+                         level.get("normalised", 0), level.get("fuzzy", 0), names[doc])
 
 
 def _injections(g: nx.MultiDiGraph) -> list[Banner]:
@@ -264,12 +294,19 @@ def _labels(g: nx.MultiDiGraph, nodes: Sequence[str], names: dict[str, str]) -> 
     return out
 
 
+def _where(g: nx.MultiDiGraph, rule: str) -> dict:
+    """Where a statement sits, so a page can find the card that quotes it."""
+    d = g.nodes[rule]
+    return {"doc": d["doc"], "page": d["page"], "quote": d["quote"]}
+
+
 def _info(g, linked, ranked, decision: Decision, agree, read, result, checks) -> dict:
     return {
         "scenario": decision.scenario, "tier": decision.tier, "agreement": agree.flag,
         "documents_disagree": decision.status == "cannot_tell" and decision.scenario == "S5",
         "walk_only": list(agree.walk_only), "read_only": list(agree.read_only),
         "deciding": list(decision.deciding), "path": list(decision.path),
+        **({"clash": [{"for": _where(g, p), "against": _where(g, c)} for p, c in decision.clash[:8]]} if decision.clash else {}),
         "linked": dict(linked.entities), "rejected": {"link": linked.rejected, "compare": result.dropped,
                                                       **dict(read.rejected)},
         "paths": [list(p.nodes) for p in ranked], "second_reads": dict(Counter(c for c, _ in checks.values())),
