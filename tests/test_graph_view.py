@@ -119,3 +119,27 @@ def test_document_cells_are_labelled_for_the_stacked_layout_and_boxes_take_the_r
     assert re.search(r'<td data-label="A  [^"]+">', html)
     assert "data-rel" in html and ".box[data-rel=supports]" in html and ".box[data-rel=weakens]" in html
     assert "narrow.matches" in html  # the page opens under the tapped quote on a phone
+
+
+def test_each_quote_says_what_selecting_it_does(review, monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    r = _graphed(review)
+    html = render(r)
+    assert html.count('<span class="go">') == len(r.cards)
+    assert re.search(r'<span class="go">Show on page \d+</span>', html)
+
+
+def test_the_ledger_is_titled_and_explained_and_the_empty_page_hint_is_an_instruction(review, monkeypatch):
+    monkeypatch.setenv(FLAG, "1")
+    html = render(_graphed(review))
+    assert '<h2 class="ledger-title">What the documents say</h2>' in html
+    assert "Select a quote to see it on its page." in html
+    assert 'id="hint">Select a quote to see its page here.' in html and "Open a quote to see its page." not in html
+    assert 'id="paneclose"' in html
+
+
+def test_a_narrow_screen_keeps_the_page_closed_until_a_quote_is_selected_and_download_keeps_the_images():
+    root = Path(__file__).parents[1] / "app" / "viewer"
+    css, js = (root / "graph_view.css").read_text(), (root / "graph_view.js").read_text()
+    assert ".pane:not(.open)" in css and "classList.add(\"open\")" in js and "paneclose" in js
+    assert "inlineImages" in js  # the offline file must not point at a server that is not there
