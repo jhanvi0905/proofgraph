@@ -10,7 +10,7 @@ web
 Primary audience for this build: hackathon judges, who watch a three-minute demo and open the public URL once. Long-term buyer the copy speaks to: in-house contract managers and legal-ops leads (the persona "Maya") who sign off on claims someone else wrote about what contracts, NDAs, amendments and governance documents allow. Second audience: the sender who receives a shared review link.
 
 ## Product Purpose
-Checks a claim against every document in a packet and opens the clause that decides it, on its page. Success: a reviewer reaches a trustworthy per-part answer in seconds and can check it themselves.
+Checks a claim against every document in a packet and says whether the documents support it, contradict it or say nothing, showing the exact words on their page. Success: a reviewer reaches a trustworthy per-part answer in seconds and can check it themselves.
 
 ## Positioning
 Claim verification for document packets, by a span-grounded evidence graph. Beyond citations: a citation points at text that agrees with a claim, while ProofGraph shows the text that decides it, including the clause that disagrees, which document overrides which, and what the documents do not say. Never name or compare other tools.

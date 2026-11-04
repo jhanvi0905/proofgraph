@@ -202,8 +202,8 @@ def _signoff(graph: dict, infos: dict, replay: bool) -> str:
     lines = []
     if stats.get("pages") is not None:
         p = stats["pages"]
-        lines.append(f'<li><span>Prepared by ProofGraph</span> <span class="num">Read {_e(p)} page{"s" if p != 1 else ""}: '
-                     f'{_e(stats.get("rules", 0))} statements about who must, may or must not do what, naming {_e(stats.get("entities", 0))} people, offices, sections and terms.</span></li>')
+        lines.append(f'<li><span>Prepared by ProofGraph</span> <span class="num">Read {_e(p)} page{"s" if p != 1 else ""}. '
+                     f'Noted {_e(stats.get("rules", 0))} things the documents say about who must or may do what, and {_e(stats.get("entities", 0))} names (people, offices, sections and terms).</span></li>')
     if reads:
         parts = [f"{reads[k]} {w}" for k, w in (("agrees", "confirm"), ("disagrees", "do not confirm"), ("not_run", "not re-checked")) if reads.get(k)]
         if parts:
