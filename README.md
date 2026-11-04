@@ -18,7 +18,7 @@
 
 ## Test it yourself (for judges)
 
-**No key (1 minute).** Open the [live app](https://proofgraph-orww.onrender.com/) and choose **Run an example**. If the page is slow, it is waking up; wait a few seconds. For a fully offline copy, download [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) and open it in a browser.
+**No key (1 minute).** Open the [live app](https://proofgraph-orww.onrender.com/) and choose **Run an example**. The example is served from a cached graph and cached model responses from a real run, so it makes no live model calls and needs no key; a run on your own documents is live. If the page is slow, it is waking up; wait a few seconds. For a fully offline copy, download [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) and open it in a browser.
 
 **With your own keys (about 10 minutes).** To run a live check on your own documents, run the app on your machine with your own Meta Model API key. Nothing is limited by our demo cap, and nothing leaves your machine except the model calls. You need [uv](https://docs.astral.sh/uv/) and Python 3.11.
 
