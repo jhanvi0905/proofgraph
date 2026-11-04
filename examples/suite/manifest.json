@@ -381,97 +381,13 @@
       ]
     },
     {
-      "id": "TC23",
-      "title": "Research result versus an uncompleted instrument",
-      "claim": "The MALIBU study established that participants preferred the lower-menthol product.",
-      "source_dataset": "Tobacco800 (YACCLAB-packaged version)",
-      "source_group": "source_group_06",
-      "citation": "Doermann, D. Tobacco 800 Dataset (Tobacco800), v1, ID Tobacco800_1. https://tc11.cvc.uab.es/datasets/tobacco800_1 ; Grana, Bolelli, Baraldi, Vezzani (2016). YACCLAB. ICPR. doi:10.1109/ICPR.2016.7900112",
-      "licence_status": "pointer only; licence terms unverified, not committed",
-      "split": "heldout",
-      "files": [
-        {
-          "name": "MALIBU_study_plan.pdf",
-          "path": "Format Conversions/Tobacco 800/MALIBU_study_plan.pdf",
-          "sha256": "591068fd1adfeb37b86b20669886dc1aa8370f6ea046a8b67fcbcbe93431ae8b",
-          "bytes": 81121
-        },
-        {
-          "name": "avc85f00-page02_3.png",
-          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/avc85f00-page02_3.png",
-          "sha256": "ce6d59dda7703efc0e305920d514822a13d1998979516c81148de15917660ac9",
-          "bytes": 45107
-        },
-        {
-          "name": "avc85f00-page02_4.png",
-          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/avc85f00-page02_4.png",
-          "sha256": "065cf44378905aa17291f7f81e1a826d2b5a1bb8e09835b1813780ef20af9ad4",
-          "bytes": 43188
-        },
-        {
-          "name": "avc85f00-page02_5.png",
-          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/avc85f00-page02_5.png",
-          "sha256": "09a392844acc7a8f07b4c6917a5e513e139d92779a5016721ad7b2df0aead82d",
-          "bytes": 17160
-        }
-      ]
-    },
-    {
-      "id": "TC25",
-      "title": "Permission to use trademarks",
-      "claim": "Philip Morris authorized Sega's use of MARLBORO branding in SUPER MONACO GP.",
-      "source_dataset": "Tobacco800 (YACCLAB-packaged version)",
-      "source_group": "source_group_07",
-      "citation": "Doermann, D. Tobacco 800 Dataset (Tobacco800), v1, ID Tobacco800_1. https://tc11.cvc.uab.es/datasets/tobacco800_1 ; Grana, Bolelli, Baraldi, Vezzani (2016). YACCLAB. ICPR. doi:10.1109/ICPR.2016.7900112",
-      "licence_status": "pointer only; licence terms unverified, not committed",
-      "split": "dev",
-      "files": [
-        {
-          "name": "adh36e00_1.png",
-          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/adh36e00_1.png",
-          "sha256": "e85edcafad3ba270f106eabf0b35c0f56121da0288e591d6deb9e31036b045a8",
-          "bytes": 110189
-        },
-        {
-          "name": "adh36e00_2.png",
-          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/adh36e00_2.png",
-          "sha256": "89e33d50c4d810e12ebc57c10422fd9ff1c5ac8ca02b359bf5a8a9ac132c69b9",
-          "bytes": 171359
-        }
-      ]
-    },
-    {
-      "id": "TC27",
-      "title": "Independent evidence versus a company denial",
-      "claim": "Philip Morris supplied independent laboratory results disproving Angela Ober's asbestos allegation.",
-      "source_dataset": "Tobacco800 (YACCLAB-packaged version)",
-      "source_group": "source_group_08",
-      "citation": "Doermann, D. Tobacco 800 Dataset (Tobacco800), v1, ID Tobacco800_1. https://tc11.cvc.uab.es/datasets/tobacco800_1 ; Grana, Bolelli, Baraldi, Vezzani (2016). YACCLAB. ICPR. doi:10.1109/ICPR.2016.7900112",
-      "licence_status": "pointer only; licence terms unverified, not committed",
-      "split": "heldout",
-      "files": [
-        {
-          "name": "aao54e00_1.png",
-          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/aao54e00_1.png",
-          "sha256": "5d266f5822afb571d8f068e98a4b98cb048b238e5fe91cc91bba64d41f2ab02f",
-          "bytes": 136309
-        },
-        {
-          "name": "aao54e00_2.png",
-          "path": "Tobacco 800/Tobacco 800 Dataset/tobacco800/aao54e00_2.png",
-          "sha256": "a5286a68fcadc37cc72d752211252615919b85556332e4239572e01e83eca06c",
-          "bytes": 42108
-        }
-      ]
-    },
-    {
       "id": "TC4",
       "title": "Delivery confirmation",
       "claim": "Vins et alcools Chevalier received order 10248 on July 16, 2016.",
-      "source_dataset": "Company Documents (Kaggle archive (3).zip)",
+      "source_dataset": "Pepperwind: A Whole Fictional Company as Data (Kaggle, Muhammed Rasin)",
       "source_group": "source_group_01",
-      "citation": "Company Documents: local archive designation 'archive (3).zip'; Kaggle listing not verified.",
-      "licence_status": "pointer only; licence unverified, not committed",
+      "citation": "Muhammed Rasin, Pepperwind: A Whole Fictional Company as Data, Kaggle. CC BY 4.0. https://www.kaggle.com/datasets/rasinmuhammed/pepperwind . Synthetic data.",
+      "licence_status": "pointer only; CC BY 4.0 (dataset page, checked 4 Nov 2026); synthetic; not committed",
       "split": "heldout",
       "files": [
         {
@@ -498,10 +414,10 @@
       "id": "TC10",
       "title": "Purchase authorization versus billed goods",
       "claim": "Franchi was billed only for the quantities and unit prices authorized in purchase order 11060.",
-      "source_dataset": "Company Documents (Kaggle archive (3).zip)",
+      "source_dataset": "Pepperwind: A Whole Fictional Company as Data (Kaggle, Muhammed Rasin)",
       "source_group": "source_group_03",
-      "citation": "Company Documents: local archive designation 'archive (3).zip'; Kaggle listing not verified.",
-      "licence_status": "pointer only; licence unverified, not committed",
+      "citation": "Muhammed Rasin, Pepperwind: A Whole Fictional Company as Data, Kaggle. CC BY 4.0. https://www.kaggle.com/datasets/rasinmuhammed/pepperwind . Synthetic data.",
+      "licence_status": "pointer only; CC BY 4.0 (dataset page, checked 4 Nov 2026); synthetic; not committed",
       "split": "heldout",
       "files": [
         {

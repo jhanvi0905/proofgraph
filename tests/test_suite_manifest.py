@@ -82,8 +82,8 @@ def test_missing_dataset_dir_aborts(tmp_path):
 
 def test_committed_manifest_shape():
     cases = json.loads(MANIFEST.read_text())["cases"]
-    assert len(cases) == 21
-    assert len({c["id"] for c in cases}) == 21
+    assert len(cases) == 18
+    assert len({c["id"] for c in cases}) == 18
     for case in cases:
         assert CASE_FIELDS <= case.keys(), case["id"]
         assert case["claim"] and case["citation"]
@@ -97,7 +97,7 @@ def test_committed_manifest_shape():
 def test_committed_manifest_split_and_groups():
     cases = {c["id"]: c for c in json.loads(MANIFEST.read_text())["cases"]}
     dev = {i for i, c in cases.items() if c["split"] == "dev"}
-    assert dev == {"TC17", "TC18", "TC20", "TC22", "TC25", "TC37", "TC40"}
+    assert dev == {"TC17", "TC18", "TC20", "TC22", "TC37", "TC40"}
     # Source-overlap groups stay inside one split.
     by_group: dict[str, set[str]] = {}
     for c in cases.values():
@@ -108,7 +108,7 @@ def test_committed_manifest_split_and_groups():
 def test_pointer_sources_are_not_committed():
     committed = {p.name for p in (ROOT / "examples" / "suite").rglob("*") if p.is_file()}
     assert committed == {"manifest.json"}
-    pointer = {"ContractNLI", "Tobacco800 (YACCLAB-packaged version)", "Company Documents (Kaggle archive (3).zip)"}
+    pointer = {"ContractNLI", "Pepperwind: A Whole Fictional Company as Data (Kaggle, Muhammed Rasin)"}
     for case in json.loads(MANIFEST.read_text())["cases"]:
         if case["source_dataset"] in pointer:
             assert case["licence_status"].startswith("pointer only")

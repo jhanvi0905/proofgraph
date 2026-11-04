@@ -10,3 +10,4 @@ graphify-out/
 runs/graphs/
 runs/*.log
 .impeccable/
+.archify/

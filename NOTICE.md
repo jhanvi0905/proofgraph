@@ -23,6 +23,7 @@ ProofGraph's own code is released under the MIT licence (see `LICENSE`). It buil
 | openai (SDK) | Apache-2.0 | calling the model endpoints |
 | Streamlit | Apache-2.0 | the earlier front end, kept in the repository |
 
+
 ## Fonts
 
 Schibsted Grotesk and Source Serif 4, loaded from Google Fonts, under the SIL Open Font License.
@@ -31,9 +32,7 @@ Schibsted Grotesk and Source Serif 4, loaded from Google Fonts, under the SIL Op
 
 The suite and the clean check use documents from the sources below. Only synthetic documents are shipped in `examples/`; the recorded runs in `runs/` and `results/` quote short passages from the others.
 
-- **ContractNLI**: Yuta Koreeda and Christopher D. Manning (2021), *ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts*, Findings of EMNLP. CC BY 4.0. <https://stanfordnlp.github.io/contract-nli/>
-- **LegalReasonBench** (micro1 public sample): micro1. CC BY 4.0 per its source card. <https://huggingface.co/datasets/micro1-inc/LegalReasonBench>
-- **Tobacco800** (YACCLAB-packaged version): David Doermann, Tobacco 800 Dataset, v1; Lewis et al., *Building a test collection for complex document information processing*, SIGIR 2006; Grana, Bolelli, Baraldi and Vezzani, YACCLAB.
-- **NIST Special Database 2** (SD02): National Institute of Standards and Technology, Structured Forms Reference Set of Binary Images. Forms are synthesized. <https://www.nist.gov/srd/nist-special-database-2>
-- **Company Documents** (a Kaggle archive): the listing, publisher and licence were not verified. Passages from it appear in recorded runs only.
+- **ContractNLI**: Yuta Koreeda and Christopher D. Manning (2021), *ContractNLI: A Dataset for Document-level Natural Language Inference for Contracts*, Findings of EMNLP. CC BY 4.0. The dataset page names Hitachi America, Ltd. as provider and says its documents come from SEC filings and search results; it does not address the rights status of the originals, so no ContractNLI document is shipped here. <https://stanfordnlp.github.io/contract-nli/>
+- **LegalReasonBench** (micro1 public sample): micro1. CC BY 4.0, confirmed on the dataset card (4 Nov 2026). Cite as: LegalReasonBench (micro1), <https://www.micro1.ai/benchmark/legal-reason-bench>. <https://huggingface.co/datasets/micro1-inc/LegalReasonBench>
+- **Pepperwind: A Whole Fictional Company as Data** (Muhammed Rasin, Kaggle): CC BY 4.0, checked on the dataset page on 4 Nov 2026; the page states the company and every row are synthetic. Two suite cases (TC4, TC10) use it by pointer only. Cite as: Muhammed Rasin, Pepperwind, <https://www.kaggle.com/datasets/rasinmuhammed/pepperwind>.
 - The synthetic packs under `examples/` are fictional and were written for ProofGraph.
