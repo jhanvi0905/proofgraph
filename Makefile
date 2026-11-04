@@ -7,4 +7,4 @@ test:
 	uv run --python 3.11 pytest
 
 app:
-	uv run --python 3.11 streamlit run app/streamlit_app.py
+	PROOFGRAPH_GRAPH=1 PROOFGRAPH_SAMPLES=examples/samples/samples.json uv run --python 3.11 uvicorn app.server:app --port 8000

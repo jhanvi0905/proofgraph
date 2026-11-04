@@ -1,5 +1,7 @@
 # Run 2, suite, flag on
 
+> Note: this file records the original 29-case run. Five cases whose source licence could not be confirmed were later removed; the figures in the README are recomputed on the remaining 24.
+
 29 cases with a graph.
 
 ## Where gold evidence fell out of the pipeline

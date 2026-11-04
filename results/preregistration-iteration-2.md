@@ -1,5 +1,7 @@
 # Iteration 2: pre-registration and results
 
+> Note: this file records the original 29-case run. Five cases whose source licence could not be confirmed were later removed; the figures in the README are recomputed on the remaining 24.
+
 Written before any Iteration 2 code, after the first gate run. **Run 1** (rules as built; `runs/review-off.jsonl`, `runs/review-on.jsonl`, n = 29): flag off 9/29 correct, ProofGraph 7/29, +1 fixed (TC25), −3 broken (TC12, TC17, TC38), wrongly supported 0/28 in both arms at case level, but TC4 part 2 is wrongly supported at part level. The scorer prints PASS; the decision was HOLD, because flag on is below flag off and the system never answers "supported" on a gold-supported case. Iteration 2 fixes the decision layer with general rules only. No case is patched.
 
 ### Guardrails (overfitting)

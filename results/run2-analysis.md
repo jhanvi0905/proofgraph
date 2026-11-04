@@ -1,5 +1,7 @@
 # Run 2 analysis: how the graphs formed and what the walk never traced
 
+> Note: this file records the original 29-case run. Five cases whose source licence could not be confirmed were later removed; the figures in the README are recomputed on the remaining 24.
+
 Code frozen at `a654dc1`. Suite run `runs/review-on-2.jsonl` (29 cases, flag on). Produced with `scripts/analyze_run.py` (per-case table in `results/run2-suite-analysis.md`), `scripts/trace_runs.py` and `scripts/view_graph.py`, reading the graph cache. Gold is read only by these dev scripts. The clean-check and ablation sections are pending; they are added when those runs end.
 
 ## 1. Result in one table
