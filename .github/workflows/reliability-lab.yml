@@ -1,0 +1,51 @@
+name: Reliability lab (controlled experiments)
+
+on:
+  push:
+    branches: [eval/actions-reliability]
+    paths:
+      - scripts/reliability_lab.py
+      - .github/workflows/reliability-lab.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controlled-experiments:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run offline fault injections and fixture checks
+        run: python3 scripts/reliability_lab.py --output "$RUNNER_TEMP/reliability-evidence"
+      - name: Publish measured results
+        run: cat "$RUNNER_TEMP/reliability-evidence/summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: reliability-evidence-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/reliability-evidence/
+          retention-days: 7
+          if-no-files-found: error
+
+  expected-code-failure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Inject a labelled code error
+        id: injected
+        continue-on-error: true
+        run: python3 scripts/reliability_lab.py --probe code
+      - name: Verify the error was detected
+        env:
+          PROBE_OUTCOME: ${{ steps.injected.outcome }}
+        run: test "$PROBE_OUTCOME" = failure
+
+  expected-transient-failure-rerun-me:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Fail on attempt one and recover on a native GitHub rerun
+        run: python3 scripts/reliability_lab.py --probe transient
