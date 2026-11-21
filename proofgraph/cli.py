@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from proofgraph.atomize import atomize
 from proofgraph.ingest import ingest
-from proofgraph.schema import SourceManifest
+from proofgraph.schema import Claim, SourceManifest, load_predicate_set
+from proofgraph.trace import Trace
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -38,6 +40,15 @@ def _cmd_spans(args: argparse.Namespace) -> None:
           f"{len(result.source.page_starts)} pages, extractor {result.source.extractor}")
 
 
+def _cmd_atomize(args: argparse.Namespace) -> None:
+    trace = Trace(Path(args.trace))
+    res = atomize(Claim(claim_id=args.claim_id, text=args.claim), load_predicate_set(DATA / "predicates.json"), trace)
+    print(res.to_json())
+    r = trace.records[-1]
+    print(f"\nmodel={r.model} prompt_hash={r.prompt_hash} tokens={r.input_tokens}+{r.output_tokens} "
+          f"cache_hit={r.cache_hit} rejects={res.rejects} repairs={res.repairs} trace={args.trace}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="pgrun")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -46,6 +57,11 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--doc", default=None, help="limit to one instrument doc_id")
     sp.add_argument("--width", type=int, default=70)
     sp.set_defaults(func=_cmd_spans)
+    at = sub.add_parser("atomize", help="split one claim into atoms (one model call, cached)")
+    at.add_argument("claim")
+    at.add_argument("--claim-id", default="c1")
+    at.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
+    at.set_defaults(func=_cmd_atomize)
     args = parser.parse_args(argv)
     args.func(args)
 

@@ -11,3 +11,4 @@ runs/*.log
 .impeccable/
 .archify/
 data/raw/
+runs/

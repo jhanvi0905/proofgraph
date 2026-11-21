@@ -191,10 +191,23 @@ class Basis(str, Enum):
     UNKNOWN = "unknown"  # legal: no lexicon match
 
 
-class Quantity(_Model):
+class Amount(_Model):
     minor_units: int  # integer cents; no floats anywhere
     decimals: int = Field(ge=0)  # decimal places as written, for faithful rendering
     currency: Currency
+
+
+class ParseFailure(_Model):
+    """A string the number parser could not read. Logged: this list is the next rule."""
+
+    raw: str
+    reason: str
+
+
+class Quantity(_Model):
+    """An amount read from a document span. Comparable only on equal currency and basis."""
+
+    amount: Amount
     basis: Basis
     raw: str
     span_id: str
@@ -211,11 +224,83 @@ class Atom(_Model):
     kind: str | None  # predicate argument, e.g. subject_to -> follow_form
     negated: bool
     subject: str | None
+    slot: str | None  # dotted path, required for `states`
+    quantity_raw: str | None  # as written in the claim; parsed by numbers.py, never by the model
+    quantity: Amount | None
+    value: str | None  # non-numeric value
+    period: str | None
+    territory: str | None
+    basis: Basis | None
+    conditions: str | None
+
+
+class ProposedAtom(_Model):
+    """What the model returns for one atom, before code validates it. Every slot is present; null means null."""
+
+    predicate: str
+    kind: str | None
+    negated: bool
+    subject: str | None
+    slot: str | None
+    quantity_raw: str | None
     value: str | None
     period: str | None
     territory: str | None
     basis: Basis | None
     conditions: str | None
+
+
+class AtomProposal(_Model):
+    atoms: tuple[ProposedAtom, ...]
+    no_fit_reason: str | None
+
+
+class AtomErrorCode(str, Enum):
+    UNKNOWN_PREDICATE = "unknown_predicate"
+    BAD_KIND = "bad_kind"
+    MISSING_SLOT = "missing_slot"
+    BAD_SLOT = "bad_slot"
+    UNRESOLVED_REF = "unresolved_ref"
+    MISSING_UNIT = "missing_unit"
+    UNPARSEABLE_QUANTITY = "unparseable_quantity"
+    CONJUNCTION_IN_VALUE = "conjunction_in_value"
+    NO_PREDICATE_FITS = "no_predicate_fits"
+
+
+class AtomError(_Model):
+    code: AtomErrorCode
+    field: str | None
+    detail: str
+
+
+class AtomizeResult(_Model):
+    claim_id: str
+    atoms: tuple[Atom, ...]
+    errors: tuple[AtomError, ...]  # non-empty only when atomisation failed after repair
+    rejects: int  # validation errors seen across attempts
+    repairs: int  # 0 or 1
+
+
+# ---------------------------------------------------------------- trace
+
+
+class TraceRecord(_Model):
+    """One JSON line per stage. grep is the viewer."""
+
+    stage: str
+    packet_id: str | None
+    atom_id: str | None
+    span_ids: tuple[str, ...]
+    model: str | None  # model that actually served the call
+    prompt_hash: str | None  # sha256(template + model name)[:16]
+    input_tokens: int
+    output_tokens: int
+    latency_ms: int
+    cache_hit: bool
+    verdict: Verdict | None
+    rejects: tuple[str, ...]
+    repairs: int
+    detail: str | None
 
 
 class Claim(_Model):
@@ -238,10 +323,26 @@ class Side(str, Enum):
     ATTACK = "attack"
 
 
+class SlotStatement(_Model):
+    """A document asserting a value for a slot.
+
+    The slot names what the value is about (FD960228.corp_reimbursement.retention).
+    asserted_by names the instrument whose text says it (coda_end13, because Item
+    VII is a table inside Endorsement 13). Keep them separate, or the trace loses
+    which document said what. The checker requires the quantity's span to belong
+    to asserted_by.
+    """
+
+    slot: str
+    quantity: Quantity
+    asserted_by: str  # doc_id of the asserting instrument
+
+
 class Evidence(_Model):
     side: Side
     span_id: str
     reading: str  # one line: what this span says about the atom
+    statement: SlotStatement | None  # set when the span binds the atom's slot
 
 
 class Rule(_Model):

@@ -1,17 +1,66 @@
 {
-  "predicate_set_version": "1.0.0",
+  "predicate_set_version": "1.1.0",
   "frozen": "2026-11-22",
-  "note": "Closed set. schema.py validates atoms against this file; it does not define predicates. Adding one is a change to the problem: bump predicate_set_version and say why in the commit.",
+  "note": "Closed set. schema.py validates atoms against this file; it does not define predicates. Adding one is a change to the problem: bump predicate_set_version and say why in the commit. 1.1.0 added 'states': the ten 1.0.0 predicates are relations between documents, and none states a fact.",
   "predicates": [
-    {"name": "covers", "meaning": "The instrument grants coverage for the subject.", "kinds": []},
-    {"name": "excludes", "meaning": "The instrument removes coverage for the subject.", "kinds": []},
-    {"name": "defines", "meaning": "The instrument gives a defined term its meaning.", "kinds": []},
-    {"name": "exceeds", "meaning": "A stated quantity is greater than another (limit, retention, premium). Comparison is done in code, never by the model.", "kinds": []},
-    {"name": "attaches_above", "meaning": "A layer attaches excess of a stated amount or underlying layer (the 'xs' value).", "kinds": []},
-    {"name": "amends", "meaning": "One instrument changes a provision of another while leaving the rest in force.", "kinds": []},
-    {"name": "replaces_in_entirety", "meaning": "One instrument deletes a provision of another and substitutes its own text.", "kinds": []},
-    {"name": "endorsed_only", "meaning": "Changes to an instrument bind only if endorsed on it (self-stated precedence rule).", "kinds": []},
-    {"name": "subject_to", "meaning": "The subject is contingent on another instrument or event. The kind of contingency is an argument, not a separate predicate.", "kinds": ["follow_form", "acceptance_pending", "condition_precedent"]},
-    {"name": "effective_during", "meaning": "The subject is in force for a stated period or from a stated date.", "kinds": []}
+    {
+      "name": "states",
+      "meaning": "A slot holds a typed quantity. The slot is a dotted path, <policy_number>.<coverage_part>.<measure>, e.g. FD960228.corp_reimbursement.retention; its first segment names the policy the value belongs to, not the document that says it. The asserting instrument is recorded separately (SlotStatement.asserted_by). Disagreement is two asserters binding one slot to different quantities; the arbiter computes it, no predicate declares it.",
+      "kinds": []
+    },
+    {
+      "name": "covers",
+      "meaning": "The instrument grants coverage for the subject.",
+      "kinds": []
+    },
+    {
+      "name": "excludes",
+      "meaning": "The instrument removes coverage for the subject.",
+      "kinds": []
+    },
+    {
+      "name": "defines",
+      "meaning": "The instrument gives a defined term its meaning.",
+      "kinds": []
+    },
+    {
+      "name": "exceeds",
+      "meaning": "A stated quantity is greater than another (limit, retention, premium). Comparison is done in code, never by the model.",
+      "kinds": []
+    },
+    {
+      "name": "attaches_above",
+      "meaning": "A layer attaches excess of a stated amount or underlying layer (the 'xs' value).",
+      "kinds": []
+    },
+    {
+      "name": "amends",
+      "meaning": "One instrument changes a provision of another while leaving the rest in force.",
+      "kinds": []
+    },
+    {
+      "name": "replaces_in_entirety",
+      "meaning": "One instrument deletes a provision of another and substitutes its own text.",
+      "kinds": []
+    },
+    {
+      "name": "endorsed_only",
+      "meaning": "Changes to an instrument bind only if endorsed on it (self-stated precedence rule).",
+      "kinds": []
+    },
+    {
+      "name": "subject_to",
+      "meaning": "The subject is contingent on another instrument or event. The kind of contingency is an argument, not a separate predicate.",
+      "kinds": [
+        "follow_form",
+        "acceptance_pending",
+        "condition_precedent"
+      ]
+    },
+    {
+      "name": "effective_during",
+      "meaning": "The subject is in force for a stated period or from a stated date.",
+      "kinds": []
+    }
   ]
 }
