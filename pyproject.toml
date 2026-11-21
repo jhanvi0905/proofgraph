@@ -24,3 +24,6 @@ packages = ["proofgraph"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[project.scripts]
+pgrun = "proofgraph.cli:main"

@@ -1,0 +1,36 @@
+{
+  "note": "Hand-labelled instrument metadata, read from the documents. Page ranges are inclusive and refer to <PAGE> markers (EDGAR) or PDF pages.",
+  "sources": [
+    {
+      "source_id": "gillette_ex10e",
+      "file": "gillette_10k405_1996.txt",
+      "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+      "extractor": "edgar_sgml",
+      "edgar_type": "EX-10.(E)",
+      "edgar_sequence": 4,
+      "instruments": [
+        {"doc_id": "coda_end12", "version": "1996-06-01", "instrument_type": "endorsement", "issuer": "Corporate Officers and Directors Assurance Ltd.", "policy_numbers": ["GS-212C"], "effective_date": "1996-06-01", "first_page": 1, "last_page": 1},
+        {"doc_id": "coda_end13", "version": "1996-06-01", "instrument_type": "endorsement", "issuer": "Corporate Officers and Directors Assurance Ltd.", "policy_numbers": ["GS-212C"], "effective_date": "1996-06-01", "first_page": 2, "last_page": 2},
+        {"doc_id": "ace_binder", "version": "1996-06-04", "instrument_type": "binder", "issuer": "ACE Insurance Company, Ltd.", "policy_numbers": ["GS-8099D", "GS-8100D"], "effective_date": "1996-06-01", "first_page": 3, "last_page": 4},
+        {"doc_id": "london_fd960228", "version": "1996-06-01", "instrument_type": "cover_note", "issuer": "Underwriters at Lloyd's", "policy_numbers": ["FD960228"], "effective_date": "1996-06-01", "first_page": 5, "last_page": 6},
+        {"doc_id": "london_fd960229", "version": "1996-06-01", "instrument_type": "cover_note", "issuer": "Underwriters at Lloyd's", "policy_numbers": ["FD960229"], "effective_date": "1996-06-01", "first_page": 7, "last_page": 9},
+        {"doc_id": "reliance_binder", "version": "1996-12-16", "instrument_type": "binder", "issuer": "Reliance Insurance Company", "policy_numbers": ["NDA 0134456-96"], "effective_date": "1996-12-31", "first_page": 10, "last_page": 10},
+        {"doc_id": "cna_binder", "version": "1996-06-01", "instrument_type": "binder", "issuer": "Continental Casualty Company", "policy_numbers": ["132034203"], "effective_date": "1996-06-01", "first_page": 11, "last_page": 13},
+        {"doc_id": "chubb_fiduciary_binder", "version": "1996-07-01", "instrument_type": "binder", "issuer": "Federal Insurance Company", "policy_numbers": ["81344529"], "effective_date": "1996-07-01", "first_page": 14, "last_page": 14},
+        {"doc_id": "chubb_do_binder", "version": "1996-06-01", "instrument_type": "binder", "issuer": "Federal Insurance Company", "policy_numbers": ["81385411"], "effective_date": "1996-06-01", "first_page": 15, "last_page": 15},
+        {"doc_id": "erma_binder", "version": "1996-05-30", "instrument_type": "binder", "issuer": "Executive Risk Management Associates", "policy_numbers": ["752-034765-96"], "effective_date": "1996-06-01", "first_page": 16, "last_page": 18}
+      ]
+    },
+    {
+      "source_id": "iso_ho0003_0491",
+      "file": "ho_00_03_04_91.pdf",
+      "sha256_of_file": "7624ad2e85eb3d838478242159d1e871620acd8bef263d5cf89ee3eb7aac8648",
+      "extractor": "pdf_columns",
+      "edgar_type": null,
+      "edgar_sequence": null,
+      "instruments": [
+        {"doc_id": "ho_00_03", "version": "04 91", "instrument_type": "policy_form", "issuer": "Insurance Services Office, Inc.", "policy_numbers": [], "effective_date": null, "first_page": 1, "last_page": 18}
+      ]
+    }
+  ]
+}
