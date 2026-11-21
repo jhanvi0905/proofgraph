@@ -1,5 +1,4 @@
 .env
-data/
 cache/
 __pycache__/
 .venv/
@@ -11,3 +10,4 @@ runs/graphs/
 runs/*.log
 .impeccable/
 .archify/
+data/raw/
