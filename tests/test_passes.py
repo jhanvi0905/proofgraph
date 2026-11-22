@@ -119,3 +119,33 @@ def test_span_ids_are_constrained_in_the_schema(env):
     support(ATOM, r, insts, src, memory_trace(), fake)
     enum = fake.calls[0]["schema"]["properties"]["evidence"]["items"]["properties"]["span_id"]["enum"]
     assert enum == [h.span_id for h in r.hits]
+
+
+# ---- guard counterfactuals: what gets through without each guard
+
+
+def test_span_id_guard_counterfactual(env):
+    """Without the span-id check, a citation to a passage the model was never shown would pass:
+    the span is real, so the file verifier accepts it. Only the span-id check stops it."""
+    from proofgraph.checker import verify_citation
+    from proofgraph.passes import _cite
+
+    insts, r, src, spans = env
+    shown = {h.span_id for h in r.hits}
+    outside = next(sp for sid, sp in spans.items() if sid not in shown and "$" in sp.text)
+    inst = next(i for i in insts if i.doc_id == outside.doc_id)
+    unguarded = _cite(outside, inst, 0, len(outside.text), src)
+    assert verify_citation(unguarded, src, within=inst) is None  # the verifier alone lets it through
+    res = support(ATOM, r, insts, src, memory_trace(),
+                  _fake({"evidence": [{"span_id": outside.span_id, "reading": "r", "quote": outside.text}]}))
+    assert res.failed and res.evidence == ()  # the guard does not
+
+
+def test_exactly_once_guard_counterfactual(env):
+    """Without the exactly-once rule, an ambiguous quote cites the wrong figure. In Reliance's block
+    "$0" appears twice (each D&O, then all D&O); a plain find takes the first, whichever was meant."""
+    sp = _span_with(env, "Corporate Reimbursement")
+    assert sp.text.count("$0") == 2
+    first = sp.text.find("$0")
+    assert "Each Director" in sp.text[first:first + 70]  # what an unguarded locator would cite
+    assert locate("$0", sp.text) is None  # the guard refuses to choose

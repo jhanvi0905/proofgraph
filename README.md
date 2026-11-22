@@ -26,31 +26,48 @@ When neither rule fires, the arbiter refuses to pick a winner. In family A, the 
 grep '"stage": "arbiter"' runs/trace.jsonl | grep -o '"rejects": \[[^]]*\]\|"verdict": "[a-z_]*"'
 ```
 
-## What the model gets wrong, and what the system does about it
+## How the model is used, and how it is kept honest
 
-The model reads and proposes; code decides. Each row is a way a language model fails on this task, and the change that makes the failure visible or impossible.
+### Who decides what
 
-**Observed in runs on this packet**
+The model reads and proposes. Code checks everything the model returns, and code decides.
 
-| Failure | Evidence | Response | Status |
-|---|---|---|---|
-| **Coerces a phrase into the nearest allowed value.** Given "each claim", atomize returned the basis `any_one_claim`, silently treating two bases as one. | first atomize run | Bases on evidence are read by code from the cited text. `each_claim` and `each_loss` stay distinct, and no equivalence is allowed without a cited span ([D6](DECISIONS.md)). | Evidence side done; the claim side still takes the model's enum ([DEFERRED](DEFERRED.md)) |
-| **Copies vocabulary from its prompt examples.** With a family-A example, the slot came back as `corp_reimbursement`, matching the example. After the example changed, the same claim gave `corporate_reimbursement`. | atomize runs before and after `e46957a` | Examples are outside insurance, so they teach the format, not the holdout's words. A test checks that model-facing text holds no packet's literals. | Done |
-| **Names the same thing differently from run to run.** The slot drift above means an exact match between a claim and its evidence would silently miss. | same runs | Logged, not yet fixed: needs slot resolution that does not trust the model's spelling. | Open |
-| **States an interpretation as if it were a reading.** The passes wrote "Insuring Clause I.B (company reimbursement)" and "the third figure is the company reimbursement retention". The packet says neither. | `pgrun passes`, `bc3a413` | Every route to a slot has a strength: read, derived or judgment. A judgment must write out its reasoning, and the report shows the weakest route each assertion rests on. | Done for routes; pass readings get the same treatment when evidence becomes assertions |
+| Step | The model | Code |
+|---|---|---|
+| Atomise | splits the claim into atoms in a closed predicate set | validates every field; rejects unresolved references, conjunctions, unparseable amounts; one repair, then fail |
+| Retrieve | nothing | BM25 plus local embeddings, fused by rank; picks the ten passages the model may see |
+| Support / attack | for each passage it picks: an id, a one-line reading, a verbatim quote | the id must be one it was shown; the quote must occur exactly once in that passage; code builds the citation from the passage's position and verifies it against the file |
+| Numbers | nothing | parses amounts to integer minor units; compares integers; `NIL` is not comparable |
+| Verdict | nothing | precedence rules scoped to the slot's policy; `unresolved` unless a rule picks a winner |
 
-**Designed against before it could happen**
+### Failure modes, and what stops each one
 
-| Failure | Response |
-|---|---|
-| Arithmetic or unit errors | The model never compares numbers. Code parses amounts to integer minor units and compares integers; `NIL` is not comparable rather than zero. |
-| Paraphrased or invented quotes | The quote must occur exactly once in the span; code builds the citation from the span's position, and one verifier checks it against the file. One repair, then the pass fails. So far: 0 rejects in 4 quotes. |
-| Citing a passage it was not given | Span ids are an enum in the output schema, and an id outside the input is a hard failure. |
-| The attack pass anchoring on the support pass | Separate prompts, and attack never sees support's output (tested). |
-| Forcing a claim into the nearest predicate | "No predicate fits" is an outcome, not a repair target. |
-| Filling a field it cannot source | A field with no source is "not stated", never filled ([D1](DECISIONS.md)). |
-| Picking a winner when documents disagree | The arbiter has no model in it. The answer stays `unresolved` unless a precedence rule, scoped to the slot's policy, fires. Counterfactual tests show each rule can flip a verdict. |
-| Run-to-run variation | Current models reject `temperature`. Instead, the prompt template's hash is in the trace and every response is cached, so a rerun replays exactly. |
+Each row has a test, and the counterfactual tests show what gets through when the guard is removed.
+
+| Failure mode | Guard | Evidence |
+|---|---|---|
+| **Forces a phrase into the nearest allowed value.** Seen in 1 of 2 atomize runs: given "each claim" when that value was not allowed, it returned `any_one_claim`, treating two bases as one. | Bases are kept as written (`each_claim`, `each_loss`); on evidence, code reads the basis from the cited text, and no equivalence is allowed without a cited span ([D6](DECISIONS.md)). | `test_numbers.py`, `test_arbiter.py` |
+| **Copies vocabulary from prompt examples.** In 2 of 2 atomize runs the slot name followed the prompt's example. | Examples are outside insurance, so they teach the format, not the holdout's words. A test checks model-facing text for any packet's literals. | `test_no_family_literals.py` (shown to catch the old prompt) |
+| **Cites a passage it was not shown.** | Span ids are an enum in the output schema; an id outside the input is a hard failure, with no repair. | `test_span_id_guard_counterfactual`: without the guard, the citation passes the file verifier, because the passage is real |
+| **Paraphrases or invents a quote.** | The quote must occur exactly once in the passage; spacing may differ, characters may not. One repair, then the pass fails. | `test_exactly_once_guard_counterfactual`: without the rule, an ambiguous `$0` cites the wrong figure. Live runs: 4 of 4 quotes located. |
+| **The attack pass anchors on the support pass.** | Separate prompts; attack never sees support's output. | `test_attack_is_blind_to_support` (a marker planted in support's reading is absent from attack's prompt) |
+| **Arithmetic or unit errors.** | The model never compares numbers. | `test_numbers.py`: `$10M` equals `USD 10,000,000`; `NIL` vs `$0` is not comparable |
+| **Fills a field it cannot source.** | A field with no source is "not stated", never filled ([D1](DECISIONS.md)). | Item VII's assertion has currency and basis `None` (`test_assertions.py`) |
+| **Forces a claim into the nearest predicate.** | "No predicate fits" is an outcome, not a repair target. | `test_no_fit_is_an_outcome_not_a_repair` |
+| **Picks a winner when documents disagree.** | No model in the arbiter. A precedence rule fires only between instruments issued under the slot's policy. | `test_later_effective_date_flips_the_verdict_when_reliance_is_in_scope`, plus the route-break tests |
+
+### Evaluation hygiene
+
+- **Labels before measuring.** Retrieval queries and their gold quotes were committed (`baf5c04`) before any change was measured against them.
+- **Design and independent queries reported apart.** Queries that exposed a miss are marked as not independent evidence for its fix. Field labels improved an independent query (3/6 → 4/6). Plural folding improved only the design queries, and is reported that way.
+- **No retrieval tuned to known answers.** A hand-written synonym list was deleted before commit: it was written after reading both document families, so it encoded known answers and holdout vocabulary.
+- **A holdout family.** Family B (ISO HO 00 03) is reserved, to run once with no code change.
+- **Counterfactuals for rules and guards.** Each precedence rule and each model guard has a test showing the outcome changes without it.
+
+### Reproducibility and cost
+
+- Current models reject `temperature`. The trace records the prompt template's hash and the model that actually served each call, and every response is cached on disk, so a rerun replays exactly.
+- Cost comes from the trace's token counts, not an estimate. The support and attack passes on the retention atom cost about $0.03 together.
 
 ## Status
 
