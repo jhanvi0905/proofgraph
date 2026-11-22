@@ -23,9 +23,11 @@ Each point is built, and each points at where to check it.
 
 ## See it decide
 
-![The family B result: HO 00 15 governs over HO 00 03 by the endorsement-over-base-form rule, with the cited lines boxed on both pages](docs/media/rule1-decision.png)
+![The Gillette retention claim, unresolved: three documents state 1,000,000 and a fourth states $500,000 for the corporate-reimbursement retention, neither precedence rule fires, and each cited value is marked in the raw SEC filing](docs/media/documents-disagree.png)
 
-The one frame where the system decides. The claim is that the special limit for theft of jewelry is $1,000. Both forms state that amount: HO 00 03 as "$1000 for loss by theft", and the endorsement HO 00 15 as "$1,000 for loss by theft, misplacing or losing". Neither line states a basis, so the two cannot be compared directly. The precedence rule *endorsement over base form* decides that HO 00 15 governs. Each value is boxed on its page where the PDF parser finds it. A string comparison would have called these two documents in disagreement; without the rule the answer would stay unresolved ([results](results/family_b.md)).
+The family A example, from a public SEC filing (Gillette's 1996 10-K, exhibit 10.(E)). The claim is a corporate-reimbursement retention. Two Lloyd's cover notes and a Corporate Officers and Directors Assurance endorsement state 1,000,000; the Reliance binder states $500,000 each loss. Only one of those documents is issued under the policy in question, so neither precedence rule can rank them, and the verdict is *unresolved: the documents disagree*. Each cited value is marked at its character offsets in the raw filing, and the table lists every pair of documents with the reason it was or was not compared.
+
+The other example is the one where a rule decides. Both ISO forms state $1,000 as the special limit for theft of jewelry. HO 00 03 says "$1000 for loss by theft"; the endorsement HO 00 15 says "$1,000 for loss by theft, misplacing or losing". Neither line states a basis, so the two amounts cannot be compared directly. The rule *endorsement over base form* decides that HO 00 15 governs. A string comparison would have called the two documents in disagreement, and without the rule the answer stays unresolved ([results](results/family_b.md)). The ISO forms are copyrighted, so that page is not reproduced here. It renders live in the app from the PDFs that `pgrun fetch` downloads.
 
 To open it in a browser:
 
