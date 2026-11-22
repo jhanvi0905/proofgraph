@@ -20,6 +20,11 @@ Items found and deliberately left. Each has the reason it waits. Line numbers re
 
 - **ACE's program-table row is admitted but not cited.** In the published run, `ace_binder`'s `London $20M Primary ($0/$0/$1M)` reached the passes, and support did not cite it. *Left as is:* "admitted, not cited" is the true output, and investigating it would not change what the trace says.
 
+## Front end
+
+- **The landing page's incumbent styling** has two detector findings: the ruled-ledger background lines, and the hero's edge padding. The lines are deliberate in the incumbent workpaper look. The padding is unchanged from the earlier version. *Deferred:* out of scope for wiring the front end to v2.
+- **`pgrun` and the server run the pipeline through two code paths** (`cli.py` and `proofgraph/pipeline.py`) that build identical prompts. *Deferred:* fold the CLI onto `pipeline.run_packet` when the CLI is next touched.
+
 ## Code
 
 - **`parse_amount` and `numeral` duplicate the number rules.** `parse_amount` still needs decimals and the stated currency. *Deferred:* they agree today; fold `parse_amount` onto `numeral` before a second number format arrives.

@@ -1,0 +1,70 @@
+/* The result page: one workpaper. Grotesk for what ProofGraph says, serif for what documents say,
+   white paper only for the documents themselves. */
+@media (prefers-color-scheme: dark) {
+  :root { --sheet: #0F1621; --ink: #E7ECF3; --cyan: #1E3144; --stamp: #8EA2FF; --pen-green: #55C793;
+    --pen-red: #FF7A7A; --amber: #E3A94A; --slate: #A7B3C3; --grey: #A2ACBA; }
+  ::selection { background: var(--stamp); color: #0F1621; }
+  .gov-mark { color: #0F1621; }  /* dark ink on the lightened stamp: 8.1:1 */
+}
+main { max-width: 72rem; margin: 0 auto; padding: 2rem 1.25rem 3rem; }
+h1, h2, h3 { line-height: 1.2; text-wrap: balance; margin: 0; }
+h2 { font-size: var(--t-20); margin-top: 2.5rem; margin-bottom: .75rem; }
+code { font-size: .92em; overflow-wrap: anywhere; }
+
+.q h1 { font-size: var(--t-25); font-weight: 500; color: var(--grey); }
+.q .claim { font-size: var(--t-31); font-weight: 700; line-height: 1.2; margin: .35rem 0 .5rem; max-width: 40ch; text-wrap: balance; }
+.q .meta { color: var(--grey); margin: 0; max-width: 70ch; }
+
+.verdict { margin-top: 1.75rem; }
+.verdict h2 { font-size: var(--t-31); margin: 0 0 .4rem; }
+.verdict p { margin: 0; max-width: 62ch; font-size: var(--t-20); }
+.verdict .mark { width: 1.1em; height: 1.1em; }
+
+.rule { margin-top: 1.25rem; padding: 1rem 1.25rem; border: 2px solid var(--stamp); background: color-mix(in srgb, var(--stamp) 7%, var(--sheet)); }
+.rule h2 { margin: 0 0 .35rem; font-size: var(--t-20); color: var(--stamp); }
+.rule p { margin: 0; max-width: 75ch; }
+.rule.none { border-color: var(--slate); background: transparent; }
+.rule.none h2 { color: var(--ink); }
+.why { color: var(--grey); }
+
+.as { display: grid; grid-template-columns: minmax(15rem, 22rem) 1fr; gap: 1.5rem; padding: 1.5rem 0; border-top: 1px solid var(--cyan); }
+.as:first-of-type { border-top: 0; }
+.facts h3 { font-size: var(--t-20); display: flex; flex-wrap: wrap; gap: .5rem; align-items: baseline; }
+.gov-mark { font-size: var(--t-13); font-weight: 700; letter-spacing: .02em; color: #fff; background: var(--stamp); padding: .1rem .5rem; }
+.side { color: var(--grey); margin: .2rem 0 .8rem; }
+dl { display: grid; grid-template-columns: auto 1fr; gap: .25rem 1rem; margin: 0 0 .9rem; }
+dt { color: var(--grey); }
+dd { margin: 0; font-weight: 500; }
+dd.big { font-size: var(--t-25); font-weight: 700; font-variant-numeric: tabular-nums; }
+dd.ns { color: var(--amber); font-style: italic; }
+.routes { list-style: none; padding: 0; margin: 0; display: grid; gap: .3rem; }
+.routes .k { color: var(--grey); margin-right: .35rem; }
+.s { font-weight: 700; text-decoration-line: underline; text-decoration-thickness: 2px; text-underline-offset: .2em; }
+.s-read { text-decoration-color: var(--pen-green); }
+.s-derived { text-decoration-color: var(--slate); text-decoration-style: dashed; }
+.s-judgment { text-decoration-color: var(--amber); text-decoration-style: wavy; }
+
+.src { margin: 0; min-width: 0; }
+.src img { display: block; width: 100%; max-width: 46rem; height: auto; background: var(--paper);
+  box-shadow: 0 1px 2px rgb(14 26 43 / .12), 0 6px 18px rgb(14 26 43 / .10); }
+.src .raw { margin: 0; padding: 1rem; overflow-x: auto; background: var(--paper); color: #0E1A2B; font: .8125rem/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+  box-shadow: 0 1px 2px rgb(14 26 43 / .12), 0 6px 18px rgb(14 26 43 / .10); }
+.src .raw mark { background: var(--cyan); color: #0E1A2B; outline: 2px solid #1636C9; outline-offset: 1px; }
+figcaption { color: var(--grey); font-size: var(--t-13); margin-top: .5rem; max-width: 70ch; }
+
+.tw { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 34rem; }
+th, td { text-align: left; padding: .55rem .75rem .55rem 0; border-bottom: 1px solid var(--cyan); vertical-align: top; }
+th { color: var(--grey); font-weight: 500; font-size: var(--t-13); }
+td.no { color: var(--amber); }
+td.ok { color: var(--pen-green); }
+.empty, .fail { color: var(--grey); }
+footer { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--cyan); color: var(--grey); max-width: 75ch; }
+footer strong { color: var(--ink); }
+
+@media (max-width: 760px) {
+  main { padding: 1.25rem 1rem 2rem; }
+  .q .claim { font-size: var(--t-25); }
+  .verdict h2 { font-size: var(--t-25); }
+  .as { grid-template-columns: 1fr; gap: 1rem; }
+}

@@ -21,6 +21,20 @@ Each point is built, and each points at where to check it.
 - **A harness you can replay.** One JSON line per stage: the served model, prompt hash, tokens, rejects and verdict. The published run replays from a clean clone with no API key. → `pgrun demo`, `runs/trace.jsonl`
 - **A held-out document family, with a frozen domain layer.** Family B (ISO homeowners forms, a different layout and line of business) is reserved for one run. The domain layer (arbiter, comparators, assertions, passes, predicates, slots and family A's labels) is frozen by hash before any family B label is written, and a test fails if any of it changes ([D8](DECISIONS.md)). Parsing may still change, because family B's PDF shaped the column parser twice, so the claim is narrower than "no code change", and testable. It ran once after the freeze: **8 of 8 packets matched labels committed before the run**, and `endorsement_over_base` picked a governing instrument for the first time on real documents, over amounts that agreed but could not be compared. Two of five predictions were wrong in the optimistic direction, and the report says so. → [`results/family_b.md`](results/family_b.md), [`PREREGISTRATION.md`](PREREGISTRATION.md), [`data/freeze.json`](data/freeze.json)
 
+## See it decide
+
+![The family B result: HO 00 15 governs over HO 00 03 by the endorsement-over-base-form rule, with the cited lines boxed on both pages](docs/media/rule1-decision.png)
+
+The one frame where the system decides. The claim is that the special limit for theft of jewelry is $1,000. Both forms state that amount: HO 00 03 as "$1000 for loss by theft", and the endorsement HO 00 15 as "$1,000 for loss by theft, misplacing or losing". Neither line states a basis, so the two cannot be compared directly. The precedence rule *endorsement over base form* decides that HO 00 15 governs. Each value is boxed on its page where the PDF parser finds it. A string comparison would have called these two documents in disagreement; without the rule the answer would stay unresolved ([results](results/family_b.md)).
+
+To open it in a browser:
+
+```bash
+uv run uvicorn app.server:app --port 8765
+```
+
+Then go to http://localhost:8765 and choose **Run an example**. Both examples replay from recorded model responses: no API key, no charge. Uploads and your own claims are not built yet, because which policy each document describes is still labelled by hand.
+
 ## Run it
 
 From a clean clone. You need [uv](https://docs.astral.sh/uv/) and a network connection; no API key.
