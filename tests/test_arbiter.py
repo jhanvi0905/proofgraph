@@ -9,6 +9,7 @@ import pytest
 
 from proofgraph.arbiter import arbitrate
 from proofgraph.assertions import assert_one
+from proofgraph.checker import open_source
 from proofgraph.ingest import ingest
 from proofgraph.schema import (
     Assertion, ComparisonReason, MappingFile, RuleName, SourceManifest, UnresolvedReason, ValueComparison, Verdict,
@@ -32,14 +33,14 @@ def test_arbiter_imports_no_model_and_does_no_io():
 
 def _assertions_with_broken(mapping_id: str | None):
     res = ingest(LABEL, RAW)
-    raw = (RAW / LABEL.file).read_bytes().decode("ascii")
+    src = open_source(RAW / LABEL.file)
     m = MappingFile.model_validate_json((ROOT / "data" / "mappings.json").read_text())
     if mapping_id:
         recs = tuple(r.model_copy(update={"cited": r.cited.model_copy(update={"text": "X" * len(r.cited.text)})})
                      if r.mapping_id == mapping_id else r for r in m.records)
         m = m.model_copy(update={"records": recs})
     insts = {i.doc_id: i for i in res.instruments}
-    out = (assert_one(inp, m, insts[inp.instrument_doc_id], res.source, raw, memory_trace()) for inp in m.assertions)
+    out = (assert_one(inp, m, insts[inp.instrument_doc_id], src, memory_trace()) for inp in m.assertions)
     return tuple(a for a in out if isinstance(a, Assertion))
 
 
@@ -48,10 +49,10 @@ def assertions():
     if not (RAW / LABEL.file).exists():
         pytest.skip("gillette file absent")
     res = ingest(LABEL, RAW)
-    raw = (RAW / LABEL.file).read_bytes().decode("ascii")
+    src = open_source(RAW / LABEL.file)
     m = MappingFile.model_validate_json((ROOT / "data" / "mappings.json").read_text())
     insts = {i.doc_id: i for i in res.instruments}
-    return tuple(assert_one(inp, m, insts[inp.instrument_doc_id], res.source, raw, memory_trace()) for inp in m.assertions)
+    return tuple(assert_one(inp, m, insts[inp.instrument_doc_id], src, memory_trace()) for inp in m.assertions)
 
 
 def test_retention_slot_is_unresolved_documents_disagree(assertions):

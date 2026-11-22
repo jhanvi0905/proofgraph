@@ -18,6 +18,7 @@ from enum import Enum
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing import Literal
 
 SCHEMA_VERSION = "2.0.0"
 
@@ -135,36 +136,63 @@ class SourceText(_Model):
 # ---------------------------------------------------------------- citations
 
 
-class CitationLayer(str, Enum):
-    # Offsets index the raw file, decoded as ASCII (bytes == chars). They are
-    # compared exactly, with no whitespace tolerance. The splitter and the
-    # extractor never touch this layer.
-    RAW_FILE = "raw_file"
-    # PDFs have no raw text layer. Offsets index the text rebuilt by the named
-    # extractor version, and a new extractor version breaks these citations on purpose.
-    PDF_COLUMNS_V1 = "pdf_columns/v1"
+class RawOffsets(_Model):
+    """Offsets into the raw file as stored on disk (ASCII, so bytes == chars). For text sources."""
+
+    kind: Literal["raw_offsets"]
+    start: int = Field(ge=0)
+    end: int
+
+
+class PageQuote(_Model):
+    """For PDFs: a page, plus the expected text as a quote that must occur exactly once on that page.
+
+    The PDF parser checks it (pdfplumber's page search), never this project's
+    column rebuild. A citation that verified against our own converter would only
+    prove the pipeline agrees with itself. The quote must sit on one physical
+    line: the parser does not match across line breaks.
+    """
+
+    kind: Literal["page_quote"]
+    page: int = Field(ge=1)
 
 
 class Citation(_Model):
-    """Where a value is written: file hash, offsets into one named text layer, and the expected text.
+    """Where a value is written: file hash, a typed locator, and the expected text.
 
-    It does not depend on the clause splitter. Checked at load:
+    It does not depend on the clause splitter or the extractor. Checked by one
+    function, checker.verify_citation:
     - hash mismatch: fatal (the file is not the file);
-    - text mismatch: the citation is broken, and the assertion is invalid and
-      left out of comparison.
+    - locator does not resolve to exactly the expected text: the citation is
+      broken, and the assertion is invalid and left out of comparison.
     """
 
     source_file: str
     sha256_of_file: str
-    layer: CitationLayer
+    locator: RawOffsets | PageQuote = Field(discriminator="kind")
+    text: str
+
+    @model_validator(mode="after")
+    def _check(self) -> Citation:
+        loc = self.locator
+        if isinstance(loc, RawOffsets) and len(self.text) != loc.end - loc.start:
+            raise ValueError("citation text length does not match offsets")
+        if isinstance(loc, PageQuote) and ("\n" in self.text or not self.text.strip()):
+            raise ValueError("a page quote must be one non-empty line")
+        return self
+
+
+class Excerpt(_Model):
+    """A slice of a verified citation's text, by offsets relative to that text. Never retyped."""
+
     start: int = Field(ge=0)
     end: int
     text: str
 
     @model_validator(mode="after")
-    def _check(self) -> Citation:
+    def _check(self) -> Excerpt:
         if len(self.text) != self.end - self.start:
-            raise ValueError("citation text length does not match offsets")
+            raise ValueError("excerpt text length does not match offsets")
         return self
 
 
@@ -236,6 +264,10 @@ class Instrument(_Model):
     source_id: str
     source_start: int = Field(ge=0)
     source_end: int
+    first_page: int = Field(ge=1)
+    last_page: int = Field(ge=1)
+    file_start: int | None  # extent in the raw file; None when the source has no raw text layer (PDF)
+    file_end: int | None
     spans: tuple[Span, ...]
     definitions: tuple[Definition, ...]
 
@@ -444,10 +476,10 @@ class Assertion(_Model):
     slot: str
     instrument: InstrumentRef
     citation: Citation  # the one citation the assertion rests on
-    value: Citation  # exactly the characters of the value, e.g. "1,000,000", inside `citation`
+    value: Excerpt  # exactly the characters of the value inside `citation`, e.g. "1,000,000"
     amount: Amount
     basis: Basis | None
-    basis_phrase: Citation | None
+    basis_phrase: Excerpt | None
     routes: tuple[RouteRef, ...]  # every route used to reach the slot
     weakest: RouteStrength
 

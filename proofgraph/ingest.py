@@ -233,6 +233,10 @@ def _instrument(il: InstrumentLabel, source: SourceText, lines: list[_Line], all
         source_id=source.source_id,
         source_start=start,
         source_end=end,
+        first_page=il.first_page,
+        last_page=il.last_page,
+        file_start=None if source.file_offset is None else source.file_offset + start,
+        file_end=None if source.file_offset is None else source.file_offset + end,
         spans=spans,
         definitions=tuple(_definitions(spans)),
     )

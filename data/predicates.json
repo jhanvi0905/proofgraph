@@ -1,11 +1,11 @@
 {
-  "predicate_set_version": "1.1.0",
+  "predicate_set_version": "1.1.1",
   "frozen": "2026-11-22",
-  "note": "Closed set. schema.py validates atoms against this file; it does not define predicates. Adding one is a change to the problem: bump predicate_set_version and say why in the commit. 1.1.0 added 'states': the ten 1.0.0 predicates are relations between documents, and none states a fact.",
+  "note": "Closed set. schema.py validates atoms against this file; it does not define predicates. Adding one is a change to the problem: bump predicate_set_version and say why in the commit. 1.1.0 added 'states': the ten 1.0.0 predicates are relations between documents, and none states a fact. 1.1.1 changed only the states example to a non-insurance one, so the text shown to the model carries no family's vocabulary.",
   "predicates": [
     {
       "name": "states",
-      "meaning": "A slot holds a typed quantity. The slot is a dotted path, <policy_number>.<coverage_part>.<measure>, e.g. FD960228.corp_reimbursement.retention; its first segment names the policy the value belongs to, not the document that says it. The asserting instrument is recorded separately (SlotStatement.asserted_by). Disagreement is two asserters binding one slot to different quantities; the arbiter computes it, no predicate declares it.",
+      "meaning": "A slot holds a typed quantity. The slot is a dotted path, <identifier>.<part>.<measure>, e.g. INV-2291.freight.unit_price; its first segment names what the value belongs to, not the document that says it. The asserting instrument is recorded separately (SlotStatement.asserted_by). Disagreement is two asserters binding one slot to different quantities; the arbiter computes it, no predicate declares it.",
       "kinds": []
     },
     {

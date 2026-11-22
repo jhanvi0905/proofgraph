@@ -1,5 +1,5 @@
 {
-  "note": "Hand-labelled routes from cited text to slot parts (DECISIONS.md D2), and the three assertions on FD960228.corp_reimbursement.retention. Offsets index the raw file (layer raw_file, ASCII, exact). Each assertion rests on one citation; currency and basis may come only from inside it (D1).",
+  "note": "Hand-labelled routes from cited text to slot parts (DECISIONS.md D2), and the three assertions on FD960228.corp_reimbursement.retention. Citations use typed locators: raw_offsets into the raw file (ASCII, exact) for text sources, page_quote for PDFs. Each assertion rests on one citation; currency and basis may come only from inside it (D1).",
   "records": [
     {
       "mapping_id": "item7_primary_policy_number",
@@ -8,9 +8,11 @@
       "cited": {
         "source_file": "gillette_10k405_1996.txt",
         "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-        "layer": "raw_file",
-        "start": 68422,
-        "end": 68434,
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 68422,
+          "end": 68434
+        },
         "text": "757/FD960228"
       },
       "position": null,
@@ -21,9 +23,11 @@
         {
           "source_file": "gillette_10k405_1996.txt",
           "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-          "layer": "raw_file",
-          "start": 73898,
-          "end": 73922,
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 73898,
+            "end": 73922
+          },
           "text": "POLICY NO:      FD960228"
         }
       ],
@@ -36,9 +40,11 @@
       "cited": {
         "source_file": "gillette_10k405_1996.txt",
         "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-        "layer": "raw_file",
-        "start": 68460,
-        "end": 68477,
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 68460,
+          "end": 68477
+        },
         "text": "NIL/NIL/1,000,000"
       },
       "position": 3,
@@ -49,33 +55,41 @@
         {
           "source_file": "gillette_10k405_1996.txt",
           "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-          "layer": "raw_file",
-          "start": 68182,
-          "end": 68255,
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 68182,
+            "end": 68255
+          },
           "text": "Layer        Carrier      Number          Year      Limits      Retention"
         },
         {
           "source_file": "gillette_10k405_1996.txt",
           "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-          "layer": "raw_file",
-          "start": 81246,
-          "end": 81307,
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 81246,
+            "end": 81307
+          },
           "text": "$0                        Each Director or Officer, each loss"
         },
         {
           "source_file": "gillette_10k405_1996.txt",
           "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-          "layer": "raw_file",
-          "start": 81326,
-          "end": 81387,
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 81326,
+            "end": 81387
+          },
           "text": "$0                        All Directors & Officers, each loss"
         },
         {
           "source_file": "gillette_10k405_1996.txt",
           "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-          "layer": "raw_file",
-          "start": 81406,
-          "end": 81466,
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 81406,
+            "end": 81466
+          },
           "text": "$500,000                  Corporate Reimbursement, each loss"
         }
       ],
@@ -88,9 +102,11 @@
       "cited": {
         "source_file": "gillette_10k405_1996.txt",
         "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-        "layer": "raw_file",
-        "start": 73898,
-        "end": 73922,
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 73898,
+          "end": 73922
+        },
         "text": "POLICY NO:      FD960228"
       },
       "position": null,
@@ -107,9 +123,11 @@
       "cited": {
         "source_file": "gillette_10k405_1996.txt",
         "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-        "layer": "raw_file",
-        "start": 75074,
-        "end": 75094,
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 75074,
+          "end": 75094
+        },
         "text": "Insuring Clause I.B."
       },
       "position": null,
@@ -120,25 +138,31 @@
         {
           "source_file": "gillette_10k405_1996.txt",
           "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-          "layer": "raw_file",
-          "start": 74751,
-          "end": 74762,
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 74751,
+            "end": 74762
+          },
           "text": "RETENTIONS:"
         },
         {
           "source_file": "gillette_10k405_1996.txt",
           "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-          "layer": "raw_file",
-          "start": 73940,
-          "end": 73989,
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 73940,
+            "end": 73989
+          },
           "text": "DIRECTORS AND OFFICERS AND COMPANY REIMBURSEMENT."
         },
         {
           "source_file": "gillette_10k405_1996.txt",
           "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-          "layer": "raw_file",
-          "start": 74991,
-          "end": 75025,
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 74991,
+            "end": 75025
+          },
           "text": "Oficers under Insuring Clause I.A."
         }
       ],
@@ -151,9 +175,11 @@
       "cited": {
         "source_file": "gillette_10k405_1996.txt",
         "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-        "layer": "raw_file",
-        "start": 81432,
-        "end": 81466,
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 81432,
+          "end": 81466
+        },
         "text": "Corporate Reimbursement, each loss"
       },
       "position": null,
@@ -164,9 +190,11 @@
         {
           "source_file": "gillette_10k405_1996.txt",
           "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-          "layer": "raw_file",
-          "start": 81217,
-          "end": 81227,
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 81217,
+            "end": 81227
+          },
           "text": "Retention:"
         }
       ],
@@ -179,9 +207,11 @@
       "cited": {
         "source_file": "gillette_10k405_1996.txt",
         "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-        "layer": "raw_file",
-        "start": 81115,
-        "end": 81147,
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 81115,
+          "end": 81147
+        },
         "text": "Primary Carrier:  Lloyd's London"
       },
       "position": null,
@@ -192,9 +222,11 @@
         {
           "source_file": "gillette_10k405_1996.txt",
           "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-          "layer": "raw_file",
-          "start": 68399,
-          "end": 68434,
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 68399,
+            "end": 68434
+          },
           "text": "Primary      London    757/FD960228"
         }
       ],
@@ -208,9 +240,11 @@
       "citation": {
         "source_file": "gillette_10k405_1996.txt",
         "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-        "layer": "raw_file",
-        "start": 68460,
-        "end": 68477,
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 68460,
+          "end": 68477
+        },
         "text": "NIL/NIL/1,000,000"
       },
       "route_ids": [
@@ -224,9 +258,11 @@
       "citation": {
         "source_file": "gillette_10k405_1996.txt",
         "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-        "layer": "raw_file",
-        "start": 75043,
-        "end": 75094,
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 75043,
+          "end": 75094
+        },
         "text": "USD 1,000,000 each Claim under Insuring Clause I.B."
       },
       "route_ids": [
@@ -240,9 +276,11 @@
       "citation": {
         "source_file": "gillette_10k405_1996.txt",
         "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
-        "layer": "raw_file",
-        "start": 81406,
-        "end": 81466,
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 81406,
+          "end": 81466
+        },
         "text": "$500,000                  Corporate Reimbursement, each loss"
       },
       "route_ids": [

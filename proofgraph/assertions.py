@@ -5,19 +5,22 @@ cell_position route splits a composite cell. Otherwise the first amount written
 in the citation is taken. Currency and basis come only from inside the same
 citation. When it does not write them they are None, never filled in.
 
-Every citation (the assertion's, each route's, each justifying one) is checked
-against the raw file at load:
-- hash mismatch raises CitationHashMismatch (fatal: the file is not the file);
-- text mismatch makes the assertion invalid, and it never enters comparison.
+Every citation (the assertion's, each route's, each justifying one) goes
+through checker.verify_citation, the only verifier. A hash mismatch raises; a
+broken citation makes the assertion invalid, and it never enters comparison.
+The value and basis phrase are excerpts of the verified citation's own text,
+so they are never located again.
 """
 
 from __future__ import annotations
 
+from proofgraph.checker import CitationHashMismatch, Source, verify_citation  # noqa: F401  (re-exported)
 from proofgraph.numbers import find_amount, find_basis, parse_amount
 from proofgraph.schema import (
     Assertion,
     AssertionInput,
     Citation,
+    Excerpt,
     Instrument,
     InstrumentRef,
     InvalidAssertion,
@@ -25,28 +28,23 @@ from proofgraph.schema import (
     MappingMethod,
     MappingRecord,
     ParseFailure,
+    RawOffsets,
     RouteRef,
     RouteStrength,
-    SourceText,
     TraceRecord,
 )
 from proofgraph.trace import Trace
-
-
-class CitationHashMismatch(RuntimeError):
-    pass
 
 
 def assert_one(
     inp: AssertionInput,
     mappings: MappingFile,
     instrument: Instrument,
-    source: SourceText,
-    raw_file_text: str,
+    src: Source,
     trace: Trace,
 ) -> Assertion | InvalidAssertion:
-    result = _assert(inp, mappings, instrument, source, raw_file_text)
-    chunk = _containing_span(instrument, source, inp.citation)
+    result = _assert(inp, mappings, instrument, src)
+    chunk = _containing_span(instrument, inp.citation)
     trace.write(TraceRecord(
         stage="assert", packet_id=None, atom_id=inp.assertion_id, span_ids=(chunk,) if chunk else (),
         model=None, prompt_hash=None, input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False,
@@ -56,7 +54,7 @@ def assert_one(
     return result
 
 
-def _assert(inp, mappings, instrument, source, raw) -> Assertion | InvalidAssertion:
+def _assert(inp: AssertionInput, mappings: MappingFile, instrument: Instrument, src: Source) -> Assertion | InvalidAssertion:
     def bad(reason: str) -> InvalidAssertion:
         return InvalidAssertion(mapping_id=inp.assertion_id, reason=reason)
 
@@ -70,13 +68,16 @@ def _assert(inp, mappings, instrument, source, raw) -> Assertion | InvalidAssert
         if rec.instrument_doc_id != instrument.doc_id:
             return bad(f"route {rid} belongs to {rec.instrument_doc_id}")
         routes.append(rec)
-    for c in (inp.citation, *(c for r in routes for c in (r.cited, *r.justified_by))):
-        broken = _check_citation(c, source, raw)
+    # the assertion's citation and each route's own citation must lie in the asserting instrument;
+    # justifying citations may come from any document in the packet
+    for c in (inp.citation, *(r.cited for r in routes)):
+        broken = verify_citation(c, src, within=instrument)
         if broken:
             return bad(broken)
-    for c in (inp.citation, *(r.cited for r in routes)):
-        if not _inside(c, instrument, source):
-            return bad(f"citation {c.start}-{c.end} lies outside {instrument.doc_id}")
+    for c in (j for r in routes for j in r.justified_by):
+        broken = verify_citation(c, src)
+        if broken:
+            return bad(broken)
 
     policy_routes = [r for r in routes if "." not in r.produces]
     measure_routes = [r for r in routes if "." in r.produces]
@@ -97,12 +98,12 @@ def _assert(inp, mappings, instrument, source, raw) -> Assertion | InvalidAssert
         span = find_amount(cit.text)
         if span is None:
             return bad("no amount written in the citation")
-    value = _sub(cit, *span)
+    value = _excerpt(cit, *span)
     amount = parse_amount(value.text)
     if isinstance(amount, ParseFailure):
         return bad(f"value {value.text!r}: {amount.reason}")
     b = find_basis(cit.text)
-    basis, basis_phrase = (b[0], _sub(cit, b[1], b[2])) if b else (None, None)
+    basis, basis_phrase = (b[0], _excerpt(cit, b[1], b[2])) if b else (None, None)
 
     return Assertion(
         assertion_id=inp.assertion_id,
@@ -128,32 +129,16 @@ def _weakest(routes: list[MappingRecord]) -> RouteStrength:
     return max((r.strength for r in routes), key=_ORDER.index)
 
 
-def _sub(c: Citation, rel_start: int, rel_end: int) -> Citation:
-    """A citation to part of another, with exact offsets; text is sliced, never retyped."""
-    return Citation(source_file=c.source_file, sha256_of_file=c.sha256_of_file, layer=c.layer,
-                    start=c.start + rel_start, end=c.start + rel_end, text=c.text[rel_start:rel_end])
+def _excerpt(c: Citation, start: int, end: int) -> Excerpt:
+    return Excerpt(start=start, end=end, text=c.text[start:end])
 
 
-def _check_citation(c: Citation, source: SourceText, raw: str) -> str | None:
-    if c.sha256_of_file != source.sha256_of_file:
-        raise CitationHashMismatch(f"citation hashes {c.sha256_of_file[:12]}, file is {source.sha256_of_file[:12]}")
-    if c.layer.value != "raw_file" or source.file_offset is None:
-        return f"layer {c.layer.value} not supported for {source.source_id}"
-    if raw[c.start:c.end] != c.text:
-        return f"broken citation at {c.start}-{c.end}: file has {raw[c.start:c.end]!r}"
-    return None
-
-
-def _inside(c: Citation, instrument: Instrument, source: SourceText) -> bool:
-    lo = source.file_offset + instrument.source_start
-    hi = source.file_offset + instrument.source_end
-    return lo <= c.start and c.end <= hi
-
-
-def _containing_span(instrument: Instrument, source: SourceText, c: Citation) -> str | None:
-    if source.file_offset is None:
+def _containing_span(instrument: Instrument, c: Citation) -> str | None:
+    """The ingest chunk holding a raw-offset citation, for the trace. None for page quotes."""
+    if not isinstance(c.locator, RawOffsets) or instrument.file_start is None:
         return None
+    shift = instrument.file_start - instrument.source_start
     for sp in instrument.spans:
-        if source.file_offset + sp.start <= c.start and c.end <= source.file_offset + sp.end:
+        if shift + sp.start <= c.locator.start and c.locator.end <= shift + sp.end:
             return sp.span_id
     return None

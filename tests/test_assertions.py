@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from proofgraph.assertions import CitationHashMismatch, assert_one
+from proofgraph.assertions import assert_one
+from proofgraph.checker import CitationHashMismatch, open_source
 from proofgraph.ingest import ingest
 from proofgraph.schema import Assertion, InvalidAssertion, MappingFile, SourceManifest
 from proofgraph.trace import memory_trace
@@ -24,22 +25,21 @@ pytestmark = pytest.mark.skipif(not (RAW / LABEL.file).exists(), reason="gillett
 @pytest.fixture(scope="module")
 def env():
     res = ingest(LABEL, RAW)
-    raw = (RAW / LABEL.file).read_bytes().decode("ascii")
     insts = {i.doc_id: i for i in res.instruments}
-    return res.source, raw, insts
+    return open_source(RAW / LABEL.file), insts
 
 
 def _run(env, inp=None, doc=None, mappings=MAPPINGS):
-    source, raw, insts = env
+    src, insts = env
     inp = inp or INPUTS["item7_primary_retention"]
-    return assert_one(inp, mappings, insts[doc or inp.instrument_doc_id], source, raw, memory_trace())
+    return assert_one(inp, mappings, insts[doc or inp.instrument_doc_id], src, memory_trace())
 
 
 def test_line_1325_yields_one_assertion_with_unstated_currency_and_basis(env):
     a = _run(env)
     assert isinstance(a, Assertion)
     assert a.slot == "FD960228.corp_reimbursement.retention"
-    assert a.value.text == "1,000,000" and env[1][a.value.start:a.value.end] == "1,000,000"
+    assert a.value.text == "1,000,000" and a.citation.text[a.value.start:a.value.end] == "1,000,000"
     assert a.amount.minor_units == 100_000_000 and a.amount.currency is None
     assert a.basis is None and a.basis_phrase is None
 

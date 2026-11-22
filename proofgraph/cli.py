@@ -8,6 +8,7 @@ from pathlib import Path
 from proofgraph.arbiter import arbitrate
 from proofgraph.assertions import assert_one
 from proofgraph.atomize import atomize
+from proofgraph.checker import open_source
 from proofgraph.ingest import ingest
 from proofgraph.schema import Assertion, Claim, MappingFile, SourceManifest, TraceRecord, load_predicate_set
 from proofgraph.trace import Trace
@@ -54,10 +55,10 @@ def _cmd_atomize(args: argparse.Namespace) -> None:
 def _load_assertions(trace: Trace):
     label = next(s for s in _load_manifest().sources if s.source_id == "gillette_ex10e")
     result = ingest(label, DATA / "raw")
-    raw = (DATA / "raw" / label.file).read_bytes().decode("ascii")
+    src = open_source(DATA / "raw" / label.file)
     mappings = MappingFile.model_validate_json((DATA / "mappings.json").read_text(encoding="utf-8"))
     insts = {i.doc_id: i for i in result.instruments}
-    return [assert_one(inp, mappings, insts[inp.instrument_doc_id], result.source, raw, trace) for inp in mappings.assertions]
+    return [assert_one(inp, mappings, insts[inp.instrument_doc_id], src, trace) for inp in mappings.assertions]
 
 
 def _print_assertion(a) -> None:
@@ -65,11 +66,13 @@ def _print_assertion(a) -> None:
         print(f"INVALID {a.mapping_id}: {a.reason}\n")
         return
     cur = a.amount.currency.value if a.amount.currency else "not stated"
-    basis = f"{a.basis.value}  ({a.basis_phrase.text!r} at {a.basis_phrase.start}-{a.basis_phrase.end})" if a.basis else "not stated"
+    basis = f"{a.basis.value}  ({a.basis_phrase.text!r})" if a.basis else "not stated"
     print(f"{a.assertion_id}")
     print(f"  slot        {a.slot}")
-    print(f"  citation    {a.citation.text!r}  raw file {a.citation.start}-{a.citation.end}")
-    print(f"  value       {a.value.text!r} at {a.value.start}-{a.value.end} -> {a.amount.minor_units} minor units")
+    loc = a.citation.locator
+    where = f"raw file {loc.start}-{loc.end}" if loc.kind == "raw_offsets" else f"page {loc.page}, quote found once"
+    print(f"  citation    {a.citation.text!r}  {where}")
+    print(f"  value       {a.value.text!r} -> {a.amount.minor_units} minor units")
     print(f"  currency    {cur}")
     print(f"  basis       {basis}")
     print(f"  asserted by {a.instrument.doc_id} ({a.instrument.instrument_type.value}), binds {', '.join(a.instrument.policy_numbers)}, effective {a.instrument.effective_date}")

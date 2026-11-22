@@ -38,6 +38,8 @@ SYSTEM = (
     "Return JSON only, matching the schema."
 )
 
+# The worked examples are deliberately outside insurance (an invoice), so they teach the
+# output format without teaching the vocabulary of either document family, the holdout included.
 TEMPLATE = """Split the claim into atoms. An atom is the smallest unit that can be independently true or false.
 
 Predicates (closed set; use exactly one per atom):
@@ -45,10 +47,10 @@ Predicates (closed set; use exactly one per atom):
 
 Slots on an atom:
 - subject: what the atom is about, with every reference resolved (no "it", "the policy").
-- slot: required for `states`. A dotted path <policy_number>.<coverage_part>.<measure>, lower snake case after the
-  policy number, e.g. FD960228.corp_reimbursement.retention. The first segment is the policy the value belongs to,
-  not the document that might state it.
-- quantity_raw: the amount exactly as written in the claim, with its currency (e.g. "USD 1,000,000"). Never compute.
+- slot: required for `states`. A dotted path <identifier>.<part>.<measure>: the identifier as written (upper case),
+  then lower snake case, e.g. INV-2291.freight.unit_price for "the unit price of freight on invoice INV-2291".
+  The first segment is what the value belongs to, not the document that might state it.
+- quantity_raw: the amount exactly as written in the claim, with its currency if the claim writes one (e.g. "EUR 4,200"). Never compute.
 - value: a non-numeric value, if any.
 - period, territory, conditions: as written, or null.
 - basis: one of {bases}, or null if the claim does not say.
