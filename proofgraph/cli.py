@@ -201,23 +201,26 @@ def _cmd_passes(args: argparse.Namespace) -> None:
     label = next(s for s in _load_manifest().sources if s.source_id == "gillette_ex10e")
     instruments = ingest(label, DATA / "raw").instruments
     src = open_source(DATA / "raw" / label.file)
-    gold = _labelled_spans(instruments)
     mappings = DocumentMappingFile.model_validate_json((DATA / "document_mappings.json").read_text(encoding="utf-8"))
     policy = claim.slot.split(".", 1)[0]
     admitted, routes = admit(instruments, mappings, policy, src)
     print(f"atom\n  " + describe(atom).replace("\n", "\n  "))
-    print(f"\nadmitted (documents mapped to {policy}; decided in code, not by the model)")
+    print(f"\nadmitted (text inside a scope mapped to {policy}; decided in code, not by the model)")
     for doc, route in routes:
-        print(f"  {route.strength.value.upper():8} {doc:24} {route.citation.text!r}")
+        scope = " ".join(route.citation.text.split())
+        print(f"  {route.strength.value.upper():8} {doc:24} {scope[:70]!r}{'...' if len(scope) > 70 else ''}")
     r = retrieve(atom, admitted, trace, embed=embed)
-    print(f"\nretrieved {len(r.hits)} spans from admitted documents; labelled among them: "
-          f"{sorted(set(gold[h.span_id] for h in r.hits if h.span_id in gold))}\n")
+    print(f"\nretrieved {len(r.hits)} passages from admitted scopes\n")
     for res in (support(atom, r, admitted, routes, src, trace), attack(atom, r, admitted, routes, src, trace)):
         rec = [t for t in trace.records if t.stage == res.side.value][-1]
         print(f"{res.side.value.upper()}  {len(res.evidence)} kept  failed={res.failed} repairs={res.repairs} rejects={res.rejects}  "
               f"tokens={rec.input_tokens}+{rec.output_tokens} cache_hit={rec.cache_hit}")
+        labelled = [(inp.citation.locator.start, inp.citation.locator.end, inp.assertion_id)
+                    for inp in MappingFile.model_validate_json((DATA / "mappings.json").read_text(encoding="utf-8")).assertions]
         for e in res.evidence:
-            mark = f"   <- labelled: {gold[e.span_id]}" if e.span_id in gold else ""
+            loc = e.citation.locator
+            hit = next((aid for a, b, aid in labelled if a < loc.end and loc.start < b), None)
+            mark = f"   <- labelled: {hit}" if hit else ""
             print(f"  {e.doc_id:24} [{e.identification.strength.value}] {e.quote.text!r}{mark}")
             print(f"  {'':24} {e.reading}")
         for err in res.errors:

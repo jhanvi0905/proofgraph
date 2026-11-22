@@ -1,5 +1,5 @@
 {
-  "note": "Which policies each document describes, and how it identifies them (hand-labelled, read from the filing). Passages are admitted to the passes only from documents mapped to the claim's policy; the model never decides identification. Documents not listed (coda_end12, both Chubb binders, ERMA) name no primary. Only identifications of FD960228 are recorded so far; the other policies in Item VII and FD960229's own policy are not yet mapped.",
+  "note": "Which policies each document describes, and how. The citation on each route is its scope: the narrowest range of the document that supports the attribution (a schedule row, a 'primary carrier' section, or the whole document when the whole document is the policy). Only passages inside a scope are admitted to the passes, decided in code. Hand-labelled from the filing. Documents not listed (coda_end12, both Chubb binders, ERMA) name no primary. Only identifications of FD960228 are recorded so far.",
   "documents": [
     {
       "doc_id": "london_fd960228",
@@ -14,10 +14,10 @@
             "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
             "locator": {
               "kind": "raw_offsets",
-              "start": 73898,
-              "end": 73922
+              "start": 73028,
+              "end": 76406
             },
-            "text": "POLICY NO:      FD960228"
+            "text": "<PAGE>   5\n\n -------------------------------------------------------------------------------\n[JOHNSON & HIGGINS LETTERHEAD]\n\n\nJOHNSON & HIGGINS MASSACHUSETTS\nTHREE CENTRE PLAZA\nBOSTON                                           Date: 4 June 1996\nMASSACHUSETTS 02108                              Contact: Clare Lawrence\nUSA                                              Phone No: 071 945 7517\n\n\n                                  COVER NOTE\n                                  ----------\n\nIn accordance with your instructions we hereby confirm that we have effected\nthe following Contract of Insurance subject, where a Policy(ies) is to be\nissued, to the terms and conditions of the Policy(ies). Please check this\ndocument carefully and if it is not in accordance with your requirements or if\nany of the Insurers stated hereon are not acceptable please inform us\nimmediately.\n\nPOLICY NO:      FD960228\n\nTYPE:           DIRECTORS AND OFFICERS AND COMPANY REIMBURSEMENT.\n\nFORM:           Manuscript Wording to be agreed by Underwriters.\n\nPARENT\nCOMPANY:        THE GILLETTE COMPANY\n\nPRINCIPAL\nADDRESS:        Prudential Tower Building\n                Boston, MA 02199,\n                U.S.A.\n\nPERIOD:         36 months from June 1st, 1996 at 12:01 a.m. Local Standard Time\n                at the principal address.\n\nINTEREST:       Directors and Officers and Company Reimbursement.\n\nLIMIT OF\nLIABILITY:      USD 10,000,000  in the aggregate for the policy period.\n\n\n- - -------------------------------------------------------------------------------\n[UNISON LOGO]\nTHE GLOBAL TEAM\n\nA member of the British Insurance and Investment Brokers' Association\nRegistered in England No. 1459298 VAT Registration No. 577 7500 08\n\n\n<PAGE>   6\n\nRETENTIONS:     USD Nil       each of the Directors and Officers each Claim but\n                              in no event exceeding.\n\n                USD Nil       in the aggregate each Claim all Directors and\n                              Oficers under Insuring Clause I.A.\n\n                USD 1,000,000 each Claim under Insuring Clause I.B.\n\nINSURED\nPERCENTAGE:     100% of Loss in excess of retention under Insuring Clauses\n                I.A., and I.B.\n\nSITUATION:      Worldwide.\n\nCONDITIONS:     New Short Rate Cancellation Table Endorsement - NMA 45.\n                Small Additional or Return Premiums Clause - NMA 1168\n                Nuclear Incident Exclusion Clause - Liability - Direct (Broad)\n                - NMA 1256.\n                Radioactive Contamination Exclusion Clause - Liability - Direct\n                - NMA 1477.\n                Several Liability Notice (Insurance) - LSW 1001 (08/94).\n                365 days Optional Extension Period at 22.5% Additional Premium.\n                Reinstatement Provision as attached.\n                Notification of Loss: Hanson and Peters.\n                Attention: Keith A. Hanson, 311, South Wacher Drive, \n                Suite 5500, Chicago, Illinois 60606, U.S.A.\n                Service of Suit Clause Nominee: Mendes and Mount,\n                750 Seventh Avenue, New York, New York 10019-6829, U.S.A.\n\nPREMIUM:        USD 508,200\n\nHEREON:         10.0000% part of 100%.\n\nEFFECTED\nWITH:           10.0000% NEW HAMPSHIRE INSURANCE COMPANY\n                --------\n                10.0000%\n\n                        \n                                        JOHNSON & HIGGINS LIMITED"
           }
         }
       ]
@@ -35,10 +35,10 @@
             "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
             "locator": {
               "kind": "raw_offsets",
-              "start": 79787,
-              "end": 79812
+              "start": 79732,
+              "end": 79923
             },
-            "text": "POLICY NO:       FD960228"
+            "text": "PRIMARY CARRIER: Lloyd's and Companies\n                POLICY NO:       FD960228\n                LIMIT:           USD 10,000,000\n                RETENTION:       USD NIL/USD NIL/USD 1,000,000"
           }
         }
       ]
@@ -56,10 +56,10 @@
             "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
             "locator": {
               "kind": "raw_offsets",
-              "start": 68422,
-              "end": 68434
+              "start": 68399,
+              "end": 68477
             },
-            "text": "757/FD960228"
+            "text": "Primary      London    757/FD960228     6/1/96-99    $10M    NIL/NIL/1,000,000"
           }
         }
       ]
@@ -77,10 +77,10 @@
             "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
             "locator": {
               "kind": "raw_offsets",
-              "start": 81115,
-              "end": 81147
+              "start": 81083,
+              "end": 81466
             },
-            "text": "Primary Carrier:  Lloyd's London"
+            "text": "B. Excess of:\n                  Primary Carrier:  Lloyd's London\n                  Limits of Liability: $20,000,000\n                  Retention:\n                  $0                        Each Director or Officer, each loss\n                  $0                        All Directors & Officers, each loss\n                  $500,000                  Corporate Reimbursement, each loss"
           }
         }
       ]
@@ -120,9 +120,9 @@
             "locator": {
               "kind": "raw_offsets",
               "start": 84991,
-              "end": 85015
+              "end": 85043
             },
-            "text": "PRIMARY CARRIER:  Lloyds"
+            "text": "PRIMARY CARRIER:  Lloyds\nPRIMARY LIMIT:  $20,000,000"
           }
         }
       ]

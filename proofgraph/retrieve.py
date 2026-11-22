@@ -170,13 +170,16 @@ def _ranks(order: list[int]) -> dict[int, int]:
 
 def admit(instruments: tuple[Instrument, ...], mappings: DocumentMappingFile, policy: str,
           src) -> tuple[tuple[Instrument, ...], tuple[tuple[str, DocumentRoute], ...]]:
-    """Passage selection, decided in code: only documents mapped to `policy` reach retrieval and the passes.
+    """Passage selection, decided in code: only text inside a scope mapped to `policy` reaches retrieval and the passes.
 
-    Returns the admitted instruments and, for each, the route that identifies the policy. Every
-    route's citation is verified against the file, and a broken one excludes its document. The
-    model is never asked which policy a passage is about.
+    A route's citation is its scope: the narrowest range that supports the attribution (a schedule
+    row, a "primary carrier" section, or the whole document). Admission tests containment, not
+    document membership. A chunk that straddles a scope is clipped to the part inside it, so the
+    FD960229 row of a schedule never arrives labelled as FD960228. Each scope is verified against
+    the file first; a broken one excludes its document. The model never decides identification.
     """
     from proofgraph.checker import verify_citation
+    from proofgraph.schema import RawOffsets, span_id_for
 
     by_doc = {i.doc_id: i for i in instruments}
     admitted: list[Instrument] = []
@@ -184,9 +187,30 @@ def admit(instruments: tuple[Instrument, ...], mappings: DocumentMappingFile, po
     for m in mappings.documents:
         route = next((r for r in m.describes if r.policy == policy), None)
         inst = by_doc.get(m.doc_id)
-        if route is None or inst is None:
+        if route is None or inst is None or verify_citation(route.citation, src, within=inst) is not None:
             continue
-        if verify_citation(route.citation, src, within=inst) is None:
-            admitted.append(inst)
-            routes.append((m.doc_id, route))
+        loc = route.citation.locator
+        if not isinstance(loc, RawOffsets):
+            raise ValueError(f"{m.doc_id}: only raw_offsets scopes can be clipped so far")
+        shift = inst.file_start - inst.source_start
+        clipped = []
+        for sp in inst.spans:
+            a = max(sp.start, loc.start - shift)
+            b = min(sp.end, loc.end - shift)
+            while a < b and sp.text[a - sp.start].isspace():
+                a += 1
+            while b > a and sp.text[b - 1 - sp.start].isspace():
+                b -= 1
+            if a >= b:
+                continue
+            if (a, b) == (sp.start, sp.end):
+                clipped.append(sp)
+                continue
+            text = sp.text[a - sp.start:b - sp.start]
+            clipped.append(sp.model_copy(update={
+                "start": a, "end": b, "text": text,
+                "span_id": span_id_for(sp.doc_id, sp.version, text, a, b), "bbox": None,
+            }))
+        admitted.append(inst.model_copy(update={"spans": tuple(clipped)}))
+        routes.append((m.doc_id, route))
     return tuple(admitted), tuple(routes)

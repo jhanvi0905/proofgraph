@@ -134,8 +134,9 @@ def test_span_id_guard_counterfactual(env):
 
     (insts, routes), r, src, spans = env
     shown = {h.span_id for h in r.hits}
-    outside = next(sp for sid, sp in spans.items() if sid not in shown and "$" in sp.text)
-    inst = next(i for i in insts if i.doc_id == outside.doc_id)
+    packet = ingest(LABEL, RAW).instruments  # any real passage in the packet that the model was not shown
+    outside = next(sp for i in packet for sp in i.spans if sp.span_id not in shown and "$" in sp.text)
+    inst = next(i for i in packet if i.doc_id == outside.doc_id)
     unguarded = _cite(outside, inst, 0, len(outside.text), src)
     assert verify_citation(unguarded, src, within=inst) is None  # the verifier alone lets it through
     res = support(ATOM, r, insts, routes, src, memory_trace(),
@@ -201,3 +202,38 @@ def test_a_broken_identification_citation_excludes_its_document():
         for rt in d.describes)}) for d in m.documents)
     insts, _ = admit(ingest(LABEL, RAW).instruments, m.model_copy(update={"documents": docs}), "FD960228", src)
     assert "cna_binder" not in {i.doc_id for i in insts}
+
+
+# ---- scopes: admission tests containment, not document membership
+
+
+def _norm(t):
+    return " ".join(t.split())
+
+
+def test_every_admitted_passage_lies_inside_its_scope(env):
+    (insts, routes), r, src, spans = env
+    scope = {d: rt.citation.locator for d, rt in routes}
+    for inst in insts:
+        shift = inst.file_start - inst.source_start
+        for sp in inst.spans:
+            loc = scope[inst.doc_id]
+            assert loc.start <= shift + sp.start and shift + sp.end <= loc.end, (inst.doc_id, sp.text[:40])
+
+
+def test_the_fd960229_row_of_the_schedule_is_not_admitted_as_fd960228(env):
+    (insts, routes), r, src, spans = env
+    item7 = next(i for i in insts if i.doc_id == "coda_end13")
+    text = _norm(" ".join(sp.text for sp in item7.spans))
+    assert "757/FD960228" in text
+    for other in ("757/FD960229", "81385411B", "DOX132034203", "752034765-96"):
+        assert other not in text
+
+
+def test_a_binders_own_terms_are_not_admitted_as_the_primarys(env):
+    (insts, routes), r, src, spans = env
+    text = {i.doc_id: _norm(" ".join(sp.text for sp in i.spans)) for i in insts}
+    assert "$10,000,000 Aggregate each policy period" not in text["reliance_binder"]  # Reliance's own limit
+    assert "$500,000 Corporate Reimbursement, each loss" in text["reliance_binder"]  # what it says of the primary
+    assert "GS-8099D" not in text["ace_binder"] and "($0/$0/$1M)" in text["ace_binder"]
+    assert "FD960229" not in text["london_fd960229"]  # the cover note's own policy stays out
