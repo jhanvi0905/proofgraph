@@ -1,0 +1,45 @@
+{
+  "note": "Family B document mappings (labels, written before any family B run). Scopes are page-2 special-limits blocks: each line occurs once on its page, top to bottom, in one column.",
+  "documents": [
+    {
+      "doc_id": "ho_00_03",
+      "describes": [
+        {
+          "policy": "SPECIMEN-HO3",
+          "method": "judgment",
+          "strength": "judgment",
+          "reasoning": "ISO specimens carry no policy number. The packet assembles a specimen policy, SPECIMEN-HO3, from HO 00 03 and HO 00 15. HO 00 15 names its base form ('Form HO 00 03 Only'), but neither form names SPECIMEN-HO3: that tie is the packet author's.",
+          "citation": {
+            "source_file": "ho_00_03_04_91.pdf",
+            "sha256_of_file": "7624ad2e85eb3d838478242159d1e871620acd8bef263d5cf89ee3eb7aac8648",
+            "locator": {
+              "kind": "page_quote",
+              "page": 2
+            },
+            "text": "1. $200 on money, bank notes, bullion, gold other\nthan goldware, silver other than silverware, plati-\nnum, coins and medals.\n2. $1000 on securities, accounts, deeds, evidences\nof debt, letters of credit, notes other than bank\nnotes, manuscripts, personal records, passports,\ntickets and stamps. This dollar limit applies to\nthese categories regardless of the medium (such\nas paper or computer software) on which the ma-\nterial exists.\nThis limit includes the cost to research, replace or\nrestore the information from the lost or damaged\nmaterial.\n3. $1000 on watercraft, including their trailers, fur-\nnishings, equipment and outboard engines or\nmotors.\n4. $1000 on trailers not used with watercraft.\n5. $1000 for loss by theft of jewelry, watches, furs,\nprecious and semi-precious stones.\n6. $2000 for loss by theft of firearms.\n7. $2500 for loss by theft of silverware, silver-plated\nware, goldware, gold-plated ware and pewterware.\nThis includes flatware, hollowware, tea sets, trays\nand trophies made of or including silver, gold or\npewter."
+          }
+        }
+      ]
+    },
+    {
+      "doc_id": "ho_00_15",
+      "describes": [
+        {
+          "policy": "SPECIMEN-HO3",
+          "method": "judgment",
+          "strength": "judgment",
+          "reasoning": "ISO specimens carry no policy number. The packet assembles a specimen policy, SPECIMEN-HO3, from HO 00 03 and HO 00 15. HO 00 15 names its base form ('Form HO 00 03 Only'), but neither form names SPECIMEN-HO3: that tie is the packet author's.",
+          "citation": {
+            "source_file": "ho_00_15_04_91.pdf",
+            "sha256_of_file": "35b0fea3608165104b34a43cd01af5051993264ed538066f5258282747b4ca4a",
+            "locator": {
+              "kind": "page_quote",
+              "page": 2
+            },
+            "text": "5. $1,000 for loss by theft, misplacing or losing of\njewelry, watches, furs, precious and semi-\nprecious stones.\n6. $2,000 for loss by theft, misplacing or losing of\nfirearms.\n7. $2,500 for loss by theft, misplacing or losing of\nsilverware, silver-plated ware, goldware, gold-\nplated ware and pewterware. This includes\nflatware, hollowware, tea sets, trays and tro-\nphies made of or including silver, gold or pew-\nter."
+          }
+        }
+      ]
+    }
+  ]
+}

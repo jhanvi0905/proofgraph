@@ -50,3 +50,11 @@ The refusal label is mechanical. A packet gets `not_found` with reason `governin
 - Structure: Agreement, Definitions (numbered and quoted, e.g. `"Bodily injury" means`), Section I (Property Coverages, Perils Insured Against, Exclusions, Conditions), Section II (Liability Coverages, Exclusions, Additional Coverages, Conditions), Sections I and II Conditions.
 - Precedence rules stated in the instrument itself: I.7 Other Insurance; Sections I & II conditions 1 Policy Period, 3 Liberalization Clause, 4 Waiver or Change of Policy Provisions.
 - No endorsements and no Declarations page are included. Limits live on the Declarations, so a limit-amount question is a real `governing_instrument_absent` case here too. Endorsement-precedence packets for B must come from scripted mutations (insert a superseding endorsement).
+
+## Family B endorsement: ISO HO 00 15 04 91
+
+- File: `ho_00_15_04_91.pdf`, from independentagent.com (URL pinned in `data/instruments.json`). 16,670 bytes, PDF 1.2, 2 pages, selectable text, the same two-column layout as HO 00 03. sha256 `35b0fea3608165104b34a43cd01af5051993264ed538066f5258282747b4ca4a`. Read in full before any label was written.
+- Header: "HOMEOWNERS / HO 00 15 04 91 / THIS ENDORSEMENT CHANGES THE POLICY. PLEASE READ IT CAREFULLY. / SPECIAL PERSONAL PROPERTY COVERAGE / Form HO 00 03 Only".
+- Page 1: the Perils Insured Against under Coverages A, B and C are deleted and replaced (open perils, with listed exclusions).
+- Page 2: "The Special Limits of Liability items 5., 6., and 7., are deleted and replaced by the following": $1,000 for loss by theft, misplacing or losing of jewelry…; $2,000 … of firearms; $2,500 … of silverware…. **The amounts equal HO 00 03's ($1000, $2000, $2500), but the scope widens from "theft" to "theft, misplacing or losing".** The arbiter compares amounts only, so it cannot see that change.
+- Both forms are the 04 91 edition, and neither carries a policy number or an effective date. The family B packets assemble a specimen policy, `SPECIMEN-HO3`.

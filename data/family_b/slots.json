@@ -1,0 +1,21 @@
+{
+  "note": "Family B canonical slot keys (labels).",
+  "slots": [
+    {
+      "key": "SPECIMEN-HO3.money.special_limit",
+      "note": "Coverage C special limit, item 1"
+    },
+    {
+      "key": "SPECIMEN-HO3.jewelry_theft.special_limit",
+      "note": "Coverage C special limit, item 5"
+    },
+    {
+      "key": "SPECIMEN-HO3.firearms_theft.special_limit",
+      "note": "Coverage C special limit, item 6"
+    },
+    {
+      "key": "SPECIMEN-HO3.silverware_theft.special_limit",
+      "note": "Coverage C special limit, item 7"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "note": "Hand-labelled instrument metadata, read from the documents. Page ranges are inclusive and refer to <PAGE> markers (EDGAR) or PDF pages.",
+  "note": "Hand-labelled instrument metadata, read from the documents. Page ranges are inclusive and refer to <PAGE> markers (EDGAR) or PDF pages. Family B: ISO specimens carry no policy number, so the packet assembles one, SPECIMEN-HO3, from HO 00 03 and HO 00 15 (which says 'Form HO 00 03 Only').",
   "sources": [
     {
       "source_id": "gillette_ex10e",
@@ -149,10 +149,36 @@
           "version": "04 91",
           "instrument_type": "policy_form",
           "issuer": "Insurance Services Office, Inc.",
-          "policy_numbers": [],
+          "policy_numbers": [
+            "SPECIMEN-HO3"
+          ],
           "effective_date": null,
           "first_page": 1,
           "last_page": 18
+        }
+      ]
+    },
+    {
+      "source_id": "iso_ho0015_0491",
+      "file": "ho_00_15_04_91.pdf",
+      "url": "https://www.independentagent.com/wp-content/uploads/2024/04/HO00150491.pdf",
+      "fetch_note": "ISO HO 00 15 04 91 (copyright Insurance Services Office), fetched from a public copy and never redistributed here. If the URL stops serving these exact bytes, save a copy with the pinned sha256 as data/raw/ho_00_15_04_91.pdf.",
+      "sha256_of_file": "35b0fea3608165104b34a43cd01af5051993264ed538066f5258282747b4ca4a",
+      "extractor": "pdf_columns",
+      "edgar_type": null,
+      "edgar_sequence": null,
+      "instruments": [
+        {
+          "doc_id": "ho_00_15",
+          "version": "04 91",
+          "instrument_type": "endorsement",
+          "issuer": "Insurance Services Office, Inc.",
+          "policy_numbers": [
+            "SPECIMEN-HO3"
+          ],
+          "effective_date": null,
+          "first_page": 1,
+          "last_page": 2
         }
       ]
     }
