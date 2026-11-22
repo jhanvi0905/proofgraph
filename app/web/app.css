@@ -14,7 +14,7 @@ html, body { overflow-x: clip; }
 .hero { background: var(--stamp); color: #fff; margin: 0 calc(50% - 50vw); padding: 1.5rem max(1rem, calc(50vw - 40rem + 1rem)) 3.5rem; }
 .hero-in { margin: 0; display: grid; gap: 2.5rem; grid-template-columns: minmax(0, 1fr); align-items: start; }
 @media (min-width: 960px) { .hero-in { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 4rem; } }
-.hero h1 { font-size: clamp(2.4rem, 6.2vw, 4.4rem); line-height: 1.02; margin: 1.25rem 0 0; letter-spacing: -.02em; font-weight: 700; text-wrap: balance; }
+.hero h1 { font-size: clamp(2rem, 4.4vw, 3.25rem); line-height: 1.08; margin: 1.25rem 0 0; letter-spacing: -.02em; font-weight: 700; text-wrap: balance; }
 .lede { font-size: var(--t-20); line-height: 1.45; margin: 1rem 0 2rem; max-width: 36rem; }
 .start { display: grid; gap: 1.1rem; max-width: 36rem; }
 .field label { display: block; font-weight: 700; margin: 0 0 .35rem; }
@@ -235,3 +235,12 @@ html.js [data-rise].in { opacity: 1; transform: none; }
   .frame-pic, .faq summary, .btn, .try-btn { transition: none; transform: none !important; }
 }
 .beyond-pic { display: block; width: 100%; max-width: 44rem; height: auto; background: var(--paper); margin: 1.75rem 0 0; }
+
+/* The four plain statements: what you see, how it decides, what it refuses, what it can't do yet. */
+.spec { display: grid; grid-template-columns: minmax(0, 1fr); gap: 3rem; }
+.spec-block { min-width: 0; }
+@media (min-width: 900px) { .spec { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3.5rem 4rem; } }
+.spec-block p, .spec-block li { font-size: var(--t-16, 1rem); line-height: 1.6; max-width: 38rem; }
+.spec-block ul { margin: 0; padding: 0 0 0 1.1rem; display: grid; gap: .5rem; }
+.spec-block .beyond-pic { margin-top: 1.25rem; }
+.spec-note { margin-top: 1rem !important; color: var(--grey); }

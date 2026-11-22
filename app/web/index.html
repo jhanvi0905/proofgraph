@@ -16,13 +16,13 @@
   <section id="entrance" class="entrance">
     <header class="topnav" id="top">
       <a class="wordmark" href="#top">ProofGraph</a>
-      <nav aria-label="Sections"><a href="#claim">Check a claim</a><a href="#how">How it works</a><a href="#answers">What the answers mean</a><a href="#faq">Questions</a></nav>
+      <nav aria-label="Sections"><a href="#claim">Check a claim</a><a href="#how">How it works</a><a href="#answers">How it decides</a><a href="#faq">Questions</a></nav>
     </header>
     <div class="hero">
       <div class="hero-in">
         <div class="hero-copy">
-          <h1>Which document governs?</h1>
-          <p class="lede">Give it a policy, its endorsements and binders, and one claim about a value in them. ProofGraph names the document that governs and the rule that made it govern, or says the documents disagree and nothing decides it. Every value is boxed on its page.</p>
+          <h1>An AI that checks a claim across a packet of documents, and won&rsquo;t guess when they disagree.</h1>
+          <p class="lede">Give it a claim and a packet of insurance documents: the policy, its endorsements and binders. It shows where each document answers, quotes the clause on its page, and says which document wins and by which rule. When two of them conflict and no rule decides, it tells you that instead of picking one.</p>
           <p id="try" class="try" hidden><span class="try-q">See it decide:</span> <button type="button" class="try-btn" id="try-btn">Run an example</button> <span id="try-what"></span></p>
           <form id="start" class="start" autocomplete="off">
             <div class="field">
@@ -32,7 +32,7 @@
             <div class="field">
               <label for="files">The documents</label>
               <div class="drop" id="drop">
-                <input id="files" name="files" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" multiple required>
+                <input id="files" name="files" type="file" accept=".pdf,application/pdf" multiple required>
                 <p id="drop-text">Uploads are not built yet: which policy each document describes is still labelled by hand. Run an example instead.</p>
               </div>
             </div>
@@ -68,27 +68,36 @@
       </div>
     </section>
 
-    <section class="band states" id="answers">
-      <h2 data-rise>What the answers mean</h2>
-      <ul class="cases">
-        <li data-rise><span class="st green"><svg class="mark m-tick" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg>Supported</span><p>Nothing disputes it, or documents disagree and a precedence rule decides which governs. The rule and the governing document are named.</p></li>
-        <li data-rise><span class="st clash"><svg class="mark m-clash" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/></svg>Unresolved</span><p>The documents state different amounts, or agree in a way that could not be tested, and no rule decides. Nothing is picked.</p></li>
-        <li data-rise><span class="st slate"><svg class="mark m-bracket" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.4 3.6H8.6c-.7 0-1.1.3-1.1.9v15c0 .6.4.9 1.1.9h6.8"/></svg>Not in these documents</span><p>No admitted passage states a value for this.</p></li>
-        <li data-rise><span class="st red"><svg class="mark m-circle" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg>Contradicted</span><p>The governing document states a different value from the claim. Not produced yet: comparing the governing value with the claim is not built.</p></li>
-      </ul>
+    <section class="band spec" id="answers">
+      <div class="spec-block" data-rise>
+        <h2>What you see</h2>
+        <p>Every answer is a claim plus the assertions behind it. Each assertion carries its document, its place in it (a page, or character offsets in a text filing) and the exact quote. Every step it rests on has a strength: <strong>read</strong> straight off the page; <strong>derived</strong> by a mechanical step over what was read, such as a table cell&rsquo;s position; or <strong>judgment</strong>, something the packet doesn&rsquo;t state, with the reasoning written out. The weakest step is the one to check first.</p>
+      </div>
+      <div class="spec-block" data-rise>
+        <h2>How it decides</h2>
+        <p>Two documents that state the same figure are compared, not merged, and only on the same currency and basis. When a rule resolves it, the rule is printed: an endorsement beats its base form, a later effective date beats an earlier one. Rules only rank documents issued under the policy in question. When no rule applies, the answer is unresolved and every pair of documents carries its reason.</p>
+        <img class="beyond-pic" src="/media/gillette-item7.png" width="1100" height="300" alt="Item VII of Endorsement 13 to the Gillette D&amp;O policy (SEC filing, 1996): the schedule of underlying insurance, with the Primary row boxed: London, 757/FD960228, $10M, retention NIL/NIL/1,000,000.">
+      </div>
+      <div class="spec-block" data-rise>
+        <h2>What it refuses</h2>
+        <ul>
+          <li>No value without a quote found, exactly, in the file.</li>
+          <li>No winner between documents that conflict, unless a rule decides.</li>
+          <li>No answer from outside the packet: if nothing admitted states a value, the answer is not found.</li>
+        </ul>
+      </div>
+      <div class="spec-block" data-rise>
+        <h2>What it can&rsquo;t do yet</h2>
+        <ul>
+          <li>Small samples: one D&amp;O program from an SEC filing, and eight homeowners packets.</li>
+          <li>Your own documents. Which policy each one describes is still labelled by hand, so uploads are off.</li>
+          <li>Tell you a claim is wrong. Comparing the governing value with the claim&rsquo;s own value isn&rsquo;t built.</li>
+          <li>Notice a missing document. If the policy that governs isn&rsquo;t in the packet, it doesn&rsquo;t say so yet.</li>
+          <li>Prove the endorsement rule on real packets. It has only fired where a script inserted the endorsement.</li>
+        </ul>
+        <p class="spec-note">The results are in the repo, including the predictions it got wrong.</p>
+      </div>
     </section>
-
-    <section class="band beyond" id="beyond">
-      <h2 data-rise>Beyond a citation</h2>
-      <p class="big" data-rise>A citation points at text that agrees with a claim. ProofGraph shows which document governs and why, the line that disagrees, and when nothing decides it.</p>
-      <img class="beyond-pic" data-rise src="/media/gillette-item7.png" width="1100" height="300" alt="Item VII of Endorsement 13 to the Gillette D&amp;O policy (SEC filing, 1996): the schedule of underlying insurance, with the Primary row boxed: London, 757/FD960228, $10M, retention NIL/NIL/1,000,000.">
-      <ul class="pillars">
-        <li data-rise><strong>See the line.</strong> Every value is boxed on its page, where the PDF parser finds it.</li>
-        <li data-rise><strong>Know which document governs.</strong> Endorsements and effective dates are applied, scoped to the policy, and the rule is named.</li>
-        <li data-rise><strong>Trust the refusal.</strong> When documents disagree and no rule applies, it says so and picks nothing.</li>
-      </ul>
-    </section>
-
     <section class="band faq" id="faq">
       <h2 data-rise>Questions</h2>
       <details data-rise><summary>Is this another chatbot?</summary><p>No. It checks one claim, and every value it reports is a quote checked against the file. The model reads and points; code compares numbers and applies precedence.</p></details>
