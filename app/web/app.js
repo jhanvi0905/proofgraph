@@ -136,8 +136,8 @@
     if (runner) { runner.abort(); runner = null; }
     $("review").removeAttribute("src"); $("opening").hidden = true; state.reviewId = null;
     bar.hidden = true; document.documentElement.classList.remove("running"); $("entrance").hidden = false; $("live").hidden = true; $("result").hidden = true;
-    go.disabled = false; go.textContent = "Check claim"; window.scrollTo(0, 0);
-    if (text) { problem.textContent = text; problem.hidden = false; say(text); }
+    go.disabled = false; go.textContent = "Decide this"; window.scrollTo(0, 0);
+    if (text) { problem.textContent = text; problem.hidden = false; say(text); problem.scrollIntoView({ block: "center" }); }
   }
   function reset(claim) {
     ["ticks", "cols", "shared", "parts", "notes"].forEach(function (id) { $(id).textContent = ""; });
@@ -349,20 +349,50 @@ $("readgrid").classList.remove("read"); $("map-key").hidden = true;
       }
       return pump();
     }).catch(function (e) { if (e && e.name === "AbortError") return; note("failed", "The connection dropped. Nothing after this point was read.", "error"); })
-      .then(function () { go.disabled = false; go.textContent = "Check claim"; });
+      .then(function () { go.disabled = false; go.textContent = "Decide this"; });
   }
 
+  // The three-step form: packet, the person-written mapping, and a question from the registry.
+  var pick = { packet: null, slot: null, claim: "" }, packs = [];
+  function esc(x) { var d = document.createElement("div"); d.textContent = x == null ? "" : x; return d.innerHTML; }
+  function choice(name, value, title, sub, mono, checked, off) {
+    return '<label class="choice' + (off ? ' off' : '') + '"><input type="radio" name="' + name + '" value="' + esc(value) + '"' +
+      (checked ? ' checked' : '') + (off ? ' disabled' : '') + '><span class="c-t">' + esc(title) + '</span>' +
+      (mono ? '<code class="c-k">' + esc(mono).replace(/\./g, ".<wbr>") + '</code>' : '') + (sub ? '<span class="c-s">' + esc(sub) + '</span>' : '') + '</label>';
+  }
+  function showPacket(id) {
+    var p = packs.filter(function (x) { return x.id === id; })[0]; if (!p) return;
+    pick.packet = id;
+    $("map").innerHTML = p.docs.map(function (d) {
+      return '<tr><td>' + esc(d.name) + '</td><td>' + esc(d.kind) + '</td><td><code>' + esc(d.policy || "none recorded") + '</code></td><td class="how-' +
+        esc(d.strength || "none") + '">' + esc(d.how || "not mapped, so not admitted") + '</td></tr>';
+    }).join("");
+    $("qs").innerHTML = p.questions.map(function (q) {
+      return choice("slot", q.slot, q.label, q.claim ? "Claim: " + q.claim : "No claim written for this question yet.", q.slot, q.slot === p.default, !q.claim);
+    }).join("");
+    showQuestion(p.default);
+  }
+  function showQuestion(slot) {
+    var p = packs.filter(function (x) { return x.id === pick.packet; })[0];
+    var q = p.questions.filter(function (x) { return x.slot === slot; })[0];
+    pick.slot = slot; pick.claim = q ? q.claim : "";
+    Array.prototype.forEach.call($("qs").querySelectorAll(".choice"), function (l) {
+      l.classList.toggle("on", l.querySelector("input").value === slot);
+    });
+  }
+  fetch("/api/packets").then(function (r) { return r.json(); }).then(function (list) {
+    packs = list; if (!list.length) return;
+    $("pk").innerHTML = list.map(function (p, i) { return choice("packet", p.id, p.title, p.docs.length + " documents", null, i === 0, false); }).join("");
+    showPacket(list[0].id);
+  }).catch(function () {});
+  $("pk").addEventListener("change", function (e) { if (e.target.name === "packet") showPacket(e.target.value); });
+  $("qs").addEventListener("change", function (e) { if (e.target.name === "slot") showQuestion(e.target.value); });
   form.addEventListener("submit", function (e) {
     e.preventDefault();
+    if (!pick.packet || !pick.slot) return;
     state.passcode = $("passcode").value;
-    run("/api/review", new FormData(form), $("claim").value.trim());
-  });
-
-  var drop = $("drop");
-  ["dragenter", "dragover"].forEach(function (n) { drop.addEventListener(n, function () { drop.classList.add("over"); }); });
-  ["dragleave", "drop"].forEach(function (n) { drop.addEventListener(n, function () { drop.classList.remove("over"); }); });
-  $("files").addEventListener("change", function () {
-    var f = this.files; $("drop-text").textContent = f.length ? Array.prototype.map.call(f, function (x) { return x.name; }).join(", ") : "Drop contracts, bylaws, resolutions or memos here, or choose files. PDF, PNG or JPG, up to 10.";
+    var fd = new FormData(); fd.append("passcode", state.passcode);
+    run("/api/run/" + encodeURIComponent(pick.packet) + "/" + encodeURIComponent(pick.slot), fd, pick.claim);
   });
 
   fetch("/api/config").then(function (r) { return r.json(); }).then(function (c) {

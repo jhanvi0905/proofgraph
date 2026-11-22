@@ -18,7 +18,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 
 from app.limit import LiveRunLimit, visitor_id
-from app.result import crop_png, render
+from app.result import _doc_name, crop_png, render
 from proofgraph.claims import load_claims
 from proofgraph.pipeline import PacketRun, run_packet
 from proofgraph.schema import DocumentMappingFile, SourceManifest
@@ -30,19 +30,51 @@ WEB = Path(__file__).resolve().parent / "web"
 KEEP = 50
 
 
-def _samples() -> list[dict]:
+# Plain-English names for the registry's keys, for the form. The keys themselves are frozen in slots.json.
+QUESTION = {
+    "SPECIMEN-HO3.money.special_limit": "Special limit on money",
+    "SPECIMEN-HO3.jewelry_theft.special_limit": "Special limit on theft of jewelry",
+    "SPECIMEN-HO3.firearms_theft.special_limit": "Special limit on theft of firearms",
+    "SPECIMEN-HO3.silverware_theft.special_limit": "Special limit on theft of silverware",
+    "FD960228.corp_reimbursement.retention": "Corporate reimbursement retention on FD960228",
+    "81385411.d_and_o.limit": "D&O limit on the Chubb excess layer (81385411)",
+    "752-034765-96.d_and_o.limit": "D&O limit on the ERMA excess layer (752-034765-96)",
+}
+KIND = {"policy_form": "Base form", "declarations": "Declarations", "endorsement": "Endorsement", "binder": "Binder",
+        "cover_note": "Cover note", "correspondence": "Correspondence"}
+HOW = {"read": "stated in the document", "derived": "derived from what it states", "judgment": "a person's judgment"}
+
+
+def _packets() -> list[dict]:
+    """The two pre-loaded packets, each with every question the registry has for it. A question runs only
+    when a claim has been written for it; the others are listed and switched off."""
     fb = DATA / "family_b"
     labels = json.loads((fb / "labels.json").read_text(encoding="utf-8"))
     claims_b = {c.claim_id: c for c in load_claims(fb / "claims.json", fb / "slots.json")}
-    jewelry = next(p for p in labels["packets"] if p["packet_id"] == "B-jewelry-endorsed")
+    by_slot_b = {claims_b[p["claim_id"]].slot: claims_b[p["claim_id"]] for p in labels["packets"] if p["packet_id"].endswith("-endorsed")}
+    slots_b = [e["key"] for e in json.loads((fb / "slots.json").read_text(encoding="utf-8"))["slots"]]
+    slots_a = [e["key"] for e in json.loads((DATA / "slots.json").read_text(encoding="utf-8"))["slots"]]
     mappings_a = DocumentMappingFile.model_validate_json((DATA / "document_mappings.json").read_text(encoding="utf-8"))
-    claim_a = load_claims(DATA / "claims.json", DATA / "slots.json")[0]
+    mappings_b = DocumentMappingFile.model_validate_json((fb / "document_mappings.json").read_text(encoding="utf-8"))
+    by_slot_a = {c.slot: c for c in load_claims(DATA / "claims.json", DATA / "slots.json")}
+    return [
+        {"id": "homeowners", "title": "ISO homeowners: base form HO 00 03 with endorsement HO 00 15",
+         "docs": ["ho_00_03", "ho_00_15"], "mappings": mappings_b, "slots": slots_b, "claims": by_slot_b,
+         "default": "SPECIMEN-HO3.jewelry_theft.special_limit"},
+        {"id": "gillette", "title": "Gillette D&O program, 1996 SEC filing",
+         "docs": [d.doc_id for d in mappings_a.documents], "mappings": mappings_a, "slots": slots_a, "claims": by_slot_a,
+         "default": "FD960228.corp_reimbursement.retention"},
+    ]
+
+
+def _samples() -> list[dict]:
+    """The two runs the hero and the tests use, by their old ids."""
+    home, gil = _packets()
     return [
         {"id": "endorsement-replaces-limit", "title": "an endorsement that replaces a special limit (ISO HO 00 03 + HO 00 15)",
-         "claim": claims_b[jewelry["claim_id"]], "docs": jewelry["instruments"],
-         "mappings": DocumentMappingFile.model_validate_json((fb / "document_mappings.json").read_text(encoding="utf-8"))},
+         "claim": home["claims"][home["default"]], "docs": home["docs"], "mappings": home["mappings"]},
         {"id": "documents-disagree", "title": "three documents that disagree on a retention (Gillette D&O, 1996)",
-         "claim": claim_a, "docs": [d.doc_id for d in mappings_a.documents], "mappings": mappings_a},
+         "claim": gil["claims"][gil["default"]], "docs": gil["docs"], "mappings": gil["mappings"]},
     ]
 
 
@@ -73,6 +105,7 @@ def create_app() -> FastAPI:
     limit = LiveRunLimit()  # kept for live runs; examples replay recorded responses and are never limited
     manifest = SourceManifest.model_validate_json((DATA / "instruments.json").read_text(encoding="utf-8"))
     pages = {i.doc_id: i.last_page - i.first_page + 1 for s in manifest.sources for i in s.instruments}
+    info = {i.doc_id: i for s in manifest.sources for i in s.instruments}
 
     def stream(sample: dict):
         claim = sample["claim"]
@@ -107,6 +140,36 @@ def create_app() -> FastAPI:
         sample = next((s for s in _samples() if s["id"] == sample_id), None)
         if sample is None:
             return JSONResponse({"refusal": "That example is not available."}, status_code=404)
+        return StreamingResponse(stream(sample), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/packets")
+    def packets():
+        out = []
+        for p in _packets():
+            maps = {d.doc_id: d for d in p["mappings"].documents}
+            docs = []
+            for d in p["docs"]:
+                i = info[d]
+                m = maps[d].describes[0] if d in maps and maps[d].describes else None
+                docs.append({"doc_id": d, "name": _doc_name(d, {d: (None, i)}), "kind": KIND[i.instrument_type.value],
+                             "policy": m.policy if m else None, "how": HOW[m.strength.value] if m else None,
+                             "strength": m.strength.value if m else None, "effective": i.effective_date})
+            qs = [{"slot": k, "label": QUESTION.get(k, k), "claim": p["claims"][k].text if k in p["claims"] else None}
+                  for k in p["slots"]]
+            out.append({"id": p["id"], "title": p["title"], "docs": docs, "questions": qs, "default": p["default"]})
+        return out
+
+    @app.post("/api/run/{packet_id}/{slot}")
+    def run_question(packet_id: str, slot: str):
+        p = next((x for x in _packets() if x["id"] == packet_id), None)
+        if p is None:
+            return JSONResponse({"refusal": "That packet is not available."}, status_code=404)
+        if slot not in p["slots"]:
+            return JSONResponse({"refusal": "That question is not in the registry for this packet, so nothing ran."}, status_code=400)
+        if slot not in p["claims"]:
+            return JSONResponse({"refusal": "No claim has been written for this question yet, so nothing ran."}, status_code=400)
+        sample = {"id": f"{packet_id}:{slot}", "title": f"{QUESTION.get(slot, slot)} ({p['title']})",
+                  "claim": p["claims"][slot], "docs": p["docs"], "mappings": p["mappings"]}
         return StreamingResponse(stream(sample), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
 
     @app.post("/api/review")

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="/web/tokens.css?v=3">
-<link rel="stylesheet" href="/web/app.css?v=4">
+<link rel="stylesheet" href="/web/app.css?v=6">
 <script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
@@ -88,33 +88,36 @@
     </section>
     <section class="band check" id="check">
       <h2 data-rise>Check a claim</h2>
-      <p class="check-lede" data-rise>Pick a pre-loaded packet and run it. Uploads are off for now: which policy each document describes is still labelled by hand.</p>
-      <p class="check-run" data-rise><button type="button" class="btn inv" onclick="document.getElementById('try-btn').click()">Run a pre-loaded packet</button></p>
-      <form id="start" class="start" autocomplete="off">
-            <div class="field">
-              <label for="claim">The claim</label>
-              <textarea id="claim" name="claim" rows="3" required placeholder="Your own claims are not built yet. Run an example."></textarea>
-            </div>
-            <div class="field">
-              <label for="files">The documents</label>
-              <div class="drop" id="drop">
-                <input id="files" name="files" type="file" accept=".pdf,application/pdf" multiple required>
-                <p id="drop-text">Uploads are not built yet: which policy each document describes is still labelled by hand. Run an example instead.</p>
-              </div>
-            </div>
-            <div class="field narrow" id="passcode-field" hidden>
-              <label for="passcode">Passcode, needed to run a check</label>
-              <input id="passcode" name="passcode" type="password" autocomplete="current-password">
-            </div>
-            <button class="btn inv" type="submit" id="go">Check claim</button>
-            <p id="problem" class="problem" role="alert" hidden></p>
-          </form>
+      <p class="check-lede" data-rise>Three steps, and nothing to type. What can be decided is a fixed list of questions, so a question it cannot decide never gets asked.</p>
+      <form id="start" class="start steps3" autocomplete="off">
+        <fieldset class="step3">
+          <legend><span class="n">1</span>Packet</legend>
+          <div id="pk" class="choices"></div>
+          <label class="choice off"><input type="radio" name="packet" disabled><span class="c-t">Your own files</span><span class="c-s">Off for now. Step 2 is written by a person for every document, and uploads would need you to write it here first.</span></label>
+        </fieldset>
+        <fieldset class="step3">
+          <legend><span class="n">2</span>What each document is, and which policy it describes</legend>
+          <p class="c-note">Written by a person, not read by the model. Only text from documents that describe the question&rsquo;s policy reaches the model.</p>
+          <div class="map-wrap"><table class="map"><thead><tr><th>Document</th><th>Kind</th><th>Policy it describes</th><th>How we know</th></tr></thead><tbody id="map"></tbody></table></div>
+        </fieldset>
+        <fieldset class="step3">
+          <legend><span class="n">3</span>Question</legend>
+          <p class="c-note">Only questions in the registry can be decided. A new one is added by hand, never by the model.</p>
+          <div id="qs" class="choices"></div>
+        </fieldset>
+        <div class="field narrow" id="passcode-field" hidden>
+          <label for="passcode">Passcode, needed to run a check</label>
+          <input id="passcode" name="passcode" type="password" autocomplete="current-password">
+        </div>
+        <button class="btn inv" type="submit" id="go">Decide this</button>
+        <p id="problem" class="problem" role="alert" hidden></p>
+      </form>
     </section>
     <section class="band faq" id="faq">
       <h2 data-rise>Questions</h2>
       <details data-rise><summary>Is this another chatbot?</summary><p>No. It checks one claim, and every value it reports is a quote checked against the file. The model reads and points; code compares numbers and applies precedence.</p></details>
       <details data-rise><summary>What if an answer is wrong?</summary><p>Every value is boxed on its page so you can check it in seconds. A quote that cannot be found exactly on its page is rejected and never decides an answer.</p></details>
-      <details data-rise><summary>Which documents work?</summary><p>Two document families so far: a 1996 D&amp;O filing from SEC EDGAR, and ISO homeowners forms (PDF). Uploads are not built yet, because which policy each document describes is still labelled by hand.</p></details>
+      <details data-rise><summary>Which documents work?</summary><p>Two document families so far: a 1996 D&amp;O filing from SEC EDGAR, and ISO homeowners forms (PDF). Uploads are off, because which policy each document describes is still written by a person.</p></details>
       <details data-rise><summary>Does it replace my lawyer?</summary><p>No. It checks a claim against the documents you give it. It does not give legal advice.</p></details>
     </section>
 
@@ -187,7 +190,7 @@
     <iframe id="review" title="Review: the answer, the evidence and how it was checked"></iframe>
   </section>
 </div>
-<script src="/web/app.js?v=3"></script>
+<script src="/web/app.js?v=6"></script>
 <script src="/web/motion.js?v=3"></script>
 </body>
 </html>

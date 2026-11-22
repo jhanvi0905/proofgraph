@@ -59,3 +59,28 @@ def test_disagreement_page_says_neither_rule_fired_and_why(client):
 def test_uploads_are_refused_with_a_reason(client):
     r = client.post("/api/review")
     assert r.status_code == 400 and "not built yet" in r.json()["refusal"]
+
+
+def test_form_lists_each_packet_with_its_mapping_and_registry_questions(client):
+    packs = {p["id"]: p for p in client.get("/api/packets").json()}
+    assert set(packs) == {"homeowners", "gillette"}
+    home = packs["homeowners"]
+    assert [d["kind"] for d in home["docs"]] == ["Base form", "Endorsement"]
+    assert all(q["claim"] for q in home["questions"]) and len(home["questions"]) == 4
+    gil = packs["gillette"]
+    runnable = [q["slot"] for q in gil["questions"] if q["claim"]]
+    assert runnable == ["FD960228.corp_reimbursement.retention"]
+    assert {d["strength"] for d in gil["docs"]} == {"read", "derived", "judgment"}
+
+
+def test_every_question_with_a_claim_replays_to_its_label(client):
+    for slot in ("SPECIMEN-HO3.money.special_limit", "SPECIMEN-HO3.firearms_theft.special_limit",
+                 "SPECIMEN-HO3.silverware_theft.special_limit"):
+        assert '"status": "supported"' in client.post(f"/api/run/homeowners/{slot}").text
+
+
+def test_questions_outside_the_registry_or_without_a_claim_are_refused_before_running(client):
+    r = client.post("/api/run/gillette/not.a.slot")
+    assert r.status_code == 400 and "not in the registry" in r.json()["refusal"]
+    r = client.post("/api/run/gillette/81385411.d_and_o.limit")
+    assert r.status_code == 400 and "No claim has been written" in r.json()["refusal"]
