@@ -122,6 +122,68 @@ class SourceText(_Model):
     extractor: str  # e.g. "edgar_sgml/EX-10.(E)/4" or "pdf_columns/v1"
     text: str
     page_starts: tuple[int, ...]  # offset where page i+1 begins
+    file_offset: int | None  # where text[0] sits in the raw file; None when text is rebuilt (PDF)
+
+
+# ---------------------------------------------------------------- citations
+
+
+class CitationLayer(str, Enum):
+    # Offsets index the raw file, decoded as ASCII (bytes == chars). They are
+    # compared exactly, with no whitespace tolerance. The splitter and the
+    # extractor never touch this layer.
+    RAW_FILE = "raw_file"
+    # PDFs have no raw text layer. Offsets index the text rebuilt by the named
+    # extractor version, and a new extractor version breaks these citations on purpose.
+    PDF_COLUMNS_V1 = "pdf_columns/v1"
+
+
+class Citation(_Model):
+    """Where a value is written: file hash, offsets into one named text layer, and the expected text.
+
+    It does not depend on the clause splitter. Checked at load:
+    - hash mismatch: fatal (the file is not the file);
+    - text mismatch: the citation is broken, and the assertion is invalid and
+      left out of comparison.
+    """
+
+    source_file: str
+    sha256_of_file: str
+    layer: CitationLayer
+    start: int = Field(ge=0)
+    end: int
+    text: str
+
+    @model_validator(mode="after")
+    def _check(self) -> Citation:
+        if len(self.text) != self.end - self.start:
+            raise ValueError("citation text length does not match offsets")
+        return self
+
+
+class MappingMethod(str, Enum):
+    CELL_POSITION = "cell_position"  # nth part of a composite cell, split by code
+    POLICY_NUMBER = "policy_number"  # a written number normalised to the policy id used in slots
+    LABEL = "label"  # the span names the slot part in its own words
+    ELIMINATION = "elimination"  # no span labels it; inferred from the other parts. Weakest.
+
+
+class MappingRecord(_Model):
+    """One route by which a cited text reaches part of a slot (D2). Hand-labelled, one per route."""
+
+    mapping_id: str
+    method: MappingMethod
+    instrument_doc_id: str  # the instrument whose text `cited` lies in
+    cited: Citation
+    position: int | None = Field(default=None, ge=1)  # CELL_POSITION only, 1-based
+    produces: str  # the slot part this route yields
+    justified_by: tuple[Citation, ...]
+    note: str
+
+
+class MappingFile(_Model):
+    note: str
+    records: tuple[MappingRecord, ...]
 
 
 class Instrument(_Model):
@@ -194,7 +256,7 @@ class Basis(str, Enum):
 class Amount(_Model):
     minor_units: int  # integer cents; no floats anywhere
     decimals: int = Field(ge=0)  # decimal places as written, for faithful rendering
-    currency: Currency
+    currency: Currency | None  # None = not stated in the cited text (D1); never filled in
 
 
 class ParseFailure(_Model):
@@ -313,6 +375,37 @@ class Packet(_Model):
     claim: Claim
     instruments: tuple[Instrument, ...]
     required_instrument_types: tuple[InstrumentType, ...]
+
+
+# ---------------------------------------------------------------- assertions
+
+
+class InstrumentRef(_Model):
+    """What precedence reads about the asserting instrument (D3 scope test)."""
+
+    doc_id: str
+    version: str
+    instrument_type: InstrumentType
+    policy_numbers: tuple[str, ...]  # the policies this instrument binds: its own (binder), or the one it is attached to (endorsement)
+    effective_date: dt.date | None
+
+
+class Assertion(_Model):
+    """One cited text, as one typed assertion on one slot. Fields the citation cannot source are None (D1)."""
+
+    assertion_id: str
+    slot: str
+    instrument: InstrumentRef
+    value: Citation  # exactly the characters of the value, e.g. "1,000,000"
+    amount: Amount
+    basis: Basis | None
+    basis_phrase: Citation | None
+    mapping_ids: tuple[str, ...]  # every route used to reach the slot
+
+
+class InvalidAssertion(_Model):
+    mapping_id: str
+    reason: str
 
 
 # ---------------------------------------------------------------- evidence and verdicts

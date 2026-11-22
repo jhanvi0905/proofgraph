@@ -2,7 +2,8 @@
 
 No floats, no arithmetic beyond scaling, no FX. A string the rules do not
 cover returns ParseFailure. It is never guessed at, so "US$10,000,0O0" (the
-letter O) fails loudly instead of being repaired.
+letter O) fails loudly instead of being repaired. A missing currency is not a
+failure: it is returned as currency=None ("not stated", D1).
 """
 
 from __future__ import annotations
@@ -27,8 +28,6 @@ def parse_amount(raw: str) -> Amount | ParseFailure:
         if m:
             currency, s = cur, s[m.end():].strip()
             break
-    if currency is None:
-        return ParseFailure(raw=raw, reason="missing_unit")
     if _NIL_RE.match(s):
         return Amount(minor_units=0, decimals=0, currency=currency)
     m = _NUM_RE.match(s)

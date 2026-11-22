@@ -1,0 +1,32 @@
+{
+  "note": "Hand-labelled routes from a cited text to part of a slot (DECISIONS.md D2). Offsets index the raw file (layer raw_file, ASCII, exact). Only Item VII's Primary-row cell is mapped so far; the FD960228 cover note and Reliance routes come next.",
+  "records": [
+    {
+      "mapping_id": "item7_primary_retention_position3",
+      "method": "cell_position",
+      "instrument_doc_id": "coda_end13",
+      "cited": {"source_file": "gillette_10k405_1996.txt", "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4", "layer": "raw_file", "start": 68460, "end": 68477, "text": "NIL/NIL/1,000,000"},
+      "position": 3,
+      "produces": "corp_reimbursement.retention",
+      "justified_by": [
+        {"source_file": "gillette_10k405_1996.txt", "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4", "layer": "raw_file", "start": 68182, "end": 68255, "text": "Layer        Carrier      Number          Year      Limits      Retention"},
+        {"source_file": "gillette_10k405_1996.txt", "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4", "layer": "raw_file", "start": 81246, "end": 81307, "text": "$0                        Each Director or Officer, each loss"},
+        {"source_file": "gillette_10k405_1996.txt", "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4", "layer": "raw_file", "start": 81326, "end": 81387, "text": "$0                        All Directors & Officers, each loss"},
+        {"source_file": "gillette_10k405_1996.txt", "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4", "layer": "raw_file", "start": 81406, "end": 81466, "text": "$500,000                  Corporate Reimbursement, each loss"}
+      ],
+      "note": "The column header gives 'retention'. Item VII never labels the three parts. Their meaning (each D&O / all D&O / corporate reimbursement) comes from the Reliance binder's labelled triple, in the same order. Caution: the route borrows labels from Reliance, the document this assertion will be compared with. It borrows the structure only, not the value."
+    },
+    {
+      "mapping_id": "item7_primary_policy_number",
+      "method": "policy_number",
+      "instrument_doc_id": "coda_end13",
+      "cited": {"source_file": "gillette_10k405_1996.txt", "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4", "layer": "raw_file", "start": 68422, "end": 68434, "text": "757/FD960228"},
+      "position": null,
+      "produces": "FD960228",
+      "justified_by": [
+        {"source_file": "gillette_10k405_1996.txt", "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4", "layer": "raw_file", "start": 73898, "end": 73922, "text": "POLICY NO:      FD960228"}
+      ],
+      "note": "The FD960228 cover note writes the policy number without the '757/' prefix. Nothing in the packet explains the prefix; it is dropped by this record, not by a rule."
+    }
+  ]
+}

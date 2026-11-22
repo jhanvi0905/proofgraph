@@ -42,10 +42,11 @@ def ingest(label: SourceLabel, raw_dir: Path) -> IngestResult:
         raise ValueError(f"{label.file}: sha256 {digest} does not match manifest")
 
     if label.extractor is Extractor.EDGAR_SGML:
-        text, page_starts, lines = _edgar_text(raw_path, label)
+        text, page_starts, lines, file_offset = _edgar_text(raw_path, label)
         extractor = f"edgar_sgml/{label.edgar_type}/{label.edgar_sequence}"
     else:
         text, page_starts, lines = _pdf_text(raw_path)
+        file_offset = None
         extractor = PDF_EXTRACTOR_VERSION
 
     source = SourceText(
@@ -54,6 +55,7 @@ def ingest(label: SourceLabel, raw_dir: Path) -> IngestResult:
         extractor=extractor,
         text=text,
         page_starts=tuple(page_starts),
+        file_offset=file_offset,
     )
     allcaps = label.extractor is Extractor.PDF_COLUMNS
     instruments = tuple(_instrument(il, source, lines, allcaps) for il in label.instruments)
@@ -81,7 +83,7 @@ _TEXT_RE = re.compile(r"<TEXT>\n?(.*?)</TEXT>", re.S)
 _PAGE_RE = re.compile(r"^<PAGE>\s*(\d+)\s*$", re.M)
 
 
-def _edgar_text(path: Path, label: SourceLabel) -> tuple[str, list[int], list[_Line]]:
+def _edgar_text(path: Path, label: SourceLabel) -> tuple[str, list[int], list[_Line], int]:
     raw = path.read_text(encoding="ascii")
     for m in _DOC_RE.finditer(raw):
         block = m.group(1)
@@ -92,6 +94,7 @@ def _edgar_text(path: Path, label: SourceLabel) -> tuple[str, list[int], list[_L
             if text_m is None:
                 raise ValueError("EDGAR document has no <TEXT> body")
             text = text_m.group(1)
+            file_offset = m.start(1) + text_m.start(1)
             break
     else:
         raise ValueError(f"no <DOCUMENT> with TYPE {label.edgar_type} SEQUENCE {label.edgar_sequence}")
@@ -109,7 +112,9 @@ def _edgar_text(path: Path, label: SourceLabel) -> tuple[str, list[int], list[_L
         pos = end + 1
         page = _page_of(start, page_starts)
         lines.append(_Line(page=page, start=start, end=end, bbox=None, bold=None))
-    return text, page_starts, lines
+    if raw[file_offset:file_offset + len(text)] != text:
+        raise ValueError("EDGAR text body is not at its recorded file offset")
+    return text, page_starts, lines, file_offset
 
 
 # ---------------------------------------------------------------- PDF

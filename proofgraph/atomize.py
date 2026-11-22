@@ -188,8 +188,9 @@ def validate_atom_fields(w: ProposedAtom, predicates: PredicateSet) -> tuple[lis
     if w.quantity_raw and not any(e.field == "quantity_raw" for e in errs):
         parsed = parse_amount(w.quantity_raw)
         if isinstance(parsed, ParseFailure):
-            code = AtomErrorCode.MISSING_UNIT if parsed.reason == "missing_unit" else AtomErrorCode.UNPARSEABLE_QUANTITY
-            err(code, "quantity_raw", f"{parsed.raw!r}: {parsed.reason}")
+            err(AtomErrorCode.UNPARSEABLE_QUANTITY, "quantity_raw", f"{parsed.raw!r}: {parsed.reason}")
+        elif parsed.currency is None:  # pre-D1 rule for claims; revisited in the atomize cleanup
+            err(AtomErrorCode.MISSING_UNIT, "quantity_raw", f"{w.quantity_raw!r}: missing_unit")
         else:
             amount = parsed
     return errs, amount
