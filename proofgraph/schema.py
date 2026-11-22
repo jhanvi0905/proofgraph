@@ -165,6 +165,7 @@ class MappingMethod(str, Enum):
     CELL_POSITION = "cell_position"  # nth part of a composite cell, split by code
     POLICY_NUMBER = "policy_number"  # a written number normalised to the policy id used in slots
     LABEL = "label"  # the span names the slot part in its own words
+    CROSS_REFERENCE = "cross_reference"  # identified through another document's span
     ELIMINATION = "elimination"  # no span labels it; inferred from the other parts. Weakest.
 
 
@@ -181,9 +182,19 @@ class MappingRecord(_Model):
     note: str
 
 
+class AssertionInput(_Model):
+    """One citation the assertion rests on, plus the routes that take it to a slot."""
+
+    assertion_id: str
+    instrument_doc_id: str
+    citation: Citation
+    route_ids: tuple[str, ...]  # one route to the policy part, one to part.measure
+
+
 class MappingFile(_Model):
     note: str
     records: tuple[MappingRecord, ...]
+    assertions: tuple[AssertionInput, ...]
 
 
 class Instrument(_Model):
@@ -250,6 +261,9 @@ class Basis(str, Enum):
     ANY_ONE_CLAIM = "any_one_claim"
     PER_PERSON = "per_person"
     AGGREGATE = "aggregate"
+    # As written. No equivalence with any_one_claim or each_occurrence is assumed (D6).
+    EACH_CLAIM = "each_claim"
+    EACH_LOSS = "each_loss"
     UNKNOWN = "unknown"  # legal: no lexicon match
 
 
@@ -396,7 +410,8 @@ class Assertion(_Model):
     assertion_id: str
     slot: str
     instrument: InstrumentRef
-    value: Citation  # exactly the characters of the value, e.g. "1,000,000"
+    citation: Citation  # the one citation the assertion rests on
+    value: Citation  # exactly the characters of the value, e.g. "1,000,000", inside `citation`
     amount: Amount
     basis: Basis | None
     basis_phrase: Citation | None

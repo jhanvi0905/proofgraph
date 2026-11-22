@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from proofgraph.schema import Amount, Currency, ParseFailure
+from proofgraph.schema import Amount, Basis, Currency, ParseFailure
 
 _CURRENCY = [  # (pattern, currency); first match wins
     (re.compile(r"^\s*(?:US\$|USD\s*|\$)"), Currency.USD),
@@ -41,3 +41,29 @@ def parse_amount(raw: str) -> Amount | ParseFailure:
     digits = int(whole + frac)
     minor = digits * 10 ** (exp + 2 - len(frac))
     return Amount(minor_units=minor, decimals=0 if exp else len(frac), currency=currency)
+
+
+_AMOUNT_IN_TEXT_RE = re.compile(r"(?:US\$|USD\s*|\$)?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|(?:US\$|USD\s*|\$)\d+(?:\.\d{1,2})?")
+_BASIS_LEXICON = [  # (pattern, basis); matched inside one citation only
+    (re.compile(r"\beach\s+claim\b", re.I), Basis.EACH_CLAIM),
+    (re.compile(r"\bany\s+one\s+claim\b", re.I), Basis.ANY_ONE_CLAIM),
+    (re.compile(r"\beach\s+loss\b", re.I), Basis.EACH_LOSS),
+    (re.compile(r"\beach\s+occurrence\b", re.I), Basis.EACH_OCCURRENCE),
+    (re.compile(r"\bper\s+person\b", re.I), Basis.PER_PERSON),
+    (re.compile(r"\bin\s+the\s+aggregate\b", re.I), Basis.AGGREGATE),
+]
+
+
+def find_amount(text: str) -> tuple[int, int] | None:
+    """Offsets of the first amount written in `text` (with its currency marker), or None."""
+    m = _AMOUNT_IN_TEXT_RE.search(text)
+    return (m.start(), m.end()) if m else None
+
+
+def find_basis(text: str) -> tuple[Basis, int, int] | None:
+    """The basis phrase written in `text`, or None if it states none. Never inferred."""
+    hits = [(m.start(), b, m.end()) for pat, b in _BASIS_LEXICON for m in [pat.search(text)] if m]
+    if not hits:
+        return None
+    start, basis, end = min(hits)
+    return basis, start, end

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from proofgraph.assertions import assert_cell
+from proofgraph.assertions import assert_one
 from proofgraph.atomize import atomize
 from proofgraph.ingest import ingest
 from proofgraph.schema import Assertion, Claim, MappingFile, SourceManifest, load_predicate_set
@@ -50,26 +50,34 @@ def _cmd_atomize(args: argparse.Namespace) -> None:
           f"cache_hit={r.cache_hit} rejects={res.rejects} repairs={res.repairs} trace={args.trace}")
 
 
-def _cmd_assert(args: argparse.Namespace) -> None:
-    """Item VII's Primary-row retention, the only route mapped so far."""
+def _load_assertions(trace: Trace):
     label = next(s for s in _load_manifest().sources if s.source_id == "gillette_ex10e")
     result = ingest(label, DATA / "raw")
     raw = (DATA / "raw" / label.file).read_bytes().decode("ascii")
-    recs = {r.mapping_id: r for r in MappingFile.model_validate_json((DATA / "mappings.json").read_text(encoding="utf-8")).records}
-    inst = next(i for i in result.instruments if i.doc_id == "coda_end13")
-    trace = Trace(Path(args.trace))
-    a = assert_cell(recs["item7_primary_retention_position3"], recs["item7_primary_policy_number"], inst, result.source, raw, trace)
+    mappings = MappingFile.model_validate_json((DATA / "mappings.json").read_text(encoding="utf-8"))
+    insts = {i.doc_id: i for i in result.instruments}
+    return [assert_one(inp, mappings, insts[inp.instrument_doc_id], result.source, raw, trace) for inp in mappings.assertions]
+
+
+def _print_assertion(a) -> None:
     if not isinstance(a, Assertion):
-        print(f"INVALID {a.mapping_id}: {a.reason}")
+        print(f"INVALID {a.mapping_id}: {a.reason}\n")
         return
     cur = a.amount.currency.value if a.amount.currency else "not stated"
-    print(f"slot        {a.slot}")
-    print(f"value       {a.value.text!r}  raw file {a.value.start}-{a.value.end}  -> {a.amount.minor_units} minor units")
-    print(f"currency    {cur}")
-    print(f"basis       {a.basis.value if a.basis else 'not stated'}")
-    print(f"asserted by {a.instrument.doc_id} ({a.instrument.instrument_type.value}) binds {', '.join(a.instrument.policy_numbers)}, effective {a.instrument.effective_date}")
-    print(f"routes      {', '.join(a.mapping_ids)}")
-    print(f"chunk       {trace.records[-1].span_ids}")
+    basis = f"{a.basis.value}  ({a.basis_phrase.text!r} at {a.basis_phrase.start}-{a.basis_phrase.end})" if a.basis else "not stated"
+    print(f"{a.assertion_id}")
+    print(f"  slot        {a.slot}")
+    print(f"  citation    {a.citation.text!r}  raw file {a.citation.start}-{a.citation.end}")
+    print(f"  value       {a.value.text!r} at {a.value.start}-{a.value.end} -> {a.amount.minor_units} minor units")
+    print(f"  currency    {cur}")
+    print(f"  basis       {basis}")
+    print(f"  asserted by {a.instrument.doc_id} ({a.instrument.instrument_type.value}), binds {', '.join(a.instrument.policy_numbers)}, effective {a.instrument.effective_date}")
+    print(f"  routes      {', '.join(a.mapping_ids)}\n")
+
+
+def _cmd_assert(args: argparse.Namespace) -> None:
+    for a in _load_assertions(Trace(Path(args.trace))):
+        _print_assertion(a)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -85,7 +93,7 @@ def main(argv: list[str] | None = None) -> None:
     at.add_argument("--claim-id", default="c1")
     at.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     at.set_defaults(func=_cmd_atomize)
-    asr = sub.add_parser("assert", help="Item VII primary retention cell -> one typed assertion")
+    asr = sub.add_parser("assert", help="print the assertions on the retention slot")
     asr.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     asr.set_defaults(func=_cmd_assert)
     args = parser.parse_args(argv)
