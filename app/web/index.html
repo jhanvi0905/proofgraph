@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="/web/tokens.css">
 <link rel="stylesheet" href="/web/app.css">
+<script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
 <div class="shell">
@@ -20,8 +21,8 @@
     <div class="hero">
       <div class="hero-in">
         <div class="hero-copy">
-          <h1>Which document governs, and does it say what you were told?</h1>
-          <p class="lede">A policy, its endorsements and its binders, and one claim about a value in them. ProofGraph says whether the packet supports the claim, which document governs and by which rule, or that the documents disagree and nothing decides it. Every value is boxed on its page.</p>
+          <h1>Which document governs?</h1>
+          <p class="lede">Give it a policy, its endorsements and binders, and one claim about a value in them. ProofGraph names the document that governs and the rule that made it govern, or says the documents disagree and nothing decides it. Every value is boxed on its page.</p>
           <p id="try" class="try" hidden><span class="try-q">See it decide:</span> <button type="button" class="try-btn" id="try-btn">Run an example</button> <span id="try-what"></span></p>
           <form id="start" class="start" autocomplete="off">
             <div class="field">
@@ -45,9 +46,9 @@
         </div>
         <figure class="sheet" aria-label="A real result from the family B run">
           <p class="sheet-tag"><span>Real result, ISO HO 00 03 with HO 00 15</span><button type="button" class="sheet-run" id="sheet-run" hidden>Run it<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></p>
-          <p class="sheet-claim">The special limit for loss by theft of jewelry is <span class="u green">$1,000.</span></p>
+          <p class="sheet-claim">Jewelry theft limit: <span class="u green">$1,000.</span></p>
           <p class="sheet-answer"><svg class="mark m-tick" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span class="st green">Supported, decided by a rule</span></p>
-          <p class="sheet-quote says"><span class="ref">HO 00 15</span><q>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</q></p>
+          <p class="sheet-quote says"><span class="ref">HO 00 15, page 2</span><q>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</q></p>
           <p class="sheet-part">The base form says $1000 for theft alone. Neither line states a basis, so they cannot be compared; the endorsement governs over the base form.</p>
           <ul class="sheet-signoff" aria-label="Sign-off"><li><span>Claim and policy identification</span><span>Written by a person</span></li><li><span>Rule applied</span><span>Endorsement over base form</span></li></ul>
           <ul class="sheet-legend" aria-label="Marks">
@@ -59,40 +60,41 @@
     </div>
 
     <section class="band how" id="how">
-      <h2>How it works</h2>
+      <h2 data-rise>How it works</h2>
       <div class="frames">
-        <div><h3>A claim and its packet</h3><p>The claim states one value: a retention, a special limit. The packet is everything that could govern it: the policy form, its endorsements, binders and schedules.</p></div>
-        <div><h3>Each document is read where it applies</h3><p>Only the part of each document that describes the claim's policy is admitted. The model reads it and points at the value; code parses the amount and checks the quote against the file.</p></div>
-        <div><h3>A rule decides, or it refuses</h3><p>An endorsement governs its base form; a later effective date governs an earlier one. When no rule applies and the documents disagree, nothing is picked. Every value is shown boxed on its page.</p></div>
+        <div data-rise><img class="frame-pic" src="/media/ho15-header.png" width="640" height="200" alt="The top of HO 00 15: This endorsement changes the policy. Special personal property coverage. Form HO 00 03 only."><h3>A claim and its packet</h3><p>The claim states one value: a retention, a special limit. The packet is everything that could govern it: the policy form, its endorsements, binders and schedules.</p></div>
+        <div data-rise><img class="frame-pic" src="/media/ho03-limits.png" width="640" height="420" alt="HO 00 03, page 2, the special limits list, with item 5 boxed: $1000 for loss by theft of jewelry."><h3>Each document is read where it applies</h3><p>Only the part of each document that describes the claim's policy is admitted. The model reads it and points at the value; code parses the amount and checks the quote against the file.</p></div>
+        <div data-rise><img class="frame-pic" src="/media/ho15-limits.png" width="640" height="420" alt="HO 00 15, page 2, deleting and replacing items 5 to 7, with item 5 boxed: $1,000 for loss by theft, misplacing or losing of jewelry."><h3>A rule decides, or it refuses</h3><p>An endorsement governs its base form; a later effective date governs an earlier one. When no rule applies and the documents disagree, nothing is picked. Every value is shown boxed on its page.</p></div>
       </div>
     </section>
 
     <section class="band states" id="answers">
-      <h2>What the answers mean</h2>
+      <h2 data-rise>What the answers mean</h2>
       <ul class="cases">
-        <li><span class="st green"><svg class="mark m-tick" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg>Supported</span><p>Nothing disputes it, or documents disagree and a precedence rule decides which governs. The rule and the governing document are named.</p></li>
-        <li><span class="st clash"><svg class="mark m-clash" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/></svg>Unresolved</span><p>The documents state different amounts, or agree in a way that could not be tested, and no rule decides. Nothing is picked.</p></li>
-        <li><span class="st slate"><svg class="mark m-bracket" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.4 3.6H8.6c-.7 0-1.1.3-1.1.9v15c0 .6.4.9 1.1.9h6.8"/></svg>Not in these documents</span><p>No admitted passage states a value for this.</p></li>
-        <li><span class="st red"><svg class="mark m-circle" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg>Contradicted</span><p>The governing document states a different value from the claim. Not produced yet: comparing the governing value with the claim is not built.</p></li>
+        <li data-rise><span class="st green"><svg class="mark m-tick" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg>Supported</span><p>Nothing disputes it, or documents disagree and a precedence rule decides which governs. The rule and the governing document are named.</p></li>
+        <li data-rise><span class="st clash"><svg class="mark m-clash" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/></svg>Unresolved</span><p>The documents state different amounts, or agree in a way that could not be tested, and no rule decides. Nothing is picked.</p></li>
+        <li data-rise><span class="st slate"><svg class="mark m-bracket" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.4 3.6H8.6c-.7 0-1.1.3-1.1.9v15c0 .6.4.9 1.1.9h6.8"/></svg>Not in these documents</span><p>No admitted passage states a value for this.</p></li>
+        <li data-rise><span class="st red"><svg class="mark m-circle" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg>Contradicted</span><p>The governing document states a different value from the claim. Not produced yet: comparing the governing value with the claim is not built.</p></li>
       </ul>
     </section>
 
     <section class="band beyond" id="beyond">
-      <h2>Beyond a citation</h2>
-      <p class="big">A citation points at text that agrees with a claim. ProofGraph shows which document governs and why, the line that disagrees, and when nothing decides it.</p>
+      <h2 data-rise>Beyond a citation</h2>
+      <p class="big" data-rise>A citation points at text that agrees with a claim. ProofGraph shows which document governs and why, the line that disagrees, and when nothing decides it.</p>
+      <img class="beyond-pic" data-rise src="/media/gillette-item7.png" width="1100" height="300" alt="Item VII of Endorsement 13 to the Gillette D&amp;O policy (SEC filing, 1996): the schedule of underlying insurance, with the Primary row boxed: London, 757/FD960228, $10M, retention NIL/NIL/1,000,000.">
       <ul class="pillars">
-        <li><strong>See the line.</strong> Every value is boxed on its page, where the PDF parser finds it.</li>
-        <li><strong>Know which document governs.</strong> Endorsements and effective dates are applied, scoped to the policy, and the rule is named.</li>
-        <li><strong>Trust the refusal.</strong> When documents disagree and no rule applies, it says so and picks nothing.</li>
+        <li data-rise><strong>See the line.</strong> Every value is boxed on its page, where the PDF parser finds it.</li>
+        <li data-rise><strong>Know which document governs.</strong> Endorsements and effective dates are applied, scoped to the policy, and the rule is named.</li>
+        <li data-rise><strong>Trust the refusal.</strong> When documents disagree and no rule applies, it says so and picks nothing.</li>
       </ul>
     </section>
 
     <section class="band faq" id="faq">
-      <h2>Questions</h2>
-      <details><summary>Is this another chatbot?</summary><p>No. It checks one claim, and every value it reports is a quote checked against the file. The model reads and points; code compares numbers and applies precedence.</p></details>
-      <details><summary>What if an answer is wrong?</summary><p>Every value is boxed on its page so you can check it in seconds. A quote that cannot be found exactly on its page is rejected and never decides an answer.</p></details>
-      <details><summary>Which documents work?</summary><p>Two document families so far: a 1996 D&amp;O filing from SEC EDGAR, and ISO homeowners forms (PDF). Uploads are not built yet, because which policy each document describes is still labelled by hand.</p></details>
-      <details><summary>Does it replace my lawyer?</summary><p>No. It checks a claim against the documents you give it. It does not give legal advice.</p></details>
+      <h2 data-rise>Questions</h2>
+      <details data-rise><summary>Is this another chatbot?</summary><p>No. It checks one claim, and every value it reports is a quote checked against the file. The model reads and points; code compares numbers and applies precedence.</p></details>
+      <details data-rise><summary>What if an answer is wrong?</summary><p>Every value is boxed on its page so you can check it in seconds. A quote that cannot be found exactly on its page is rejected and never decides an answer.</p></details>
+      <details data-rise><summary>Which documents work?</summary><p>Two document families so far: a 1996 D&amp;O filing from SEC EDGAR, and ISO homeowners forms (PDF). Uploads are not built yet, because which policy each document describes is still labelled by hand.</p></details>
+      <details data-rise><summary>Does it replace my lawyer?</summary><p>No. It checks a claim against the documents you give it. It does not give legal advice.</p></details>
     </section>
 
     <section class="band close">
@@ -165,5 +167,6 @@
   </section>
 </div>
 <script src="/web/app.js"></script>
+<script src="/web/motion.js"></script>
 </body>
 </html>

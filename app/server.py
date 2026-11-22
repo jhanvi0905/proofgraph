@@ -14,11 +14,11 @@ from collections import OrderedDict
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.limit import LiveRunLimit, visitor_id
-from app.result import render
+from app.result import crop_png, render
 from proofgraph.claims import load_claims
 from proofgraph.pipeline import PacketRun, run_packet
 from proofgraph.schema import DocumentMappingFile, SourceManifest
@@ -120,6 +120,58 @@ def create_app() -> FastAPI:
     def review_page(review_id: str):
         page = reviews.get(review_id)
         return HTMLResponse(page or "<p>That result is no longer here. Run the example again.</p>", status_code=200 if page else 404)
+
+    # Real crops of the documents, rendered from the PDFs in data/raw at request time (never committed).
+    media = {
+        "ho15-header": ("ho_00_15_04_91.pdf", 1, ["HOMEOWNERS", "HO 00 15 04 91", "THIS ENDORSEMENT CHANGES THE POLICY. PLEASE READ IT CAREFULLY.",
+                                                  "SPECIAL PERSONAL PROPERTY COVERAGE", "Form HO 00 03 Only"], False, (24, 56), True),
+        "ho03-limits": ("ho_00_03_04_91.pdf", 2, ["5. $1000 for loss by theft of jewelry, watches, furs,",
+                                                  "precious and semi-precious stones."], True, (96, 96)),
+        "ho15-limits": ("ho_00_15_04_91.pdf", 2, ["5. $1,000 for loss by theft, misplacing or losing of",
+                                                  "jewelry, watches, furs, precious and semi-", "precious stones."], True, (80, 80)),
+    }
+    rendered: dict[str, bytes] = {}
+
+    def _edgar_png() -> bytes:
+        """Item VII of the Gillette filing (a public SEC document), its Primary row boxed, drawn from the raw text."""
+        import io
+
+        from PIL import Image, ImageDraw, ImageFont
+
+        raw = (DATA / "raw" / "gillette_10k405_1996.txt").read_bytes().decode("ascii")
+        start = raw.index("ITEM VII Schedule of Underlying")
+        lines = [ln.rstrip() for ln in raw[start:raw.index("</TABLE>", start)].split("\n")
+                 if ln.strip() and not ln.strip().startswith("<")]
+        font = ImageFont.truetype("/System/Library/Fonts/Menlo.ttc", 26) if Path("/System/Library/Fonts/Menlo.ttc").exists() \
+            else ImageFont.load_default()
+        lh, pad = 40, 28
+        width = int(max(font.getlength(ln) for ln in lines)) + 2 * pad
+        img = Image.new("RGB", (width, lh * len(lines) + 2 * pad), "white")
+        d = ImageDraw.Draw(img)
+        for i, ln in enumerate(lines):
+            y = pad + i * lh
+            if ln.startswith("Primary"):
+                d.rectangle((pad - 8, y - 6, pad + font.getlength(ln) + 8, y + lh - 8), fill=(236, 244, 248), outline=(22, 54, 201), width=3)
+            d.text((pad, y), ln, fill=(14, 26, 43), font=font)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    @app.get("/media/{name}.png")
+    def media_png(name: str):
+        if name == "gillette-item7":
+            if name not in rendered:
+                rendered[name] = _edgar_png()
+            return Response(rendered[name], media_type="image/png", headers={"Cache-Control": "max-age=3600"})
+        if name not in media:
+            return Response(status_code=404)
+        if name not in rendered:
+            file, page, lines, boxed, pad, *full = media[name]
+            path = DATA / "raw" / file
+            if not path.exists():
+                return Response(status_code=404)
+            rendered[name] = crop_png(path, page, lines, boxed, pad, bool(full and full[0]))
+        return Response(rendered[name], media_type="image/png", headers={"Cache-Control": "max-age=3600"})
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:

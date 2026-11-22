@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import html
 import io
+import threading
 from pathlib import Path
 
 import pdfplumber
@@ -19,6 +20,9 @@ from proofgraph.pipeline import PacketRun
 from proofgraph.schema import Assertion, PageQuote, RawOffsets, SourceManifest
 
 E = html.escape
+# pdfium (pdfplumber's renderer) is not thread-safe: concurrent renders abort the process (seen as exit 134
+# when a browser fetched four crops at once). Every page render goes through this lock.
+_RENDER = threading.Lock()
 
 REASON = {
     "equal": "compared: same amount, same currency, same basis",
@@ -195,8 +199,13 @@ def _source(a: Assertion, info, data: Path) -> str:
     return f'<pre class="raw">{E(before)}<mark>{E(cited)}</mark>{E(after)}</pre><figcaption>{cap}</figcaption>'
 
 
-def _pdf_crop(path: Path, page_no: int, lines: list[str]) -> str:
-    with pdfplumber.open(path) as pdf:
+def crop_png(path: Path, page_no: int, lines: list[str], boxed: bool = True, pad: tuple[int, int] = (56, 56),
+             full_width: bool = False) -> bytes:
+    """A real crop of a PDF page around `lines`, to the whole column, cited lines boxed if `boxed`.
+
+    Rendered at request time from the PDF in data/raw. Nothing is stored in the repository.
+    """
+    with _RENDER, pdfplumber.open(path) as pdf:
         page = pdf.pages[page_no - 1]
         hits = [h for line in lines for h in page.search(line.strip(), regex=False)[:1]]
         if not hits:
@@ -204,17 +213,21 @@ def _pdf_crop(path: Path, page_no: int, lines: list[str]) -> str:
         else:
             x0, x1 = min(h["x0"] for h in hits), max(h["x1"] for h in hits)
             top, bottom = min(h["top"] for h in hits), max(h["bottom"] for h in hits)
-            # crop to the whole column holding the block, so no visible word is cut at the edge
             mid = page.width / 2
-            left, right = (mid - 6, page.width - 24) if x0 >= mid - 20 else (24, mid + 6)
-            region = (max(0, min(left, x0 - 4)), max(0, top - 56), min(page.width, max(right, x1 + 4)), min(page.height, bottom + 56))
+            left, right = (24, page.width - 24) if full_width else ((mid - 6, page.width - 24) if x0 >= mid - 20 else (24, mid + 6))
+            region = (max(0, min(left, x0 - 4)), max(0, top - pad[0]), min(page.width, max(right, x1 + 4)), min(page.height, bottom + pad[1]))
         im = page.crop(region).to_image(resolution=144)
-        for h in hits:
-            im.draw_rect((h["x0"] - 2, h["top"] - 1.5, h["x1"] + 2, h["bottom"] + 1.5),
-                         fill=(207, 227, 238, 60), stroke=(22, 54, 201), stroke_width=3)
+        if boxed:
+            for h in hits:
+                im.draw_rect((h["x0"] - 2, h["top"] - 1.5, h["x1"] + 2, h["bottom"] + 1.5),
+                             fill=(207, 227, 238, 60), stroke=(22, 54, 201), stroke_width=3)
         buf = io.BytesIO()
         im.save(buf, format="PNG")
-    return base64.b64encode(buf.getvalue()).decode("ascii")
+    return buf.getvalue()
+
+
+def _pdf_crop(path: Path, page_no: int, lines: list[str]) -> str:
+    return base64.b64encode(crop_png(path, page_no, lines)).decode("ascii")
 
 
 # ---------------------------------------------------------------- helpers

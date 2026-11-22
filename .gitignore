@@ -13,3 +13,4 @@ runs/*.log
 data/raw/
 runs/
 notes/
+.taste-skill/
