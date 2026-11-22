@@ -166,7 +166,15 @@ class MappingMethod(str, Enum):
     POLICY_NUMBER = "policy_number"  # a written number normalised to the policy id used in slots
     LABEL = "label"  # the span names the slot part in its own words
     CROSS_REFERENCE = "cross_reference"  # identified through another document's span
-    ELIMINATION = "elimination"  # no span labels it; inferred from the other parts. Weakest.
+    JUDGMENT = "judgment"  # rests on reasoning or wording not in the packet; `reasoning` says what
+
+
+class RouteStrength(str, Enum):
+    """How a route is supported. A reviewer reads this per assertion, not only in the record."""
+
+    READ = "read"  # the cited span says it in its own words
+    DERIVED = "derived"  # a mechanical step over spans in the packet (cell position, number normalisation)
+    JUDGMENT = "judgment"  # an identification or meaning the packet does not state
 
 
 class MappingRecord(_Model):
@@ -178,8 +186,20 @@ class MappingRecord(_Model):
     cited: Citation
     position: int | None = Field(default=None, ge=1)  # CELL_POSITION only, 1-based
     produces: str  # the slot part this route yields
+    strength: RouteStrength
+    reasoning: str | None  # required when strength is judgment: the argument, written out
     justified_by: tuple[Citation, ...]
     note: str
+
+    @model_validator(mode="after")
+    def _check(self) -> MappingRecord:
+        if self.strength is RouteStrength.JUDGMENT and not self.reasoning:
+            raise ValueError(f"{self.mapping_id}: a judgment route must write out its reasoning")
+        if self.method is MappingMethod.JUDGMENT and self.strength is not RouteStrength.JUDGMENT:
+            raise ValueError(f"{self.mapping_id}: method judgment must have strength judgment")
+        if self.method is MappingMethod.LABEL and self.strength is not RouteStrength.READ and not self.reasoning:
+            raise ValueError(f"{self.mapping_id}: a label route weaker than read must say why")
+        return self
 
 
 class AssertionInput(_Model):
@@ -394,6 +414,12 @@ class Packet(_Model):
 # ---------------------------------------------------------------- assertions
 
 
+class RouteRef(_Model):
+    mapping_id: str
+    method: MappingMethod
+    strength: RouteStrength
+
+
 class InstrumentRef(_Model):
     """What precedence reads about the asserting instrument (D3 scope test)."""
 
@@ -415,7 +441,8 @@ class Assertion(_Model):
     amount: Amount
     basis: Basis | None
     basis_phrase: Citation | None
-    mapping_ids: tuple[str, ...]  # every route used to reach the slot
+    routes: tuple[RouteRef, ...]  # every route used to reach the slot
+    weakest: RouteStrength
 
 
 class InvalidAssertion(_Model):
@@ -472,6 +499,7 @@ class SlotVerdict(_Model):
     rules: tuple[RuleEvaluation, ...]
     governing_assertion: str | None
     unresolved_pairs: int  # counted in the eval (D6)
+    weakest_routes: tuple[RouteRef, ...]  # per assertion, in `assertions` order: what each one rests on
 
 
 # ---------------------------------------------------------------- evidence and verdicts

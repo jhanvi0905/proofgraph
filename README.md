@@ -12,7 +12,7 @@ The measure is reviewer trust: does the derivation let a reviewer check the answ
 |---|---|---|
 | supported | the governing evidence states the claim's value | **Partly.** The arbiter returns it at slot level when all asserters agree or a rule picks one. That path has run only in a synthetic counterfactual test, never on a real packet. Comparing against the claim is not built. |
 | contradicted | the governing evidence states a different value | **No.** Nothing compares a slot's governing value with a claim yet. |
-| documents disagree | two documents bind one slot differently, or cannot be compared, and no precedence rule picks one. Only an explicit `unresolved_conflict` rule produces it, never a fallback. | **Yes, on one real slot.** `pgrun verdict` on `FD960228.corp_reimbursement.retention` (family A). Its three assertions come from hand-labelled citations and routes in `data/mappings.json`, not yet from retrieval or model passes. |
+| documents disagree | two documents bind one slot differently, or cannot be compared, and no precedence rule picks one. Only an explicit `unresolved_conflict` rule produces it, never a fallback. | **Yes, on one real slot.** `pgrun verdict` on `FD960228.corp_reimbursement.retention` (family A). Its three assertions come from hand-labelled citations and routes in `data/mappings.json`, not yet from retrieval or model passes. Two of them rest on a **judgment** route, not a read ([DEFERRED.md](DEFERRED.md), route records). The verdict survives losing the cover note's I.B route. It does **not** survive losing Reliance's route to FD960228; both cases are tests. |
 | not found | no span addresses the claim, or the instrument that would govern it is not in the packet (`governing_instrument_absent`) | **No.** |
 
 There are two precedence rules, and each fires only between instruments issued under the policy the slot belongs to ([DECISIONS.md](DECISIONS.md) D3):
@@ -33,6 +33,7 @@ Rebuilding from scratch on this branch. What exists so far:
 - [`data/SOURCES.md`](data/SOURCES.md): the two document families, with everything recorded read from the files themselves.
 - [`data/predicates.json`](data/predicates.json): the closed predicate set, frozen as data.
 - [`DECISIONS.md`](DECISIONS.md): numbered design decisions; the arbiter cites them.
+- [`DEFERRED.md`](DEFERRED.md): what was found and deliberately left, with reasons.
 
 Dataset: 20 packets. 12 come from family A (Gillette 1996 D&O exhibit, the dev set), and 8 come from family B (ISO HO 00 03 04 91, a holdout run once at the end with no code changes after). n = 20 demonstrates the design. It does not estimate a rate.
 

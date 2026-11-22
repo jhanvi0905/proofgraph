@@ -73,7 +73,9 @@ def _print_assertion(a) -> None:
     print(f"  currency    {cur}")
     print(f"  basis       {basis}")
     print(f"  asserted by {a.instrument.doc_id} ({a.instrument.instrument_type.value}), binds {', '.join(a.instrument.policy_numbers)}, effective {a.instrument.effective_date}")
-    print(f"  routes      {', '.join(a.mapping_ids)}\n")
+    for r in a.routes:
+        print(f"  route       {r.strength.value.upper():8} {r.mapping_id} ({r.method.value})")
+    print(f"  rests on    {a.weakest.value.upper()}\n")
 
 
 def _cmd_assert(args: argparse.Namespace) -> None:
@@ -105,6 +107,9 @@ def _cmd_verdict(args: argparse.Namespace) -> None:
     print("rules")
     for r in v.rules:
         print(f"  {'FIRED' if r.fired else 'no   '} {r.name.value}: {r.reason}")
+    print("weakest route per assertion")
+    for aid, r in zip(v.assertions, v.weakest_routes):
+        print(f"  {r.strength.value.upper():8} {aid}: {r.mapping_id}")
     print(f"\nVERDICT  {v.verdict.value}   slot {v.slot}   unresolved pairs {v.unresolved_pairs}   governing {v.governing_assertion}")
 
 

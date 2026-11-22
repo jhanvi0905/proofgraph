@@ -25,6 +25,8 @@ from proofgraph.schema import (
     MappingMethod,
     MappingRecord,
     ParseFailure,
+    RouteRef,
+    RouteStrength,
     SourceText,
     TraceRecord,
 )
@@ -114,8 +116,16 @@ def _assert(inp, mappings, instrument, source, raw) -> Assertion | InvalidAssert
         amount=amount,
         basis=basis,
         basis_phrase=basis_phrase,
-        mapping_ids=tuple(inp.route_ids),
+        routes=tuple(RouteRef(mapping_id=r.mapping_id, method=r.method, strength=r.strength) for r in routes),
+        weakest=_weakest(routes),
     )
+
+
+_ORDER = [RouteStrength.READ, RouteStrength.DERIVED, RouteStrength.JUDGMENT]
+
+
+def _weakest(routes: list[MappingRecord]) -> RouteStrength:
+    return max((r.strength for r in routes), key=_ORDER.index)
 
 
 def _sub(c: Citation, rel_start: int, rel_end: int) -> Citation:

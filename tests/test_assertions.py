@@ -83,5 +83,23 @@ def test_three_asserters_one_slot_each_with_its_own_routes(env):
     assert (rel.amount.minor_units, rel.amount.currency.value, rel.basis.value) == (50_000_000, "USD", "each_loss")
     assert item7.amount.currency is None and item7.basis is None
     # no two asserters share a route
-    routes = [set(a.mapping_ids) for a in got.values()]
+    routes = [{r.mapping_id for r in a.routes} for a in got.values()]
     assert not (routes[0] & routes[1] or routes[0] & routes[2] or routes[1] & routes[2])
+
+
+def test_route_strength_is_on_each_assertion(env):
+    got = {i: _run(env, inp=INPUTS[i]) for i in INPUTS}
+    assert {i: a.weakest.value for i, a in got.items()} == {
+        "item7_primary_retention": "derived",
+        "cover_note_ib_retention": "judgment",
+        "reliance_corp_reimbursement_retention": "judgment",
+    }
+    judged = {r.mapping_id for a in got.values() for r in a.routes if r.strength.value == "judgment"}
+    assert judged == {"cover_ib_corp_reimbursement", "reliance_primary_carrier_to_fd960228"}
+
+
+def test_judgment_route_must_write_out_its_reasoning():
+    from pydantic import ValidationError
+    rec = next(r for r in MAPPINGS.records if r.mapping_id == "cover_ib_corp_reimbursement")
+    with pytest.raises(ValidationError):
+        type(rec).model_validate({**rec.model_dump(mode="json"), "reasoning": None})

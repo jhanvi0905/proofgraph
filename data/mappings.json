@@ -15,6 +15,8 @@
       },
       "position": null,
       "produces": "FD960228",
+      "strength": "derived",
+      "reasoning": null,
       "justified_by": [
         {
           "source_file": "gillette_10k405_1996.txt",
@@ -41,6 +43,8 @@
       },
       "position": 3,
       "produces": "corp_reimbursement.retention",
+      "strength": "derived",
+      "reasoning": null,
       "justified_by": [
         {
           "source_file": "gillette_10k405_1996.txt",
@@ -91,12 +95,14 @@
       },
       "position": null,
       "produces": "FD960228",
+      "strength": "read",
+      "reasoning": null,
       "justified_by": [],
       "note": "The cover note's own policy number. A route only so that every asserter's path to the policy part is written down."
     },
     {
       "mapping_id": "cover_ib_corp_reimbursement",
-      "method": "elimination",
+      "method": "judgment",
       "instrument_doc_id": "london_fd960228",
       "cited": {
         "source_file": "gillette_10k405_1996.txt",
@@ -108,6 +114,8 @@
       },
       "position": null,
       "produces": "corp_reimbursement.retention",
+      "strength": "judgment",
+      "reasoning": "In standard D&O wording, Insuring Clause I.B is the company reimbursement clause (Side B); I.A covers the directors and officers. This packet does not contain the GS-212C or FD960228 wording ('Manuscript Wording to be agreed by Underwriters'), so no span here labels I.B. What the packet does show is consistent with that reading: TYPE names exactly two coverages (D&O and company reimbursement), and the I.A line carries the D&O retentions. Consistency is not proof; the route rests on outside convention.",
       "justified_by": [
         {
           "source_file": "gillette_10k405_1996.txt",
@@ -134,7 +142,7 @@
           "text": "Oficers under Insuring Clause I.A."
         }
       ],
-      "note": "No span labels Insuring Clause I.B. TYPE names two coverages (D&O and company reimbursement), I.A carries the D&O retentions, so I.B is read as company reimbursement by elimination. 'Company' (cover note) and 'Corporate' (Reliance) are treated as the same coverage by this record, not by a rule. Weakest route on the slot."
+      "note": "Judgment, not a read: see reasoning. Weakest route on the cover note's assertion. If it breaks, the verdict still holds (test_unresolved_conflict_survives_without_the_cover_note_judgment_route)."
     },
     {
       "mapping_id": "reliance_corp_reimbursement_label",
@@ -150,6 +158,8 @@
       },
       "position": null,
       "produces": "corp_reimbursement.retention",
+      "strength": "read",
+      "reasoning": null,
       "justified_by": [
         {
           "source_file": "gillette_10k405_1996.txt",
@@ -176,6 +186,8 @@
       },
       "position": null,
       "produces": "FD960228",
+      "strength": "judgment",
+      "reasoning": "Reliance never writes FD960228. It names 'Primary Carrier: Lloyd's London' with limits of $20,000,000. Item VII names London twice, Primary 757/FD960228 ($10M) and 1st Excess 757/FD960229 ($10M). Taking Reliance's 'primary' to be FD960228 is a choice: Reliance may be describing both London layers as one $20M primary (see DEFERRED.md, London limits). The retention is attributed to FD960228 because Reliance's retention triple matches the primary's NIL/NIL structure, not because Reliance says so.",
       "justified_by": [
         {
           "source_file": "gillette_10k405_1996.txt",
@@ -186,7 +198,7 @@
           "text": "Primary      London    757/FD960228"
         }
       ],
-      "note": "Reliance never writes FD960228. It names 'Primary Carrier: Lloyd's London'; Item VII's Primary row names London 757/FD960228. Caution: Reliance gives that primary $20,000,000, while Item VII splits London into Primary $10M and 1st Excess $10M, so Reliance may be describing both London layers as one."
+      "note": "Judgment, not a read: see reasoning. The headline verdict depends on this route: without Reliance on the slot, the remaining asserters agree (test_unresolved_conflict_depends_on_the_reliance_judgment_route)."
     }
   ],
   "assertions": [

@@ -20,7 +20,7 @@ from __future__ import annotations
 from itertools import combinations
 
 from proofgraph.numbers import compare
-from proofgraph.schema import Assertion, InstrumentType, RuleEvaluation, RuleName, SlotVerdict, ValueComparison, Verdict
+from proofgraph.schema import Assertion, InstrumentType, RouteRef, RuleEvaluation, RuleName, SlotVerdict, ValueComparison, Verdict
 
 
 def arbitrate(slot: str, assertions: tuple[Assertion, ...]) -> SlotVerdict:
@@ -54,7 +54,12 @@ def arbitrate(slot: str, assertions: tuple[Assertion, ...]) -> SlotVerdict:
         assertions=tuple(a.assertion_id for a in on_slot),
         in_scope=tuple(a.assertion_id for a in in_scope),
         pairs=pairs, rules=tuple(rules), governing_assertion=governing, unresolved_pairs=unresolved,
+        weakest_routes=tuple(_weakest_route(a) for a in on_slot),
     )
+
+
+def _weakest_route(a: Assertion) -> RouteRef:
+    return next(r for r in a.routes if r.strength is a.weakest)
 
 
 def _endorsement_over_base(in_scope: tuple[Assertion, ...]) -> RuleEvaluation:
