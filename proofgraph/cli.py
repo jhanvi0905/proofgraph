@@ -211,6 +211,33 @@ def _cmd_passes(args: argparse.Namespace) -> None:
         print()
 
 
+def _cmd_fetch(args: argparse.Namespace) -> bool:
+    from proofgraph.fetch import fetch_sources
+
+    ok = True
+    for r in fetch_sources(_load_manifest(), DATA / "raw"):
+        print(f"  {r.status:14} {r.source_id:18} {r.detail}")
+        ok = ok and r.status in ("present", "downloaded")
+    return ok
+
+
+def _cmd_demo(args: argparse.Namespace) -> None:
+    """One command from a clean clone: fetch and hash-check sources, then the published trace."""
+    print("1. sources (fetched by pinned URL, refused unless the sha256 matches)")
+    _cmd_fetch(args)
+    manifest = _load_manifest()
+    gillette = next(s for s in manifest.sources if s.source_id == "gillette_ex10e")
+    if not (DATA / "raw" / gillette.file).exists():
+        print("\nThe Gillette filing is required for the demo; see the line above.")
+        return
+    print("\n2. verdict on the retention slot (citations hand-labelled, see README)\n")
+    _cmd_verdict(args)
+    print("\n3. retrieval recall@10 on labelled queries\n")
+    _cmd_recall(argparse.Namespace(sparse_only=False, trace=args.trace))
+    print("\n4. support and attack passes (replayed from data/recorded/model; no API key needed)\n")
+    _cmd_passes(args)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="pgrun")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -243,6 +270,11 @@ def main(argv: list[str] | None = None) -> None:
     ps = sub.add_parser("passes", help="support and attack passes on the retention atom, side by side (two model calls)")
     ps.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     ps.set_defaults(func=_cmd_passes)
+    ft = sub.add_parser("fetch", help="download sources by pinned URL and check their sha256")
+    ft.set_defaults(func=_cmd_fetch)
+    dm = sub.add_parser("demo", help="one command: fetch sources, then verdict, recall and passes")
+    dm.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
+    dm.set_defaults(func=_cmd_demo)
     args = parser.parse_args(argv)
     args.func(args)
 

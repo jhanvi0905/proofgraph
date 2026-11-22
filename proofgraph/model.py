@@ -27,8 +27,12 @@ from pathlib import Path
 
 MODEL = os.environ.get("PROOFGRAPH_MODEL", "claude-opus-5-5")
 CACHE_DIR = Path(os.environ.get("PROOFGRAPH_CACHE", Path(__file__).resolve().parent.parent / "cache" / "model"))
+# Responses committed to the repo, so a clean clone replays the published trace with no API key.
+# Same key scheme as CACHE_DIR; read-only.
+RECORDED_DIR = Path(__file__).resolve().parent.parent / "data" / "recorded" / "model"
 _FALLBACK_BETA = "server-side-fallback-2026-07-01"
 EMBED_MODEL = os.environ.get("PROOFGRAPH_EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+EMBED_REVISION = os.environ.get("PROOFGRAPH_EMBED_REVISION", "1110a243fdf4706b3f48f1d95db1a4f5529b4d41")  # pinned weights
 EMBED_CACHE = CACHE_DIR.parent / "embed"
 _encoder = None
 
@@ -58,8 +62,9 @@ def complete_json(prompt: str, schema: dict, *, system: str, template: str, effo
     key = hashlib.sha256(key_src.encode()).hexdigest()
     path = CACHE_DIR / f"{key}.json"
     ph = prompt_hash(template)
-    if path.exists():
-        c = json.loads(path.read_text(encoding="utf-8"))
+    hit = next((p for p in (path, RECORDED_DIR / f"{key}.json") if p.exists()), None)
+    if hit is not None:
+        c = json.loads(hit.read_text(encoding="utf-8"))
         return ModelReply(c["text"], c["model"], ph, c["input_tokens"], c["output_tokens"], 0, True)
 
     import anthropic
@@ -102,7 +107,7 @@ def embed(texts: list[str]):
     """
     import numpy as np
 
-    folder = EMBED_CACHE / EMBED_MODEL.replace("/", "__")
+    folder = EMBED_CACHE / f'{EMBED_MODEL.replace("/", "__")}@{EMBED_REVISION[:12]}'
     folder.mkdir(parents=True, exist_ok=True)
     keys = [hashlib.sha256(t.encode("utf-8")).hexdigest()[:24] for t in texts]
     out: list = [None] * len(texts)
@@ -121,7 +126,7 @@ def embed(texts: list[str]):
             # CPU, not Apple MPS: torch 2.15's MPS backend crashes on macOS 14.4
             # (MPSNDArray arrayViewWithShape:strides: unrecognized selector). CPU is
             # also deterministic, which the embedding cache relies on.
-            _encoder = SentenceTransformer(EMBED_MODEL, device="cpu")
+            _encoder = SentenceTransformer(EMBED_MODEL, device="cpu", revision=EMBED_REVISION)
         vecs = _encoder.encode([texts[i] for i in missing], normalize_embeddings=True, convert_to_numpy=True)
         for i, v in zip(missing, vecs):
             v = v.astype("float32")

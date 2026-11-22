@@ -291,6 +291,8 @@ class InstrumentLabel(_Model):
 class SourceLabel(_Model):
     source_id: str
     file: str
+    url: str | None  # where `pgrun fetch` downloads it from; None if it must be placed by hand
+    fetch_note: str  # how to obtain it, for a reader with a clean clone
     sha256_of_file: str
     extractor: Extractor
     edgar_type: str | None
