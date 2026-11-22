@@ -9,10 +9,15 @@ issued under the slot's policy, the slot's first segment (DECISIONS.md D3):
      form or cover note on the same slot.
   2. later_effective_date: among in-scope asserters, the later instrument
      effective date wins. This compares instrument dates, never coverage periods.
-If neither fires and some pair of asserters has different numerals (compared or not,
-D6), the result is unresolved_conflict, so documents_disagree. The arbiter
-refuses to pick a winner without a rule. If all values agree, the result is
-supported.
+Then, when no rule picked a governing assertion (D7):
+  - some pair's numerals differ (compared or not, D6): unresolved, documents_disagree;
+  - else some pair's numerals agree but currency or basis blocked the comparison:
+    unresolved, uncompared_agreement. A reader would otherwise draw an
+    agreement the arbiter never tested;
+  - else supported. That includes one assertion with no pairs: one document
+    states a value and nothing disputes it. A pair with no numeral (NIL) could
+    never have been compared, so it does not block supported;
+  - no assertions on the slot: not_found, no_addressing_span.
 """
 
 from __future__ import annotations
@@ -20,7 +25,10 @@ from __future__ import annotations
 from itertools import combinations
 
 from proofgraph.numbers import compare
-from proofgraph.schema import Assertion, InstrumentType, RouteRef, RuleEvaluation, RuleName, SlotVerdict, ValueComparison, Verdict
+from proofgraph.schema import (
+    Assertion, ComparisonReason, InstrumentType, NotFoundReason, RouteRef, RuleEvaluation, RuleName, SlotVerdict,
+    UnresolvedReason, ValueComparison, Verdict,
+)
 
 
 def arbitrate(slot: str, assertions: tuple[Assertion, ...]) -> SlotVerdict:
@@ -36,8 +44,14 @@ def arbitrate(slot: str, assertions: tuple[Assertion, ...]) -> SlotVerdict:
     governing = next((r.governing_assertion for r in rules if r.fired), None)
 
     conflicting = [p for p in pairs if p.value is ValueComparison.DIFFERENT]
+    untested = [p for p in pairs if not p.compared and p.value is ValueComparison.EQUAL
+                and p.reason is not ComparisonReason.NO_NUMERAL]
     unresolved = sum(1 for p in pairs if not p.compared)
-    if governing is not None:
+    unresolved_reason = None
+    not_found_reason = None
+    if not on_slot:
+        verdict, not_found_reason = Verdict.NOT_FOUND, NotFoundReason.NO_ADDRESSING_SPAN
+    elif governing is not None:
         verdict = Verdict.SUPPORTED  # slot-level: the governing value stands; claim comparison comes later
     elif conflicting:
         rules.append(RuleEvaluation(
@@ -45,7 +59,13 @@ def arbitrate(slot: str, assertions: tuple[Assertion, ...]) -> SlotVerdict:
             reason="; ".join(f"{p.a} vs {p.b}: {'compared, ' + p.detail if p.compared else 'not compared, ' + p.reason.value + ' (' + p.detail + ')'}"
                              for p in conflicting),
             governing_assertion=None))
-        verdict = Verdict.DOCUMENTS_DISAGREE
+        verdict, unresolved_reason = Verdict.UNRESOLVED, UnresolvedReason.DOCUMENTS_DISAGREE
+    elif untested:
+        rules.append(RuleEvaluation(
+            name=RuleName.UNTESTED_AGREEMENT, fired=True,
+            reason="; ".join(f"{p.a} vs {p.b}: numerals agree, not compared, {p.reason.value} ({p.detail})" for p in untested),
+            governing_assertion=None))
+        verdict, unresolved_reason = Verdict.UNRESOLVED, UnresolvedReason.UNCOMPARED_AGREEMENT
     else:
         verdict = Verdict.SUPPORTED
 
@@ -53,7 +73,8 @@ def arbitrate(slot: str, assertions: tuple[Assertion, ...]) -> SlotVerdict:
         slot=slot, verdict=verdict,
         assertions=tuple(a.assertion_id for a in on_slot),
         in_scope=tuple(a.assertion_id for a in in_scope),
-        pairs=pairs, rules=tuple(rules), governing_assertion=governing, unresolved_pairs=unresolved,
+        pairs=pairs, rules=tuple(rules), governing_assertion=governing,
+        unresolved_reason=unresolved_reason, not_found_reason=not_found_reason, unresolved_pairs=unresolved,
         weakest_routes=tuple(_weakest_route(a) for a in on_slot),
     )
 

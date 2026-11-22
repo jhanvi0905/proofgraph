@@ -34,3 +34,12 @@ The packet's only endorsements are Nos. 12 and 13, both to GS-212C (`data/instru
 The FD960228 cover note says USD 1,000,000 *each claim*. Reliance says $500,000 Corporate Reimbursement *each loss*. Item VII states no basis. Numbers compares only on equal currency and basis, so the comparator returns `mismatch` with its reason. It is never treated as an agreement and never dropped.
 The arbiter records every pair of asserters on a slot: `compared=false` plus the reason (`basis_mismatch: each_claim vs each_loss`, `currency_not_stated`). An uncompared pair on a slot with differing raw values is `unresolved_conflict`, so the verdict is `documents_disagree`, not `supported`. The eval counts these pairs separately as unresolved.
 **Why:** a mismatch nobody wrote down is a drop, and every earlier version of this conflict was lost to a silent drop. No lexicon entry makes "each loss" equal "each claim" unless a cited span supports it.
+
+## D7. `documents_disagree` becomes `unresolved`, with a reason (2026-11-22)
+
+Still four verdicts: supported, contradicted, unresolved, not found. `unresolved` carries a typed reason:
+- `documents_disagree`: the numerals differ and no rule picks one;
+- `uncompared_agreement`: the numerals agree, but currency or basis blocked the comparison, so the agreement was never tested.
+
+**Supported** means nothing contradicts the answer, and nothing that could have been compared was left uncompared. One assertion with no pairs is supported, the ordinary case. A pair with no numeral (NIL) could never be compared, so it does not block supported.
+**Why:** the counterfactual without Reliance returned `supported` on two assertions whose comparison was blocked by Item VII's unstated currency. A reader would draw an agreement the arbiter never tested. Nothing disagrees there, so it needs its own name, not `documents_disagree`.

@@ -1,4 +1,4 @@
-"""Arbiter on the retention slot: three assertions in, documents_disagree out, every pair recorded."""
+"""Arbiter on the retention slot: three assertions in, unresolved (documents_disagree) out, every pair recorded."""
 
 from __future__ import annotations
 
@@ -10,7 +10,9 @@ import pytest
 from proofgraph.arbiter import arbitrate
 from proofgraph.assertions import assert_one
 from proofgraph.ingest import ingest
-from proofgraph.schema import Assertion, ComparisonReason, MappingFile, RuleName, SourceManifest, ValueComparison, Verdict
+from proofgraph.schema import (
+    Assertion, ComparisonReason, MappingFile, RuleName, SourceManifest, UnresolvedReason, ValueComparison, Verdict,
+)
 from proofgraph.trace import memory_trace
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -52,9 +54,10 @@ def assertions():
     return tuple(assert_one(inp, m, insts[inp.instrument_doc_id], res.source, raw, memory_trace()) for inp in m.assertions)
 
 
-def test_retention_slot_is_documents_disagree(assertions):
+def test_retention_slot_is_unresolved_documents_disagree(assertions):
     v = arbitrate(SLOT, assertions)
-    assert v.verdict is Verdict.DOCUMENTS_DISAGREE and v.governing_assertion is None
+    assert (v.verdict, v.unresolved_reason) == (Verdict.UNRESOLVED, UnresolvedReason.DOCUMENTS_DISAGREE)
+    assert v.governing_assertion is None
     assert v.in_scope == ("cover_note_ib_retention",)
     fired = [r.name for r in v.rules if r.fired]
     assert fired == [RuleName.UNRESOLVED_CONFLICT]
@@ -77,7 +80,7 @@ def test_later_effective_date_flips_the_verdict_when_reliance_is_in_scope(assert
     moved = tuple(a.model_copy(update={"instrument": a.instrument.model_copy(update={"policy_numbers": ("FD960228",)})})
                   if a.assertion_id == "reliance_corp_reimbursement_retention" else a for a in assertions)
     v = arbitrate(SLOT, moved)
-    assert v.verdict is Verdict.SUPPORTED and arbitrate(SLOT, assertions).verdict is Verdict.DOCUMENTS_DISAGREE
+    assert v.verdict is Verdict.SUPPORTED and arbitrate(SLOT, assertions).verdict is Verdict.UNRESOLVED
     assert v.governing_assertion == "reliance_corp_reimbursement_retention"
     assert [r.name for r in v.rules if r.fired] == [RuleName.LATER_EFFECTIVE_DATE]
 
@@ -88,13 +91,35 @@ def test_unresolved_conflict_survives_without_the_cover_note_judgment_route(asse
     left = _assertions_with_broken("cover_ib_corp_reimbursement")
     assert {a.assertion_id for a in left} == {"item7_primary_retention", "reliance_corp_reimbursement_retention"}
     v = arbitrate(SLOT, left)
-    assert v.verdict is Verdict.DOCUMENTS_DISAGREE
+    assert (v.verdict, v.unresolved_reason) == (Verdict.UNRESOLVED, UnresolvedReason.DOCUMENTS_DISAGREE)
     assert [r.name for r in v.rules if r.fired] == [RuleName.UNRESOLVED_CONFLICT]
 
 
-def test_unresolved_conflict_depends_on_the_reliance_judgment_route(assertions):
-    """Break Reliance's route to FD960228: only Item VII and the cover note remain, their numerals agree,
-    and the verdict is no longer documents_disagree. The headline rests on this judgment route."""
+def test_without_reliance_the_slot_is_unresolved_not_supported(assertions):
+    """Break Reliance's route to FD960228: only Item VII and the cover note remain.
+
+    Their numerals agree (1,000,000), but Item VII states no currency, so the pair was
+    never compared. Up to commit be47202 this returned `supported`. Decision D7 changed it
+    on purpose, not to make a test pass: a reader seeing `supported` would infer an
+    agreement the arbiter never tested. So the verdict is unresolved with reason
+    uncompared_agreement. Nothing disagrees, so it is not documents_disagree, and it is a
+    relabel within the four verdicts, not a fifth.
+    The headline (documents_disagree) still rests on this judgment route: without it,
+    no document says $500,000."""
     left = _assertions_with_broken("reliance_primary_carrier_to_fd960228")
     assert {a.assertion_id for a in left} == {"item7_primary_retention", "cover_note_ib_retention"}
-    assert arbitrate(SLOT, left).verdict is Verdict.SUPPORTED
+    v = arbitrate(SLOT, left)
+    assert (v.verdict, v.unresolved_reason) == (Verdict.UNRESOLVED, UnresolvedReason.UNCOMPARED_AGREEMENT)
+    assert [r.name for r in v.rules if r.fired] == [RuleName.UNTESTED_AGREEMENT]
+
+
+def test_one_assertion_with_nothing_disputing_it_is_supported(assertions):
+    """The ordinary case D7 protects: one document states a value, no pairs, supported."""
+    cover = tuple(a for a in assertions if a.assertion_id == "cover_note_ib_retention")
+    v = arbitrate(SLOT, cover)
+    assert v.verdict is Verdict.SUPPORTED and v.pairs == ()
+
+
+def test_no_assertions_is_not_found():
+    v = arbitrate(SLOT, ())
+    assert v.verdict is Verdict.NOT_FOUND and v.not_found_reason.value == "no_addressing_span"

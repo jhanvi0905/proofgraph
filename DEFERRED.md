@@ -5,7 +5,12 @@ Items found and deliberately left. Each has the reason it waits. Line numbers re
 ## Found in the packet
 
 - **London's primary limit: $20M or two $10M layers.** Item VII (Endorsement 13) lists London twice: `Primary … 757/FD960228 … $10M` (line 1325) and `1st Excess … 757/FD960229 … $10M` (line 1326). The ACE binder's program table gives `London $20M Primary ($0/$0/$1M)` (line 1389). The Reliance binder gives `Primary Carrier: Lloyd's London` / `Limits of Liability: $20,000,000` (lines 1741–1742). This is a second conflict, on limits rather than retention: two documents treat London as one $20M primary, and the schedule splits it. *Deferred:* the retention verdict does not need it, and chasing it costs the family B run. It also weakens the route `reliance_primary_carrier_to_fd960228` (see that record).
-- **A fourth asserter on the retention slot.** The same ACE line (1389) states the primary retention as `($0/$0/$1M)`. It agrees with Item VII and the cover note, so the verdict does not change. It is still an unrecorded asserter on the headline slot. *Deferred:* recording it needs a route like Item VII's (position 3 of a composite cell, plus `London` → FD960228). Add it when the slot is next touched.
+- **A fourth asserter on the retention slot.** The same ACE line (1389) states the primary retention as `($0/$0/$1M)`. It agrees with Item VII and the cover note, so the verdict does not change. It is still an unrecorded asserter on the headline slot. *Deferred:* recording it needs a route like Item VII's (position 3 of a composite cell, plus `London` → FD960228). Add it when the slot is next touched. **It does double duty:** the same line is ACE's program table, so it is also a third statement on the London limits split above. Note that it sides with Reliance's $20M against Item VII's two $10M layers, so it adds to the conflict rather than settling it. Un-defer both together.
+
+## Must do before the family B run (not deferrable)
+
+- **Assertions reject PDF citations.** `assertions._check_citation` accepts only the `raw_file` layer, and the extent check needs `SourceText.file_offset`, which is None for PDFs. As written, every family B citation would be invalid. This is family A's shape built into code.
+- **The atomize prompt's worked example is FD960228.** A family A example in the prompt can steer the model on family B. Replace it with a neutral, invented example before the holdout run, or the run is not a clean transfer.
 
 ## Code
 

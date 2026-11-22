@@ -110,7 +110,8 @@ def _cmd_verdict(args: argparse.Namespace) -> None:
     print("weakest route per assertion")
     for aid, r in zip(v.assertions, v.weakest_routes):
         print(f"  {r.strength.value.upper():8} {aid}: {r.mapping_id}")
-    print(f"\nVERDICT  {v.verdict.value}   slot {v.slot}   unresolved pairs {v.unresolved_pairs}   governing {v.governing_assertion}")
+    why = v.unresolved_reason or v.not_found_reason
+    print(f"\nVERDICT  {v.verdict.value}{' (' + why.value + ')' if why else ''}   slot {v.slot}   unresolved pairs {v.unresolved_pairs}   governing {v.governing_assertion}")
 
 
 def main(argv: list[str] | None = None) -> None:

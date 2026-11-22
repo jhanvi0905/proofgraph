@@ -36,8 +36,14 @@ class _Model(BaseModel):
 class Verdict(str, Enum):
     SUPPORTED = "supported"
     CONTRADICTED = "contradicted"
-    DOCUMENTS_DISAGREE = "documents_disagree"
+    # Relabelled from documents_disagree (D7). Still four verdicts; the reason says which kind.
+    UNRESOLVED = "unresolved"
     NOT_FOUND = "not_found"
+
+
+class UnresolvedReason(str, Enum):
+    DOCUMENTS_DISAGREE = "documents_disagree"  # numerals differ and no rule picks one
+    UNCOMPARED_AGREEMENT = "uncompared_agreement"  # numerals agree, but currency or basis blocked the comparison
 
 
 class NotFoundReason(str, Enum):
@@ -53,9 +59,10 @@ class RuleName(str, Enum):
     # The two precedence rules pick a governing document.
     ENDORSEMENT_OVER_BASE = "endorsement_over_base"
     LATER_EFFECTIVE_DATE = "later_effective_date"
-    # Not a precedence rule: it names a conflict that neither rule above resolves.
-    # It is the only way documents_disagree can be produced.
+    # Not precedence rules. Each names why the slot stays unresolved; they are the
+    # only way `unresolved` can be produced, never a fallback.
     UNRESOLVED_CONFLICT = "unresolved_conflict"
+    UNTESTED_AGREEMENT = "untested_agreement"
 
 
 # ---------------------------------------------------------------- documents
@@ -498,6 +505,8 @@ class SlotVerdict(_Model):
     pairs: tuple[Comparison, ...]
     rules: tuple[RuleEvaluation, ...]
     governing_assertion: str | None
+    unresolved_reason: UnresolvedReason | None
+    not_found_reason: NotFoundReason | None
     unresolved_pairs: int  # counted in the eval (D6)
     weakest_routes: tuple[RouteRef, ...]  # per assertion, in `assertions` order: what each one rests on
 
@@ -540,7 +549,7 @@ class Rule(_Model):
 
     @model_validator(mode="after")
     def _check(self) -> Rule:
-        is_conflict = self.name is RuleName.UNRESOLVED_CONFLICT
+        is_conflict = self.name in (RuleName.UNRESOLVED_CONFLICT, RuleName.UNTESTED_AGREEMENT)
         if is_conflict != (self.governing_doc_id is None):
             raise ValueError("only unresolved_conflict has no governing document")
         return self
@@ -562,9 +571,9 @@ class Derivation(_Model):
     def _check(self) -> Derivation:
         if (self.verdict is Verdict.NOT_FOUND) != (self.not_found_reason is not None):
             raise ValueError("not_found_reason is set exactly when verdict is not_found")
-        names_conflict = any(r.name is RuleName.UNRESOLVED_CONFLICT for r in self.rules_fired)
-        if (self.verdict is Verdict.DOCUMENTS_DISAGREE) != names_conflict:
-            raise ValueError("documents_disagree appears exactly when a rule names a conflict")
+        names_conflict = any(r.name in (RuleName.UNRESOLVED_CONFLICT, RuleName.UNTESTED_AGREEMENT) for r in self.rules_fired)
+        if (self.verdict is Verdict.UNRESOLVED) != names_conflict:
+            raise ValueError("unresolved appears exactly when a rule names why")
         return self
 
 
