@@ -10,7 +10,7 @@ import pytest
 from proofgraph.arbiter import arbitrate
 from proofgraph.assertions import assert_one
 from proofgraph.ingest import ingest
-from proofgraph.schema import ComparisonReason, MappingFile, RuleName, SourceManifest, Verdict
+from proofgraph.schema import ComparisonReason, MappingFile, RuleName, SourceManifest, ValueComparison, Verdict
 from proofgraph.trace import memory_trace
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -54,7 +54,7 @@ def test_every_pair_is_recorded_with_its_reason(assertions):
     cr = by[frozenset(("cover_note_ib_retention", "reliance_corp_reimbursement_retention"))]
     assert (cr.compared, cr.reason, cr.detail) == (False, ComparisonReason.BASIS_MISMATCH, "each_claim vs each_loss")
     ic = by[frozenset(("item7_primary_retention", "cover_note_ib_retention"))]
-    assert (ic.compared, ic.reason, ic.raw_values_differ) == (False, ComparisonReason.CURRENCY_NOT_STATED, False)
+    assert (ic.compared, ic.reason, ic.value) == (False, ComparisonReason.CURRENCY_NOT_STATED, ValueComparison.EQUAL)
 
 
 def test_scope_is_what_stops_reliance_winning(assertions):

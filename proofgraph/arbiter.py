@@ -9,7 +9,7 @@ issued under the slot's policy, the slot's first segment (DECISIONS.md D3):
      form or cover note on the same slot.
   2. later_effective_date: among in-scope asserters, the later instrument
      effective date wins. This compares instrument dates, never coverage periods.
-If neither fires and some pair of asserters differs in value (compared or not,
+If neither fires and some pair of asserters has different numerals (compared or not,
 D6), the result is unresolved_conflict, so documents_disagree. The arbiter
 refuses to pick a winner without a rule. If all values agree, the result is
 supported.
@@ -20,7 +20,7 @@ from __future__ import annotations
 from itertools import combinations
 
 from proofgraph.numbers import compare
-from proofgraph.schema import Assertion, InstrumentType, RuleEvaluation, RuleName, SlotVerdict, Verdict
+from proofgraph.schema import Assertion, InstrumentType, RuleEvaluation, RuleName, SlotVerdict, ValueComparison, Verdict
 
 
 def arbitrate(slot: str, assertions: tuple[Assertion, ...]) -> SlotVerdict:
@@ -35,7 +35,7 @@ def arbitrate(slot: str, assertions: tuple[Assertion, ...]) -> SlotVerdict:
     rules = [r1, r2]
     governing = next((r.governing_assertion for r in rules if r.fired), None)
 
-    conflicting = [p for p in pairs if p.raw_values_differ]
+    conflicting = [p for p in pairs if p.value is ValueComparison.DIFFERENT]
     unresolved = sum(1 for p in pairs if not p.compared)
     if governing is not None:
         verdict = Verdict.SUPPORTED  # slot-level: the governing value stands; claim comparison comes later

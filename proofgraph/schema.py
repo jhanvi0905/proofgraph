@@ -426,7 +426,16 @@ class InvalidAssertion(_Model):
 # ---------------------------------------------------------------- comparison and slot verdicts
 
 
+class ValueComparison(str, Enum):
+    """Numerals only: currency tokens dropped, integers compared. Knows nothing about documents."""
+
+    EQUAL = "equal"
+    DIFFERENT = "different"
+    NOT_COMPARABLE = "not_comparable"  # at least one side has no numeral (NIL, unparseable)
+
+
 class ComparisonReason(str, Enum):
+    NO_NUMERAL = "no_numeral"
     EQUAL = "equal"
     DIFFERENT = "different"
     CURRENCY_NOT_STATED = "currency_not_stated"
@@ -443,7 +452,7 @@ class Comparison(_Model):
     compared: bool
     reason: ComparisonReason
     detail: str  # e.g. "each_claim vs each_loss"
-    raw_values_differ: bool  # minor units differ, whether or not the pair is comparable
+    value: ValueComparison  # numerals alone, whether or not currency and basis allow comparison
 
 
 class RuleEvaluation(_Model):

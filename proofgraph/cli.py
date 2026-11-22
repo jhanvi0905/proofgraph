@@ -100,7 +100,7 @@ def _cmd_verdict(args: argparse.Namespace) -> None:
     print("pairs")
     for p in v.pairs:
         state = "compared    " if p.compared else "NOT compared"
-        print(f"  {state} {p.a} vs {p.b}: {p.reason.value} ({p.detail}); values differ: {p.raw_values_differ}")
+        print(f"  {state} {p.a} vs {p.b}: {p.reason.value} ({p.detail}); values: {p.value.value}")
     print(f"in scope (issued under {SLOT.split('.')[0]}): {', '.join(v.in_scope) or 'none'}")
     print("rules")
     for r in v.rules:

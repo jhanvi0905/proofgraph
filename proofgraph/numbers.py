@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from proofgraph.schema import Amount, Assertion, Basis, Comparison, ComparisonReason, Currency, ParseFailure
+from proofgraph.schema import Amount, Assertion, Basis, Comparison, ComparisonReason, Currency, ParseFailure, ValueComparison
 
 _CURRENCY = [  # (pattern, currency); first match wins
     (re.compile(r"^\s*(?:US\$|USD\s*|\$)"), Currency.USD),
@@ -18,6 +18,33 @@ _CURRENCY = [  # (pattern, currency); first match wins
 _NIL_RE = re.compile(r"^(nil|none|zero)$", re.I)
 _NUM_RE = re.compile(r"^(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,2}))?\s*(m|mm|million|k|thousand|b|billion)?$", re.I)
 _SCALE = {"m": 6, "mm": 6, "million": 6, "k": 3, "thousand": 3, "b": 9, "billion": 9}
+
+
+_CURRENCY_TOKEN_RE = re.compile(r"US\$|USD|\$")
+
+
+def numeral(text: str) -> int | None:
+    """The amount written in `text` as integer minor units, with currency tokens dropped.
+
+    Returns None when there is no numeral: NIL, words, or anything the rule table
+    does not cover. The same rules apply to every document.
+    """
+    m = _NUM_RE.match(_CURRENCY_TOKEN_RE.sub("", text).strip())
+    if m is None:
+        return None
+    whole, frac, scale = m.group(1).replace(",", ""), m.group(2) or "", (m.group(3) or "").lower()
+    exp = _SCALE.get(scale, 0)
+    if exp and len(frac) > exp:
+        return None
+    return int(whole + frac) * 10 ** (exp + 2 - len(frac))  # integer arithmetic only
+
+
+def compare_values(a: str, b: str) -> ValueComparison:
+    """Equal or different on numerals alone; not_comparable if either side has none."""
+    na, nb = numeral(a), numeral(b)
+    if na is None or nb is None:
+        return ValueComparison.NOT_COMPARABLE
+    return ValueComparison.EQUAL if na == nb else ValueComparison.DIFFERENT
 
 
 def parse_amount(raw: str) -> Amount | ParseFailure:
@@ -78,12 +105,14 @@ def compare(a: Assertion, b: Assertion) -> Comparison:
     """
     ca, cb = a.amount.currency, b.amount.currency
     ba, bb = a.basis, b.basis
-    differ = a.amount.minor_units != b.amount.minor_units
+    value = compare_values(a.value.text, b.value.text)
 
     def out(compared: bool, reason: ComparisonReason, detail: str) -> Comparison:
         return Comparison(a=a.assertion_id, b=b.assertion_id, compared=compared, reason=reason,
-                          detail=detail, raw_values_differ=differ)
+                          detail=detail, value=value)
 
+    if value is ValueComparison.NOT_COMPARABLE:
+        return out(False, ComparisonReason.NO_NUMERAL, f"{a.value.text!r} vs {b.value.text!r}")
     if ca is None or cb is None:
         missing = [x.assertion_id for x, c in ((a, ca), (b, cb)) if c is None]
         return out(False, ComparisonReason.CURRENCY_NOT_STATED, f"not stated by {', '.join(missing)}")
@@ -94,5 +123,5 @@ def compare(a: Assertion, b: Assertion) -> Comparison:
         return out(False, ComparisonReason.BASIS_NOT_STATED, f"not stated by {', '.join(missing)}")
     if ba is not bb:
         return out(False, ComparisonReason.BASIS_MISMATCH, f"{ba.value} vs {bb.value}")
-    return out(True, ComparisonReason.DIFFERENT if differ else ComparisonReason.EQUAL,
-               f"{a.amount.minor_units} vs {b.amount.minor_units} minor units")
+    return out(True, ComparisonReason.DIFFERENT if value is ValueComparison.DIFFERENT else ComparisonReason.EQUAL,
+               f"{a.value.text!r} vs {b.value.text!r}")
