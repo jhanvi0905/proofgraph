@@ -26,6 +26,32 @@ When neither rule fires, the arbiter refuses to pick a winner. In family A, the 
 grep '"stage": "arbiter"' runs/trace.jsonl | grep -o '"rejects": \[[^]]*\]\|"verdict": "[a-z_]*"'
 ```
 
+## What the model gets wrong, and what the system does about it
+
+The model reads and proposes; code decides. Each row is a way a language model fails on this task, and the change that makes the failure visible or impossible.
+
+**Observed in runs on this packet**
+
+| Failure | Evidence | Response | Status |
+|---|---|---|---|
+| **Coerces a phrase into the nearest allowed value.** Given "each claim", atomize returned the basis `any_one_claim`, silently treating two bases as one. | first atomize run | Bases on evidence are read by code from the cited text. `each_claim` and `each_loss` stay distinct, and no equivalence is allowed without a cited span ([D6](DECISIONS.md)). | Evidence side done; the claim side still takes the model's enum ([DEFERRED](DEFERRED.md)) |
+| **Copies vocabulary from its prompt examples.** With a family-A example, the slot came back as `corp_reimbursement`, matching the example. After the example changed, the same claim gave `corporate_reimbursement`. | atomize runs before and after `e46957a` | Examples are outside insurance, so they teach the format, not the holdout's words. A test checks that model-facing text holds no packet's literals. | Done |
+| **Names the same thing differently from run to run.** The slot drift above means an exact match between a claim and its evidence would silently miss. | same runs | Logged, not yet fixed: needs slot resolution that does not trust the model's spelling. | Open |
+| **States an interpretation as if it were a reading.** The passes wrote "Insuring Clause I.B (company reimbursement)" and "the third figure is the company reimbursement retention". The packet says neither. | `pgrun passes`, `bc3a413` | Every route to a slot has a strength: read, derived or judgment. A judgment must write out its reasoning, and the report shows the weakest route each assertion rests on. | Done for routes; pass readings get the same treatment when evidence becomes assertions |
+
+**Designed against before it could happen**
+
+| Failure | Response |
+|---|---|
+| Arithmetic or unit errors | The model never compares numbers. Code parses amounts to integer minor units and compares integers; `NIL` is not comparable rather than zero. |
+| Paraphrased or invented quotes | The quote must occur exactly once in the span; code builds the citation from the span's position, and one verifier checks it against the file. One repair, then the pass fails. So far: 0 rejects in 4 quotes. |
+| Citing a passage it was not given | Span ids are an enum in the output schema, and an id outside the input is a hard failure. |
+| The attack pass anchoring on the support pass | Separate prompts, and attack never sees support's output (tested). |
+| Forcing a claim into the nearest predicate | "No predicate fits" is an outcome, not a repair target. |
+| Filling a field it cannot source | A field with no source is "not stated", never filled ([D1](DECISIONS.md)). |
+| Picking a winner when documents disagree | The arbiter has no model in it. The answer stays `unresolved` unless a precedence rule, scoped to the slot's policy, fires. Counterfactual tests show each rule can flip a verdict. |
+| Run-to-run variation | Current models reject `temperature`. Instead, the prompt template's hash is in the trace and every response is cached, so a rerun replays exactly. |
+
 ## Status
 
 Rebuilding from scratch on this branch. What exists so far:
