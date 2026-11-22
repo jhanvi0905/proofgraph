@@ -209,11 +209,11 @@ def admit(instruments: tuple[Instrument, ...], mappings: DocumentMappingFile, po
             continue
         loc = route.citation.locator
         if isinstance(loc, PageQuote):
-            block = _clip_to_block(inst, loc.page, route.citation.text)
-            if block is None:
-                excluded.append(f"{m.doc_id}: scope block not found within one extracted passage on page {loc.page}")
+            pieces = _clip_to_block(inst, loc.page, route.citation.text)
+            if not pieces:
+                excluded.append(f"{m.doc_id}: scope block not found exactly once in the extracted text of page {loc.page}")
                 continue
-            admitted.append(inst.model_copy(update={"spans": (block,)}))
+            admitted.append(inst.model_copy(update={"spans": pieces}))
             routes.append((m.doc_id, route))
             continue
         assert isinstance(loc, RawOffsets)
@@ -248,16 +248,41 @@ def admit(instruments: tuple[Instrument, ...], mappings: DocumentMappingFile, po
 
 
 def _clip_to_block(inst: Instrument, page: int, block: str):
-    """The extracted passage on `page` cut to exactly the scope block (whitespace may differ, words may not)."""
+    """The extracted passages on `page` that lie inside the scope block, each clipped to its in-block part.
+
+    A block can span several passages (ingest splits a numbered list at each item), so it is
+    matched across the page's passages in reading order. Whitespace may differ; words may not.
+    The match must occur exactly once. Returns None if it does not.
+    """
     from proofgraph.schema import span_id_for
 
-    words = block.split()
-    pat = re.compile(r"\s+".join(re.escape(w) for w in words))
-    found = [(sp, m) for sp in inst.spans if sp.page == page for m in pat.finditer(sp.text)]
+    on_page = sorted((sp for sp in inst.spans if sp.page == page), key=lambda sp: sp.start)
+    joined, ranges, pos = [], [], 0
+    for sp in on_page:
+        ranges.append((pos, pos + len(sp.text)))
+        joined.append(sp.text)
+        pos += len(sp.text) + 1
+    text = "\n".join(joined)
+    pat = re.compile(r"\s+".join(re.escape(w) for w in block.split()))
+    found = list(pat.finditer(text))
     if len(found) != 1:
         return None
-    sp, m = found[0]
-    a, b = sp.start + m.start(), sp.start + m.end()
-    text = sp.text[m.start():m.end()]
-    return sp.model_copy(update={"start": a, "end": b, "text": text,
-                                 "span_id": span_id_for(sp.doc_id, sp.version, text, a, b), "bbox": None})
+    m = found[0]
+    out = []
+    for sp, (lo, hi) in zip(on_page, ranges):
+        a, b = max(lo, m.start()), min(hi, m.end())
+        if a >= b:
+            continue
+        ra, rb = a - lo, b - lo
+        while ra < rb and sp.text[ra].isspace():
+            ra += 1
+        while rb > ra and sp.text[rb - 1].isspace():
+            rb -= 1
+        if ra >= rb:
+            continue
+        piece = sp.text[ra:rb]
+        start, end = sp.start + ra, sp.start + rb
+        out.append(sp if (ra, rb) == (0, len(sp.text)) else sp.model_copy(update={
+            "start": start, "end": end, "text": piece,
+            "span_id": span_id_for(sp.doc_id, sp.version, piece, start, end), "bbox": None}))
+    return tuple(out)

@@ -277,6 +277,85 @@ def _cmd_derive(args: argparse.Namespace) -> None:
     print("MOVED" if why(v) != why(hand) else "verdict unchanged", "(same verdict, different evidence)" if why(v) == why(hand) and len(v.assertions) != len(hand.assertions) else "")
 
 
+def _cmd_familyb(args: argparse.Namespace) -> None:
+    """The family B transfer run: every labelled packet, scored against labels committed before the run.
+
+    Orchestration only. The frozen passes take one source file, so admission, retrieval and the
+    passes run once per source in the packet, and the arbiter sees the union of assertions.
+    --dry-run stops before any model call and prints what each packet would admit.
+    """
+    import json as _json
+
+    from proofgraph.assertions import assert_from_evidence
+
+    fb = DATA / "family_b"
+    labels = _json.loads((fb / "labels.json").read_text(encoding="utf-8"))
+    claims = {c.claim_id: c for c in load_claims(fb / "claims.json", fb / "slots.json")}
+    mappings = DocumentMappingFile.model_validate_json((fb / "document_mappings.json").read_text(encoding="utf-8"))
+    manifest = _load_manifest()
+    by_doc = {i.doc_id: s for s in manifest.sources for i in s.instruments}
+    trace = Trace(Path(args.trace))
+    norm = lambda t: " ".join(t.split())
+    rows = []
+    for pk in labels["packets"]:
+        claim = claims[pk["claim_id"]]
+        policy = claim.slot.split(".", 1)[0]
+        atom = None
+        if not args.dry_run:
+            res = atomize(claim, load_predicate_set(DATA / "predicates.json"), trace)
+            if not res.atoms:
+                rows.append((pk, None, [], f"atomize failed: {[e.code.value for e in res.errors]}"))
+                continue
+            atom = res.atoms[0]
+        evidence, assertions, notes = [], [], []
+        for doc in pk["instruments"]:
+            label = by_doc[doc]
+            ingested = ingest(label, DATA / "raw")
+            src = open_source(DATA / "raw" / label.file)
+            insts = tuple(i for i in ingested.instruments if i.doc_id == doc)
+            admitted, routes = admit(insts, mappings, policy, src, trace, ingested.source.extractor)
+            notes.append(f"{doc}: {sum(len(i.spans) for i in admitted)} passage(s) admitted")
+            if args.dry_run or not admitted:
+                continue
+            r = retrieve(atom, admitted, trace, embed=embed)
+            for res in (support(atom, r, admitted, routes, src, trace), attack(atom, r, admitted, routes, src, trace)):
+                if res.failed:
+                    notes.append(f"{doc} {res.side.value} FAILED: {res.errors}")
+                for e in res.evidence:
+                    evidence.append(e)
+                    a = assert_from_evidence(e, admitted[0], claim.slot, trace)
+                    if isinstance(a, Assertion):
+                        assertions.append(a)
+                    else:
+                        notes.append(f"{doc}: invalid assertion: {a.reason}")
+        if args.dry_run:
+            rows.append((pk, None, [], "; ".join(notes)))
+            continue
+        v = arbitrate(claim.slot, tuple(assertions))
+        trace.write(TraceRecord(stage="arbiter", packet_id=pk["packet_id"], atom_id=claim.slot, span_ids=(), model=None,
+                                prompt_hash=None, input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False,
+                                verdict=v.verdict, rejects=(), repairs=0, detail=v.to_json()))
+        cited = [g for g in pk["gold"] if any(e.doc_id == g["doc_id"] and norm(g["line"]) in norm(e.citation.text) for e in evidence)]
+        rows.append((pk, v, cited, "; ".join(notes)))
+
+    print(f"{'packet':24} {'expected':48} {'got':48} {'match':5} gold")
+    hits = 0
+    for pk, v, cited, note in rows:
+        ex = pk["expected"]
+        exp = f"{ex['verdict']} ({ex['reason']}{', ' + ex['rule'] + ' -> ' + ex['governing_doc_id'] if ex['rule'] else ''})"
+        if v is None:
+            print(f"{pk['packet_id']:24} {exp:48} {'(dry run)' if args.dry_run else 'FAILED':48} {'-':5} {note}")
+            continue
+        reason = v.supported_reason or v.unresolved_reason or v.not_found_reason
+        got = f"{v.verdict.value} ({reason.value if reason else '-'}{', ' + v.governing_rule.value + ' -> ' + str(v.governing_doc_id) if v.governing_rule else ''})"
+        ok = (v.verdict.value, reason.value if reason else None, v.governing_rule.value if v.governing_rule else None,
+              v.governing_doc_id) == (ex["verdict"], ex["reason"], ex["rule"], ex["governing_doc_id"])
+        hits += ok
+        print(f"{pk['packet_id']:24} {exp:48} {got:48} {'yes' if ok else 'NO':5} {len(cited)}/{len(pk['gold'])}  {note}")
+    if not args.dry_run:
+        print(f"\nverdict matches label: {hits}/{len(rows)} packets")
+
+
 def _cmd_fetch(args: argparse.Namespace) -> bool:
     from proofgraph.fetch import fetch_sources
 
@@ -339,6 +418,10 @@ def main(argv: list[str] | None = None) -> None:
     dv = sub.add_parser("derive", help="the verdict from the pipeline's own evidence, beside the hand-labelled one")
     dv.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     dv.set_defaults(func=_cmd_derive)
+    fbp = sub.add_parser("familyb", help="the family B transfer run, scored against the preregistered labels")
+    fbp.add_argument("--dry-run", action="store_true", help="admission only, no model calls")
+    fbp.add_argument("--trace", default=str(ROOT / "runs" / "familyb_trace.jsonl"))
+    fbp.set_defaults(func=_cmd_familyb)
     ft = sub.add_parser("fetch", help="download sources by pinned URL and check their sha256")
     ft.set_defaults(func=_cmd_fetch)
     dm = sub.add_parser("demo", help="one command: fetch sources, then verdict, recall and passes")

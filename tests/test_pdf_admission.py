@@ -101,3 +101,19 @@ def test_retrieval_over_a_single_admitted_passage_finds_it(env):
 def test_retrieval_over_no_passages_is_empty_not_an_error():
     r = retrieve(ATOM, (), memory_trace())
     assert r.hits == () and r.candidates == 0
+
+
+def test_a_multi_item_block_admits_each_item_inside_it_and_nothing_else():
+    """Ingest splits a numbered list at each item; a block scope must be matched across those chunks."""
+    fb = DocumentMappingFile.model_validate_json((ROOT / "data" / "family_b" / "document_mappings.json").read_text())
+    for src_id, doc, first_items in (("iso_ho0003_0491", "ho_00_03", ["1.", "2.", "3.", "4.", "5.", "6.", "7."]),
+                                     ("iso_ho0015_0491", "ho_00_15", ["5.", "6.", "7."])):
+        label = next(s for s in SourceManifest.model_validate_json((ROOT / "data" / "instruments.json").read_text()).sources
+                     if s.source_id == src_id)
+        if not (RAW / label.file).exists():
+            pytest.skip(f"{label.file} absent")
+        res = ingest(label, RAW)
+        insts, _ = admit(res.instruments, fb, "SPECIMEN-HO3", open_source(RAW / label.file), memory_trace(), res.source.extractor)
+        [inst] = insts
+        assert [sp.text.split()[0] for sp in inst.spans] == first_items, doc
+        assert all(sp.page == 2 for sp in inst.spans)
