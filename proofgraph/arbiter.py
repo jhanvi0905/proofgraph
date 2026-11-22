@@ -27,7 +27,7 @@ from itertools import combinations
 from proofgraph.numbers import compare
 from proofgraph.schema import (
     Assertion, ComparisonReason, InstrumentType, NotFoundReason, RouteRef, RuleEvaluation, RuleName, SlotVerdict,
-    UnresolvedReason, ValueComparison, Verdict,
+    SupportedReason, UnresolvedReason, ValueComparison, Verdict,
 )
 
 
@@ -41,7 +41,8 @@ def arbitrate(slot: str, assertions: tuple[Assertion, ...]) -> SlotVerdict:
     r2 = _later_effective_date(in_scope) if not r1.fired else RuleEvaluation(
         name=RuleName.LATER_EFFECTIVE_DATE, fired=False, reason="not evaluated: rule 1 fired", governing_assertion=None)
     rules = [r1, r2]
-    governing = next((r.governing_assertion for r in rules if r.fired), None)
+    fired = next((r for r in rules if r.fired), None)
+    governing = fired.governing_assertion if fired else None
 
     conflicting = [p for p in pairs if p.value is ValueComparison.DIFFERENT]
     untested = [p for p in pairs if not p.compared and p.value is ValueComparison.EQUAL
@@ -49,10 +50,15 @@ def arbitrate(slot: str, assertions: tuple[Assertion, ...]) -> SlotVerdict:
     unresolved = sum(1 for p in pairs if not p.compared)
     unresolved_reason = None
     not_found_reason = None
+    supported_reason = None
     if not on_slot:
         verdict, not_found_reason = Verdict.NOT_FOUND, NotFoundReason.NO_ADDRESSING_SPAN
     elif governing is not None:
-        verdict = Verdict.SUPPORTED  # slot-level: the governing value stands; claim comparison comes later
+        # A rule picked a winner. Say whether it had anything to decide: a disagreement it
+        # resolved, or agreement it merely ordered. Only the first shows the system deciding.
+        had_conflict = any(p.value is ValueComparison.DIFFERENT or not p.compared for p in pairs)
+        verdict = Verdict.SUPPORTED
+        supported_reason = SupportedReason.RESOLVED_BY_RULE if had_conflict else SupportedReason.NO_CONFLICT
     elif conflicting:
         rules.append(RuleEvaluation(
             name=RuleName.UNRESOLVED_CONFLICT, fired=True,
@@ -67,13 +73,16 @@ def arbitrate(slot: str, assertions: tuple[Assertion, ...]) -> SlotVerdict:
             governing_assertion=None))
         verdict, unresolved_reason = Verdict.UNRESOLVED, UnresolvedReason.UNCOMPARED_AGREEMENT
     else:
-        verdict = Verdict.SUPPORTED
+        verdict, supported_reason = Verdict.SUPPORTED, SupportedReason.NO_CONFLICT
 
     return SlotVerdict(
         slot=slot, verdict=verdict,
         assertions=tuple(a.assertion_id for a in on_slot),
         in_scope=tuple(a.assertion_id for a in in_scope),
         pairs=pairs, rules=tuple(rules), governing_assertion=governing,
+        supported_reason=supported_reason,
+        governing_doc_id=next((a.instrument.doc_id for a in on_slot if a.assertion_id == governing), None),
+        governing_rule=fired.name if governing is not None else None,
         unresolved_reason=unresolved_reason, not_found_reason=not_found_reason, unresolved_pairs=unresolved,
         weakest_routes=tuple(_weakest_route(a) for a in on_slot),
     )

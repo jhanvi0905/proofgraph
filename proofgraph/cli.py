@@ -101,6 +101,14 @@ def _cmd_assert(args: argparse.Namespace) -> None:
 SLOT = "FD960228.corp_reimbursement.retention"
 
 
+def _verdict_line(v) -> str:
+    """supported says whether a rule decided it, and which instrument governs."""
+    if v.supported_reason is not None and v.supported_reason.value == "resolved_by_rule":
+        return f"supported (resolved_by_rule: {v.governing_rule.value}, governing instrument {v.governing_doc_id})"
+    why = v.supported_reason or v.unresolved_reason or v.not_found_reason
+    return f"{v.verdict.value}{' (' + why.value + ')' if why else ''}"
+
+
 def _cmd_verdict(args: argparse.Namespace) -> None:
     trace = Trace(Path(args.trace))
     results = _load_assertions(trace)
@@ -125,8 +133,7 @@ def _cmd_verdict(args: argparse.Namespace) -> None:
     print("weakest route per assertion")
     for aid, r in zip(v.assertions, v.weakest_routes):
         print(f"  {r.strength.value.upper():8} {aid}: {r.mapping_id}")
-    why = v.unresolved_reason or v.not_found_reason
-    print(f"\nVERDICT  {v.verdict.value}{' (' + why.value + ')' if why else ''}   slot {v.slot}   unresolved pairs {v.unresolved_pairs}   governing {v.governing_assertion}")
+    print(f"\nVERDICT  {_verdict_line(v)}   slot {v.slot}   unresolved pairs {v.unresolved_pairs}   governing {v.governing_assertion}")
 
 
 def _labelled_spans(instruments) -> dict[str, str]:
@@ -261,7 +268,7 @@ def _cmd_derive(args: argparse.Namespace) -> None:
         input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False, verdict=v.verdict,
         rejects=tuple(f"{p.a}~{p.b}:{p.reason.value}" for p in v.pairs if not p.compared), repairs=0, detail=v.to_json(),
     ))
-    why = lambda x: f"{x.verdict.value}{' (' + (x.unresolved_reason or x.not_found_reason).value + ')' if (x.unresolved_reason or x.not_found_reason) else ''}"
+    why = _verdict_line
     print("\nrules")
     for r in v.rules:
         print(f"  {'FIRED' if r.fired else 'no   '} {r.name.value}: {r.reason[:150]}")

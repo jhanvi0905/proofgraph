@@ -42,6 +42,11 @@ class Verdict(str, Enum):
     NOT_FOUND = "not_found"
 
 
+class SupportedReason(str, Enum):
+    NO_CONFLICT = "no_conflict"  # nothing disagrees: one asserter, or all agree and were compared
+    RESOLVED_BY_RULE = "resolved_by_rule"  # asserters disagree (or could not be compared) and a precedence rule picked one
+
+
 class UnresolvedReason(str, Enum):
     DOCUMENTS_DISAGREE = "documents_disagree"  # numerals differ and no rule picks one
     UNCOMPARED_AGREEMENT = "uncompared_agreement"  # numerals agree, but currency or basis blocked the comparison
@@ -628,6 +633,9 @@ class SlotVerdict(_Model):
     pairs: tuple[Comparison, ...]
     rules: tuple[RuleEvaluation, ...]
     governing_assertion: str | None
+    supported_reason: SupportedReason | None
+    governing_doc_id: str | None  # the instrument whose value governs, when a rule picked one
+    governing_rule: RuleName | None
     unresolved_reason: UnresolvedReason | None
     not_found_reason: NotFoundReason | None
     unresolved_pairs: int  # counted in the eval (D6)

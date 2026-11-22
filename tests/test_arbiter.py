@@ -83,6 +83,9 @@ def test_later_effective_date_flips_the_verdict_when_reliance_is_in_scope(assert
     v = arbitrate(SLOT, moved)
     assert v.verdict is Verdict.SUPPORTED and arbitrate(SLOT, assertions).verdict is Verdict.UNRESOLVED
     assert v.governing_assertion == "reliance_corp_reimbursement_retention"
+    # a decision, not an absence of disagreement: the reason, the rule and the instrument are named
+    assert v.supported_reason.value == "resolved_by_rule"
+    assert v.governing_rule is RuleName.LATER_EFFECTIVE_DATE and v.governing_doc_id == "reliance_binder"
     assert [r.name for r in v.rules if r.fired] == [RuleName.LATER_EFFECTIVE_DATE]
 
 
@@ -119,8 +122,25 @@ def test_one_assertion_with_nothing_disputing_it_is_supported(assertions):
     cover = tuple(a for a in assertions if a.assertion_id == "cover_note_ib_retention")
     v = arbitrate(SLOT, cover)
     assert v.verdict is Verdict.SUPPORTED and v.pairs == ()
+    assert v.supported_reason.value == "no_conflict" and v.governing_rule is None and v.governing_doc_id is None
 
 
 def test_no_assertions_is_not_found():
     v = arbitrate(SLOT, ())
     assert v.verdict is Verdict.NOT_FOUND and v.not_found_reason.value == "no_addressing_span"
+
+
+
+def test_a_rule_that_only_orders_agreeing_values_is_not_a_decision(assertions):
+    """Two in-scope asserters with the same value and different dates: rule 2 picks the later one,
+    but there was nothing to resolve, so the reason stays no_conflict."""
+    import datetime as dt
+
+    cover = next(a for a in assertions if a.assertion_id == "cover_note_ib_retention")
+    later = cover.model_copy(update={
+        "assertion_id": "cover_note_restated",
+        "instrument": cover.instrument.model_copy(update={"doc_id": "restated", "effective_date": dt.date(1996, 12, 1)}),
+    })
+    v = arbitrate(SLOT, (cover, later))
+    assert v.verdict is Verdict.SUPPORTED and v.governing_rule is RuleName.LATER_EFFECTIVE_DATE
+    assert v.supported_reason.value == "no_conflict"
