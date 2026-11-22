@@ -416,6 +416,31 @@ class AtomizeResult(_Model):
     repairs: int  # 0 or 1
 
 
+# ---------------------------------------------------------------- retrieval
+
+
+class RetrievalHit(_Model):
+    rank: int = Field(ge=1)
+    span_id: str
+    doc_id: str
+    page: int
+    section_path: tuple[str, ...]
+    bm25_rank: int | None
+    dense_rank: int | None
+    term_rank: int | None  # rank in the defined-term list, if the span holds a defined term from the query
+    rrf: float  # reciprocal rank fusion score, k = 60; ranks are comparable, raw scores are not
+
+
+class RetrievalResult(_Model):
+    atom_id: str
+    query_terms: tuple[str, ...]  # stored so a miss can be traced to a wrong query first
+    hits: tuple[RetrievalHit, ...]
+    candidates: int  # spans searched after dedupe
+    deduped: int  # spans dropped as duplicates of another span's text
+    capped: int  # spans dropped by the per-document cap
+    dense: bool  # whether a dense ranking took part
+
+
 # ---------------------------------------------------------------- trace
 
 

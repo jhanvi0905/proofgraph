@@ -7,6 +7,7 @@ from pathlib import Path
 
 from proofgraph.arbiter import arbitrate
 from proofgraph.assertions import assert_one
+from proofgraph.retrieve import retrieve
 from proofgraph.atomize import atomize
 from proofgraph.checker import open_source
 from proofgraph.ingest import ingest
@@ -117,6 +118,45 @@ def _cmd_verdict(args: argparse.Namespace) -> None:
     print(f"\nVERDICT  {v.verdict.value}{' (' + why.value + ')' if why else ''}   slot {v.slot}   unresolved pairs {v.unresolved_pairs}   governing {v.governing_assertion}")
 
 
+def _labelled_spans(instruments) -> dict[str, str]:
+    """span_id -> assertion_id, for spans holding a hand-labelled citation (the answer key, not an input)."""
+    mappings = MappingFile.model_validate_json((DATA / "mappings.json").read_text(encoding="utf-8"))
+    insts = {i.doc_id: i for i in instruments}
+    out = {}
+    for inp in mappings.assertions:
+        inst, loc = insts[inp.instrument_doc_id], inp.citation.locator
+        shift = inst.file_start - inst.source_start
+        for sp in inst.spans:
+            if shift + sp.start <= loc.start and loc.end <= shift + sp.end:
+                out[sp.span_id] = inp.assertion_id
+    return out
+
+
+def _cmd_retrieve(args: argparse.Namespace) -> None:
+    trace = Trace(Path(args.trace))
+    res = atomize(Claim(claim_id=args.claim_id, text=args.claim), load_predicate_set(DATA / "predicates.json"), trace)
+    if not res.atoms:
+        print(f"atomize failed: {[e.code.value for e in res.errors]}")
+        return
+    label = next(s for s in _load_manifest().sources if s.source_id == "gillette_ex10e")
+    instruments = ingest(label, DATA / "raw").instruments
+    gold = _labelled_spans(instruments)
+    spans = {sp.span_id: sp for i in instruments for sp in i.spans}
+    for atom in res.atoms:
+        r = retrieve(atom, instruments, trace)
+        print(f"atom {atom.atom_id}: {atom.predicate} slot={atom.slot} quantity_raw={atom.quantity_raw!r}")
+        print(f"query  {' '.join(r.query_terms)}")
+        print(f"searched {r.candidates} spans ({r.deduped} duplicates dropped, {r.capped} capped), dense={r.dense}\n")
+        print(f"{'rk':>2}  {'bm25':>4} {'dns':>4}  {'doc':24} {'pg':>2}  text")
+        for h in r.hits:
+            mark = f"  <- labelled: {gold[h.span_id]}" if h.span_id in gold else ""
+            text = " ".join(spans[h.span_id].text.split())[:60]
+            print(f"{h.rank:>2}  {h.bm25_rank or '-':>4} {h.dense_rank or '-':>4}  {h.doc_id:24} {h.page:>2}  {text}{mark}")
+        found = {gold[h.span_id] for h in r.hits if h.span_id in gold}
+        print(f"\nrecall@{len(r.hits)}: {len(found)} of {len(set(gold.values()))} labelled citations "
+              f"(missed: {', '.join(sorted(set(gold.values()) - found)) or 'none'})")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="pgrun")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -136,6 +176,11 @@ def main(argv: list[str] | None = None) -> None:
     vd = sub.add_parser("verdict", help="assertions, pairs, rules and verdict for the retention slot")
     vd.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     vd.set_defaults(func=_cmd_verdict)
+    rt = sub.add_parser("retrieve", help="atomize a claim, retrieve the top ten spans, mark the labelled ones")
+    rt.add_argument("claim")
+    rt.add_argument("--claim-id", default="c1")
+    rt.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
+    rt.set_defaults(func=_cmd_retrieve)
     args = parser.parse_args(argv)
     args.func(args)
 
