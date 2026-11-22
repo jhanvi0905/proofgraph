@@ -199,11 +199,12 @@ def _cmd_passes(args: argparse.Namespace) -> None:
     atom = res.atoms[0]
     print(f"claim (written by the author)\n  {claim.text}\n  slot: {claim.slot}\n")
     label = next(s for s in _load_manifest().sources if s.source_id == "gillette_ex10e")
-    instruments = ingest(label, DATA / "raw").instruments
+    ingested = ingest(label, DATA / "raw")
+    instruments = ingested.instruments
     src = open_source(DATA / "raw" / label.file)
     mappings = DocumentMappingFile.model_validate_json((DATA / "document_mappings.json").read_text(encoding="utf-8"))
     policy = claim.slot.split(".", 1)[0]
-    admitted, routes = admit(instruments, mappings, policy, src)
+    admitted, routes = admit(instruments, mappings, policy, src, trace, ingested.source.extractor)
     print(f"atom\n  " + describe(atom).replace("\n", "\n  "))
     print(f"\nadmitted (text inside a scope mapped to {policy}; decided in code, not by the model)")
     for doc, route in routes:

@@ -30,7 +30,8 @@ pytestmark = pytest.mark.skipif(not (RAW / LABEL.file).exists(), reason="gillett
 def env():
     src = open_source(RAW / LABEL.file)
     mappings = DocumentMappingFile.model_validate_json((ROOT / "data" / "document_mappings.json").read_text())
-    insts, routes = admit(ingest(LABEL, RAW).instruments, mappings, "FD960228", src)
+    res = ingest(LABEL, RAW)
+    insts, routes = admit(res.instruments, mappings, "FD960228", src, memory_trace(), res.source.extractor)
     r = retrieve(ATOM, insts, memory_trace())  # bm25 only: no embedding download in tests
     spans = {sp.span_id: sp for i in insts for sp in i.spans}
     return (insts, routes), r, src, spans
@@ -200,7 +201,8 @@ def test_a_broken_identification_citation_excludes_its_document():
     docs = tuple(d if d.doc_id != "cna_binder" else d.model_copy(update={"describes": tuple(
         rt.model_copy(update={"citation": rt.citation.model_copy(update={"text": "X" * len(rt.citation.text)})})
         for rt in d.describes)}) for d in m.documents)
-    insts, _ = admit(ingest(LABEL, RAW).instruments, m.model_copy(update={"documents": docs}), "FD960228", src)
+    res = ingest(LABEL, RAW)
+    insts, _ = admit(res.instruments, m.model_copy(update={"documents": docs}), "FD960228", src, memory_trace(), res.source.extractor)
     assert "cna_binder" not in {i.doc_id for i in insts}
 
 

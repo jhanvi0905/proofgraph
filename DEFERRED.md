@@ -18,6 +18,8 @@ Items found and deliberately left. Each has the reason it waits. Line numbers re
 - ~~Assertions reject PDF citations.~~ Citations now carry a typed locator: `raw_offsets` for text sources, `page_quote` (a single-line quote that must occur exactly once on the page, as found by the PDF parser) for PDFs. Both are verified by `checker.verify_citation`. No citation is checked against this project's own text rebuild.
 - ~~The atomize prompt's worked example is FD960228.~~ Model-facing examples are now an invoice (`INV-2291.freight.unit_price`). `tests/test_no_family_literals.py` checks code and model-facing data for either family's literals. It sees literals, not shape.
 
+- **ACE's program-table row is admitted but not cited.** In the published run, `ace_binder`'s `London $20M Primary ($0/$0/$1M)` reached the passes, and support did not cite it. *Left as is:* "admitted, not cited" is the true output, and investigating it would not change what the trace says.
+
 ## Code
 
 - **`parse_amount` and `numeral` duplicate the number rules.** `parse_amount` still needs decimals and the stated currency. *Deferred:* they agree today; fold `parse_amount` onto `numeral` before a second number format arrives.

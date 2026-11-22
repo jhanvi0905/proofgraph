@@ -19,7 +19,7 @@ Each point is built, and each points at where to check it.
 - **Retrieval owned end to end, and measured.** BM25 plus local embeddings, fused by rank, scoped to admitted documents. Recall@10 is graded automatically on queries labelled before measuring, with design and independent queries reported apart. → [`proofgraph/retrieve.py`](proofgraph/retrieve.py), `pgrun recall`, [`data/retrieval_eval.json`](data/retrieval_eval.json)
 - **The model proposes; code decides.** Every model output is checked against the input it was given and the file it cites, and each guard has a counterfactual test showing what gets through without it. → [How the model is used, and how it is kept honest](#how-the-model-is-used-and-how-it-is-kept-honest)
 - **A harness you can replay.** One JSON line per stage: the served model, prompt hash, tokens, rejects and verdict. The published run replays from a clean clone with no API key. → `pgrun demo`, `runs/trace.jsonl`
-- **A held-out document family.** Family B (ISO HO 00 03, a different layout and line of business) is reserved for one run with no code change. Its packets and labels are not written yet. Its PDF shaped only the column parser, so it is held out from labels and evaluation, not from all development.
+- **A held-out document family.** Family B (ISO HO 00 03, a different layout and line of business) is reserved for one run with no code change. Its packets and labels are not written yet. Its PDF did shape the column parser, twice: the full-width line rule, and the gutter estimate, which an earlier rule put inside the right column on 8 of 18 pages. So it is held out from claims, labels and evaluation, not from all development. The parser is frozen before any family B label is written.
 
 ## Run it
 

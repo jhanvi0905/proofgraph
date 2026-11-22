@@ -145,12 +145,13 @@ class RawOffsets(_Model):
 
 
 class PageQuote(_Model):
-    """For PDFs: a page, plus the expected text as a quote that must occur exactly once on that page.
+    """For PDFs: a page, plus the expected text as a block of one or more physical lines.
 
-    The PDF parser checks it (pdfplumber's page search), never this project's
-    column rebuild. A citation that verified against our own converter would only
-    prove the pipeline agrees with itself. The quote must sit on one physical
-    line: the parser does not match across line breaks.
+    On a PDF, the page and the text are authoritative, and there are no offsets:
+    offsets into extracted text move whenever the extractor changes, even when the
+    page does not. Each line of the block must occur exactly once on the page, as
+    found by the PDF parser (pdfplumber's page search), never by this project's
+    column rebuild. The lines must run top to bottom within one column.
     """
 
     kind: Literal["page_quote"]
@@ -177,8 +178,8 @@ class Citation(_Model):
         loc = self.locator
         if isinstance(loc, RawOffsets) and len(self.text) != loc.end - loc.start:
             raise ValueError("citation text length does not match offsets")
-        if isinstance(loc, PageQuote) and ("\n" in self.text or not self.text.strip()):
-            raise ValueError("a page quote must be one non-empty line")
+        if isinstance(loc, PageQuote) and (not self.text.strip() or any(not ln.strip() for ln in self.text.split("\n"))):
+            raise ValueError("a page quote is one or more non-empty lines")
         return self
 
 

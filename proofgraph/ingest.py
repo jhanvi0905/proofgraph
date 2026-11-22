@@ -172,14 +172,22 @@ def _page_lines(page) -> list[tuple[str, BBox, bool]]:
 
 
 def _gutter_x(words: list[dict], width: float) -> float:
-    """The x near mid-page crossed by the fewest words."""
-    lo, hi = int(width * 0.40), int(width * 0.60)
-    best_x, best_n = width / 2, None
-    for x in range(lo, hi + 1):
-        n = sum(1 for w in words if w["x0"] < x < w["x1"])
-        if best_n is None or n < best_n:
-            best_x, best_n = float(x), n
-    return best_x
+    """Midway between the left column's right margin and the right column's left margin.
+
+    Margins are measured from the page's own words (95th percentile of left-column
+    right edges, 5th percentile of right-column left edges), so hanging list numbers
+    ("1." set into the gutter) do not move it. An earlier rule, "the x crossed by the
+    fewest words", put the gutter at x=331 on 8 of 18 ISO pages, inside the right
+    column's hanging numbers, and so misread reading order there.
+    """
+    mid = width / 2
+    lefts = sorted(w["x1"] for w in words if w["x1"] < mid + 20 and w["x0"] < mid - 40)
+    rights = sorted(w["x0"] for w in words if w["x0"] > mid - 20 and w["x1"] > mid + 40)
+    if not lefts or not rights:
+        return mid
+    left_edge = lefts[int(len(lefts) * 0.95)]
+    right_edge = rights[int(len(rights) * 0.05)]
+    return (left_edge + right_edge) / 2 if left_edge < right_edge else mid
 
 
 def _rows(words: list[dict], tol: float = 2.0) -> list[list[dict]]:

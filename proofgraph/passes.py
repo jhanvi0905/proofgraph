@@ -204,7 +204,10 @@ def _cite(sp: Span, inst: Instrument, start: int, end: int, src: Source) -> Cita
     if inst.file_start is not None:  # text source: exact offsets in the raw file
         shift = inst.file_start - inst.source_start
         locator = {"kind": "raw_offsets", "start": shift + sp.start + start, "end": shift + sp.start + end}
-    else:  # PDF: page plus quote; the verifier requires it once on the page
+    else:  # PDF: page plus the whole lines holding the quote; each line must occur once on the page
         locator = {"kind": "page_quote", "page": sp.page}
-        text = " ".join(text.split())
+        line_start = sp.text.rfind("\n", 0, start) + 1
+        line_end = sp.text.find("\n", end)
+        line_end = len(sp.text) if line_end == -1 else line_end
+        text = "\n".join(" ".join(ln.split()) for ln in sp.text[line_start:line_end].split("\n") if ln.strip())
     return Citation.model_validate({"source_file": src.path.name, "sha256_of_file": src.sha256, "locator": locator, "text": text})

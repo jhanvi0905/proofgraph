@@ -57,9 +57,27 @@ def test_page_quote_on_the_wrong_page_is_broken(pdf):
     assert "0 times" in verify_citation(_pdf_cite(2, '"Bodily injury" means bodily harm, sickness or'), pdf)
 
 
-def test_page_quote_must_be_one_line():
+BLOCK = '1. "Bodily injury" means bodily harm, sickness or\ndisease, including required care, loss of services\nand death that results.'
+
+
+def test_a_block_of_lines_verifies_line_by_line(pdf):
+    assert verify_citation(_pdf_cite(1, BLOCK), pdf) is None
+
+
+def test_block_lines_out_of_order_are_broken(pdf):
+    lines = BLOCK.split("\n")
+    assert "order" in verify_citation(_pdf_cite(1, "\n".join([lines[1], lines[0]])), pdf)
+
+
+def test_a_block_spanning_both_columns_is_broken(pdf):
+    left = '"Bodily injury" means bodily harm, sickness or'
+    right = "Vacant land, other than farm land, owned by or"  # same row, right column
+    assert "both columns" in verify_citation(_pdf_cite(1, left + "\n" + right), pdf)
+
+
+def test_a_page_quote_has_no_empty_lines():
     with pytest.raises(ValueError):
-        _pdf_cite(1, "two\nlines")
+        _pdf_cite(1, "one\n\ntwo")
 
 
 def test_page_quote_checks_the_instrument_page_range(pdf):

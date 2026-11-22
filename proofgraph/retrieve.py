@@ -77,10 +77,22 @@ def retrieve(
     spans, deduped = _dedupe([sp for inst in instruments for sp in inst.spans])
     by_doc = {sp.span_id: sp.doc_id for sp in spans}
 
+    if not spans:
+        result = RetrievalResult(atom_id=atom.atom_id, query_terms=tuple(query), hits=(), candidates=0,
+                                 deduped=deduped, capped=0, dense=embed is not None)
+        trace.write(TraceRecord(stage="retrieve", packet_id=None, atom_id=atom.atom_id, span_ids=(), model=None,
+                                prompt_hash=None, input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False,
+                                verdict=None, rejects=("no candidate spans",), repairs=0, detail=f"query={' '.join(query)}"))
+        return result
     docs = [_indexed_text(sp) for sp in spans]
-    bm25 = BM25Okapi([tokenize(d) or ["_"] for d in docs])
+    tokens = [tokenize(d) or ["_"] for d in docs]
+    bm25 = BM25Okapi(tokens)
     sparse_scores = bm25.get_scores(query)
-    sparse = _ranks([i for i in sorted(range(len(spans)), key=lambda i: -sparse_scores[i]) if sparse_scores[i] > 0])
+    # Rank every span sharing a query term. Not "score > 0": with one or two candidates BM25's
+    # IDF is zero or negative, so a positive-score filter would drop an admitted schedule row.
+    q = set(query)
+    overlap = [i for i in range(len(spans)) if q & set(tokens[i])]
+    sparse = _ranks(sorted(overlap, key=lambda i: -sparse_scores[i]))
 
     dense: dict[int, int] = {}
     if embed is not None:
@@ -169,7 +181,7 @@ def _ranks(order: list[int]) -> dict[int, int]:
 
 
 def admit(instruments: tuple[Instrument, ...], mappings: DocumentMappingFile, policy: str,
-          src) -> tuple[tuple[Instrument, ...], tuple[tuple[str, DocumentRoute], ...]]:
+          src, trace: Trace, extractor: str) -> tuple[tuple[Instrument, ...], tuple[tuple[str, DocumentRoute], ...]]:
     """Passage selection, decided in code: only text inside a scope mapped to `policy` reaches retrieval and the passes.
 
     A route's citation is its scope: the narrowest range that supports the attribution (a schedule
@@ -177,21 +189,34 @@ def admit(instruments: tuple[Instrument, ...], mappings: DocumentMappingFile, po
     document membership. A chunk that straddles a scope is clipped to the part inside it, so the
     FD960229 row of a schedule never arrives labelled as FD960228. Each scope is verified against
     the file first; a broken one excludes its document. The model never decides identification.
+
+    On a PDF the scope is a page plus a block of lines, with no offsets. It is found in the
+    extracted text, and the passage is clipped to the whole block, never to a phrase inside
+    it. The extractor and version that produced the text go in the trace, so the passage can
+    be re-derived.
     """
     from proofgraph.checker import verify_citation
-    from proofgraph.schema import RawOffsets, span_id_for
+    from proofgraph.schema import PageQuote, RawOffsets, span_id_for
 
     by_doc = {i.doc_id: i for i in instruments}
     admitted: list[Instrument] = []
     routes: list[tuple[str, DocumentRoute]] = []
+    excluded: list[str] = []
     for m in mappings.documents:
         route = next((r for r in m.describes if r.policy == policy), None)
         inst = by_doc.get(m.doc_id)
         if route is None or inst is None or verify_citation(route.citation, src, within=inst) is not None:
             continue
         loc = route.citation.locator
-        if not isinstance(loc, RawOffsets):
-            raise ValueError(f"{m.doc_id}: only raw_offsets scopes can be clipped so far")
+        if isinstance(loc, PageQuote):
+            block = _clip_to_block(inst, loc.page, route.citation.text)
+            if block is None:
+                excluded.append(f"{m.doc_id}: scope block not found within one extracted passage on page {loc.page}")
+                continue
+            admitted.append(inst.model_copy(update={"spans": (block,)}))
+            routes.append((m.doc_id, route))
+            continue
+        assert isinstance(loc, RawOffsets)
         shift = inst.file_start - inst.source_start
         clipped = []
         for sp in inst.spans:
@@ -213,4 +238,26 @@ def admit(instruments: tuple[Instrument, ...], mappings: DocumentMappingFile, po
             }))
         admitted.append(inst.model_copy(update={"spans": tuple(clipped)}))
         routes.append((m.doc_id, route))
+    trace.write(TraceRecord(
+        stage="admit", packet_id=None, atom_id=policy, span_ids=tuple(sp.span_id for i in admitted for sp in i.spans),
+        model=None, prompt_hash=None, input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False, verdict=None,
+        rejects=tuple(excluded), repairs=0,
+        detail=f"extractor={extractor} admitted={[i.doc_id for i in admitted]}",
+    ))
     return tuple(admitted), tuple(routes)
+
+
+def _clip_to_block(inst: Instrument, page: int, block: str):
+    """The extracted passage on `page` cut to exactly the scope block (whitespace may differ, words may not)."""
+    from proofgraph.schema import span_id_for
+
+    words = block.split()
+    pat = re.compile(r"\s+".join(re.escape(w) for w in words))
+    found = [(sp, m) for sp in inst.spans if sp.page == page for m in pat.finditer(sp.text)]
+    if len(found) != 1:
+        return None
+    sp, m = found[0]
+    a, b = sp.start + m.start(), sp.start + m.end()
+    text = sp.text[m.start():m.end()]
+    return sp.model_copy(update={"start": a, "end": b, "text": text,
+                                 "span_id": span_id_for(sp.doc_id, sp.version, text, a, b), "bbox": None})
