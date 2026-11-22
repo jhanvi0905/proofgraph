@@ -8,19 +8,23 @@ The measure is reviewer trust: does the derivation let a reviewer check the answ
 
 ## The four verdicts and the rules that produce them
 
-| Verdict | Produced when |
-|---|---|
-| supported | the governing evidence states the claim's value |
-| contradicted | the governing evidence states a different value |
-| documents disagree | two documents bind one slot differently, or cannot be compared, and no precedence rule picks one. Only an explicit `unresolved_conflict` rule produces it, never a fallback. |
-| not found | no span addresses the claim, or the instrument that would govern it is not in the packet (`governing_instrument_absent`) |
+| Verdict | Produced when | Code produces it today? (2026-11-22, commit `21a414e`) |
+|---|---|---|
+| supported | the governing evidence states the claim's value | **Partly.** The arbiter returns it at slot level when all asserters agree or a rule picks one. That path has run only in a synthetic counterfactual test, never on a real packet. Comparing against the claim is not built. |
+| contradicted | the governing evidence states a different value | **No.** Nothing compares a slot's governing value with a claim yet. |
+| documents disagree | two documents bind one slot differently, or cannot be compared, and no precedence rule picks one. Only an explicit `unresolved_conflict` rule produces it, never a fallback. | **Yes, on one real slot.** `pgrun verdict` on `FD960228.corp_reimbursement.retention` (family A). Its three assertions come from hand-labelled citations and routes in `data/mappings.json`, not yet from retrieval or model passes. |
+| not found | no span addresses the claim, or the instrument that would govern it is not in the packet (`governing_instrument_absent`) | **No.** |
 
 There are two precedence rules, and each fires only between instruments issued under the policy the slot belongs to ([DECISIONS.md](DECISIONS.md) D3):
 
 1. **Endorsement over base form.** It never fires in family A (the Gillette D&O packet). That packet's only endorsements, Nos. 12 and 13, amend GS-212C, whose base wording is not in the packet, and nothing in it amends any other policy (D5). In family B (ISO HO 00 03) it fires only on packets where a mutation script inserts a superseding endorsement, because the form ships with none. Read that as: rule 1 has no natural test case in either family. It is not evidence that rule 1 has been tested on real documents.
 2. **Later effective date over earlier.** This compares instrument effective dates, never coverage periods: overlapping periods have no "later".
 
-When neither rule fires, the arbiter refuses to pick a winner. In family A, the primary corporate-reimbursement retention is stated as $1,000,000 each claim (FD960228 cover note; Item VII in Endorsement 13 gives the bare figure) and $500,000 each loss (Reliance binder). No instrument with authority over FD960228 resolves it, and the bases differ, so the pair is recorded as uncompared and the answer is **documents disagree** (D6).
+When neither rule fires, the arbiter refuses to pick a winner. In family A, the primary corporate-reimbursement retention is stated as $1,000,000 each claim (FD960228 cover note; Item VII in Endorsement 13 gives the bare figure) and $500,000 each loss (Reliance binder). No instrument with authority over FD960228 resolves it, and the bases differ, so the pair is recorded as uncompared and the answer is **documents disagree** (D6). Run `uv run pgrun verdict` to see the three assertions, the three pairs (none comparable), both rules not firing, and the verdict. Pull the decision from the trace with:
+
+```bash
+grep '"stage": "arbiter"' runs/trace.jsonl | grep -o '"rejects": \[[^]]*\]\|"verdict": "[a-z_]*"'
+```
 
 ## Status
 
