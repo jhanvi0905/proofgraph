@@ -441,6 +441,23 @@ class RetrievalResult(_Model):
     dense: bool  # whether a dense ranking took part
 
 
+class GoldQuote(_Model):
+    doc_id: str
+    quote: str  # matched against span text with whitespace collapsed
+
+
+class RetrievalQuery(_Model):
+    query_id: str
+    atom: Atom
+    gold: tuple[GoldQuote, ...]
+    note: str
+
+
+class RetrievalEval(_Model):
+    note: str
+    queries: tuple[RetrievalQuery, ...]
+
+
 # ---------------------------------------------------------------- trace
 
 
