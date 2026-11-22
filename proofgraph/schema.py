@@ -237,6 +237,33 @@ class MappingRecord(_Model):
         return self
 
 
+class DocumentRoute(_Model):
+    """How one document identifies one policy it describes. Identification belongs to the document:
+    a binder names its primary once, and its lines do not repeat it."""
+
+    policy: str
+    method: MappingMethod
+    strength: RouteStrength
+    reasoning: str | None  # required for judgment
+    citation: Citation
+
+    @model_validator(mode="after")
+    def _check(self) -> DocumentRoute:
+        if self.strength is RouteStrength.JUDGMENT and not self.reasoning:
+            raise ValueError(f"{self.policy}: a judgment identification must write out its reasoning")
+        return self
+
+
+class DocumentMapping(_Model):
+    doc_id: str
+    describes: tuple[DocumentRoute, ...]  # a schedule or a restating cover note describes several policies
+
+
+class DocumentMappingFile(_Model):
+    note: str
+    documents: tuple[DocumentMapping, ...]
+
+
 class AssertionInput(_Model):
     """One citation the assertion rests on, plus the routes that take it to a slot."""
 
@@ -632,6 +659,7 @@ class Evidence(_Model):
     side: Side
     span_id: str
     doc_id: str
+    identification: DocumentRoute  # how this passage's document was tied to the claim's policy, decided in code
     reading: str
     quote: Excerpt  # offsets relative to the span's text
     citation: Citation  # built by code from the span and the quote, never by the model

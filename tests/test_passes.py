@@ -11,8 +11,8 @@ from proofgraph.checker import open_source
 from proofgraph.ingest import ingest
 from proofgraph.model import ModelReply
 from proofgraph.passes import ATTACK_SYSTEM, ATTACK_TEMPLATE, SUPPORT_SYSTEM, SUPPORT_TEMPLATE, attack, locate, support
-from proofgraph.retrieve import retrieve
-from proofgraph.schema import Atom, SourceManifest
+from proofgraph.retrieve import admit, retrieve
+from proofgraph.schema import Atom, DocumentMappingFile, SourceManifest
 from proofgraph.trace import memory_trace
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -28,10 +28,12 @@ pytestmark = pytest.mark.skipif(not (RAW / LABEL.file).exists(), reason="gillett
 
 @pytest.fixture(scope="module")
 def env():
-    insts = ingest(LABEL, RAW).instruments
+    src = open_source(RAW / LABEL.file)
+    mappings = DocumentMappingFile.model_validate_json((ROOT / "data" / "document_mappings.json").read_text())
+    insts, routes = admit(ingest(LABEL, RAW).instruments, mappings, "FD960228", src)
     r = retrieve(ATOM, insts, memory_trace())  # bm25 only: no embedding download in tests
     spans = {sp.span_id: sp for i in insts for sp in i.spans}
-    return insts, r, open_source(RAW / LABEL.file), spans
+    return (insts, routes), r, src, spans
 
 
 def _fake(*replies):
@@ -46,15 +48,15 @@ def _fake(*replies):
 
 
 def _span_with(env, needle):
-    insts, r, src, spans = env
+    (insts, routes), r, src, spans = env
     return next(spans[h.span_id] for h in r.hits if needle in spans[h.span_id].text)
 
 
 def test_support_keeps_a_verbatim_quote_and_cites_it_exactly(env):
-    insts, r, src, spans = env
+    (insts, routes), r, src, spans = env
     sp = _span_with(env, "Corporate Reimbursement")
     quote = "$500,000                  Corporate Reimbursement, each loss"
-    res = support(ATOM, r, insts, src, memory_trace(), _fake({"evidence": [{"span_id": sp.span_id, "reading": "r", "quote": quote}]}))
+    res = support(ATOM, r, insts, routes, src, memory_trace(), _fake({"evidence": [{"span_id": sp.span_id, "reading": "r", "quote": quote}]}))
     assert not res.failed and len(res.evidence) == 1
     ev = res.evidence[0]
     assert ev.quote.text == quote and ev.citation.text == quote
@@ -69,39 +71,39 @@ def test_whitespace_may_differ_but_characters_may_not(env):
 
 
 def test_span_outside_the_input_is_a_hard_failure_with_no_repair(env):
-    insts, r, src, spans = env
+    (insts, routes), r, src, spans = env
     outside = next(sid for sid in spans if sid not in {h.span_id for h in r.hits})
     fake = _fake({"evidence": [{"span_id": outside, "reading": "r", "quote": "x"}]})
-    res = attack(ATOM, r, insts, src, memory_trace(), fake)
+    res = attack(ATOM, r, insts, routes, src, memory_trace(), fake)
     assert res.failed and res.evidence == () and len(fake.calls) == 1 and res.repairs == 0
 
 
 def test_paraphrased_quote_gets_one_repair_then_succeeds(env):
-    insts, r, src, spans = env
+    (insts, routes), r, src, spans = env
     sp = _span_with(env, "Corporate Reimbursement")
     fake = _fake({"evidence": [{"span_id": sp.span_id, "reading": "r", "quote": "a half-million corporate retention"}]},
                  {"evidence": [{"span_id": sp.span_id, "reading": "r", "quote": "$500,000"}]})
-    res = attack(ATOM, r, insts, src, memory_trace(), fake)
+    res = attack(ATOM, r, insts, routes, src, memory_trace(), fake)
     assert not res.failed and res.repairs == 1 and res.rejects == 1
     assert "does not occur exactly once" in fake.calls[1]["prompt"]
 
 
 def test_two_bad_attempts_fail_the_pass(env):
-    insts, r, src, spans = env
+    (insts, routes), r, src, spans = env
     sp = _span_with(env, "Corporate Reimbursement")
     bad = {"evidence": [{"span_id": sp.span_id, "reading": "r", "quote": "not in the text"}]}
-    res = support(ATOM, r, insts, src, memory_trace(), _fake(bad, bad))
+    res = support(ATOM, r, insts, routes, src, memory_trace(), _fake(bad, bad))
     assert res.failed and res.evidence == () and res.repairs == 1
 
 
 def test_attack_is_blind_to_support(env):
-    insts, r, src, spans = env
+    (insts, routes), r, src, spans = env
     sp = _span_with(env, "Corporate Reimbursement")
     marker = "SUPPORT-READING-7f3a"
     sup_fake = _fake({"evidence": [{"span_id": sp.span_id, "reading": marker, "quote": "$500,000"}]})
-    support(ATOM, r, insts, src, memory_trace(), sup_fake)
+    support(ATOM, r, insts, routes, src, memory_trace(), sup_fake)
     att_fake = _fake({"evidence": []})
-    attack(ATOM, r, insts, src, memory_trace(), att_fake)
+    attack(ATOM, r, insts, routes, src, memory_trace(), att_fake)
     call = att_fake.calls[0]
     assert marker not in call["prompt"] and marker not in call["system"]
     assert call["system"] == ATTACK_SYSTEM and call["template"] == ATTACK_TEMPLATE
@@ -114,9 +116,9 @@ def test_two_separate_prompts_neither_mentions_the_other():
 
 
 def test_span_ids_are_constrained_in_the_schema(env):
-    insts, r, src, spans = env
+    (insts, routes), r, src, spans = env
     fake = _fake({"evidence": []})
-    support(ATOM, r, insts, src, memory_trace(), fake)
+    support(ATOM, r, insts, routes, src, memory_trace(), fake)
     enum = fake.calls[0]["schema"]["properties"]["evidence"]["items"]["properties"]["span_id"]["enum"]
     assert enum == [h.span_id for h in r.hits]
 
@@ -130,13 +132,13 @@ def test_span_id_guard_counterfactual(env):
     from proofgraph.checker import verify_citation
     from proofgraph.passes import _cite
 
-    insts, r, src, spans = env
+    (insts, routes), r, src, spans = env
     shown = {h.span_id for h in r.hits}
     outside = next(sp for sid, sp in spans.items() if sid not in shown and "$" in sp.text)
     inst = next(i for i in insts if i.doc_id == outside.doc_id)
     unguarded = _cite(outside, inst, 0, len(outside.text), src)
     assert verify_citation(unguarded, src, within=inst) is None  # the verifier alone lets it through
-    res = support(ATOM, r, insts, src, memory_trace(),
+    res = support(ATOM, r, insts, routes, src, memory_trace(),
                   _fake({"evidence": [{"span_id": outside.span_id, "reading": "r", "quote": outside.text}]}))
     assert res.failed and res.evidence == ()  # the guard does not
 
@@ -149,3 +151,53 @@ def test_exactly_once_guard_counterfactual(env):
     first = sp.text.find("$0")
     assert "Each Director" in sp.text[first:first + 70]  # what an unguarded locator would cite
     assert locate("$0", sp.text) is None  # the guard refuses to choose
+
+
+
+# ---- admission: identification is decided in code, per document
+
+
+def test_admission_takes_exactly_the_documents_mapped_to_the_policy(env):
+    (insts, routes), r, src, spans = env
+    assert {i.doc_id for i in insts} == {"london_fd960228", "london_fd960229", "coda_end13",
+                                          "reliance_binder", "ace_binder", "cna_binder"}
+    assert {d for d, _ in routes} == {i.doc_id for i in insts}
+    assert {h.doc_id for h in r.hits} <= {i.doc_id for i in insts}
+
+
+def test_identification_strength_rides_on_every_piece_of_evidence(env):
+    (insts, routes), r, src, spans = env
+    sp = _span_with(env, "Corporate Reimbursement")
+    res = attack(ATOM, r, insts, routes, src, memory_trace(),
+                 _fake({"evidence": [{"span_id": sp.span_id, "reading": "r", "quote": "$500,000"}]}))
+    ev = res.evidence[0]
+    assert ev.doc_id == "reliance_binder" and ev.identification.strength.value == "judgment"
+    assert ev.identification.reasoning
+
+
+def test_the_prompt_shows_identification_and_strength(env):
+    (insts, routes), r, src, spans = env
+    fake = _fake({"evidence": []})
+    support(ATOM, r, insts, routes, src, memory_trace(), fake)
+    prompt = fake.calls[0]["prompt"]
+    assert "describes FD960228; identification: judgment" in prompt
+    assert "do not re-decide it" in prompt
+
+
+def test_a_passage_from_an_unadmitted_document_never_reaches_the_model(env):
+    (insts, routes), r, src, spans = env
+    fake = _fake({"evidence": []})
+    res = support(ATOM, r, insts, routes[:1], src, memory_trace(), fake)  # drop most identifications
+    assert res.failed and fake.calls == []
+
+
+def test_a_broken_identification_citation_excludes_its_document():
+    from proofgraph.ingest import ingest
+
+    src = open_source(RAW / LABEL.file)
+    m = DocumentMappingFile.model_validate_json((ROOT / "data" / "document_mappings.json").read_text())
+    docs = tuple(d if d.doc_id != "cna_binder" else d.model_copy(update={"describes": tuple(
+        rt.model_copy(update={"citation": rt.citation.model_copy(update={"text": "X" * len(rt.citation.text)})})
+        for rt in d.describes)}) for d in m.documents)
+    insts, _ = admit(ingest(LABEL, RAW).instruments, m.model_copy(update={"documents": docs}), "FD960228", src)
+    assert "cna_binder" not in {i.doc_id for i in insts}

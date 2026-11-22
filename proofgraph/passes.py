@@ -24,6 +24,7 @@ from proofgraph.model import ModelReply, complete_json
 from proofgraph.schema import (
     Atom,
     Citation,
+    DocumentRoute,
     Evidence,
     EvidenceProposal,
     Excerpt,
@@ -46,7 +47,8 @@ SUPPORT_SYSTEM = (
 SUPPORT_TEMPLATE = """Proposition:
 {atom}
 
-Passages (id: text):
+Passages (id, the document's identification, text). Which policy each passage's document describes was
+decided before you were asked, and is shown with its strength; do not re-decide it.
 {spans}
 
 List every passage whose text supports the proposition: it states the same value for the same thing, or
@@ -64,7 +66,8 @@ ATTACK_SYSTEM = (
 ATTACK_TEMPLATE = """Proposition:
 {atom}
 
-Passages (id: text):
+Passages (id, the document's identification, text). Which policy each passage's document describes was
+decided before you were asked, and is shown with its strength; do not re-decide it.
 {spans}
 
 List every passage whose text cuts against the proposition: a different value for the same thing, a
@@ -82,23 +85,32 @@ Your previous answer failed validation:
 Return a corrected answer."""
 
 
-def support(atom: Atom, retrieval: RetrievalResult, instruments: tuple[Instrument, ...], src: Source,
-            trace: Trace, complete: Complete = complete_json) -> PassResult:
-    return _run(Side.SUPPORT, SUPPORT_SYSTEM, SUPPORT_TEMPLATE, atom, retrieval, instruments, src, trace, complete)
+Routes = tuple[tuple[str, DocumentRoute], ...]  # (doc_id, how that document identifies the claim's policy)
 
 
-def attack(atom: Atom, retrieval: RetrievalResult, instruments: tuple[Instrument, ...], src: Source,
-           trace: Trace, complete: Complete = complete_json) -> PassResult:
-    return _run(Side.ATTACK, ATTACK_SYSTEM, ATTACK_TEMPLATE, atom, retrieval, instruments, src, trace, complete)
+def support(atom: Atom, retrieval: RetrievalResult, instruments: tuple[Instrument, ...], routes: Routes,
+            src: Source, trace: Trace, complete: Complete = complete_json) -> PassResult:
+    return _run(Side.SUPPORT, SUPPORT_SYSTEM, SUPPORT_TEMPLATE, atom, retrieval, instruments, routes, src, trace, complete)
 
 
-def _run(side, system, template, atom, retrieval, instruments, src, trace, complete) -> PassResult:
+def attack(atom: Atom, retrieval: RetrievalResult, instruments: tuple[Instrument, ...], routes: Routes,
+           src: Source, trace: Trace, complete: Complete = complete_json) -> PassResult:
+    return _run(Side.ATTACK, ATTACK_SYSTEM, ATTACK_TEMPLATE, atom, retrieval, instruments, routes, src, trace, complete)
+
+
+def _run(side, system, template, atom, retrieval, instruments, routes, src, trace, complete) -> PassResult:
     spans = {sp.span_id: sp for inst in instruments for sp in inst.spans}
     insts = {inst.doc_id: inst for inst in instruments}
+    ident = dict(routes)
     ids = [h.span_id for h in retrieval.hits]
+    unmapped = sorted({spans[i].doc_id for i in ids if spans[i].doc_id not in ident})
+    if unmapped:  # admission is code's job; a passage from an unadmitted document never reaches the model
+        return PassResult(side=side, atom_id=atom.atom_id, evidence=(), failed=True,
+                          errors=(f"passages from documents with no identification: {unmapped}",), rejects=0, repairs=0)
     prompt = template.format(
         atom=describe(atom),
-        spans="\n".join(f"[{i}] {' '.join(spans[i].text.split())}" for i in ids),
+        spans="\n".join(f"[{i}] ({_ident_line(spans[i].doc_id, ident[spans[i].doc_id])}) {' '.join(spans[i].text.split())}"
+                         for i in ids),
     )
     schema = _wire_schema(ids)
     rejects, errors, evidence = 0, [], []
@@ -106,7 +118,7 @@ def _run(side, system, template, atom, retrieval, instruments, src, trace, compl
         text = prompt if attempt == 0 else REPAIR.format(prompt=prompt, errors="\n".join(f"- {e}" for e in errors))
         reply = complete(text, schema, system=system, template=template, effort="medium")
         proposal = EvidenceProposal.model_validate_json(reply.text)
-        evidence, errors, hard = _check(side, proposal, set(ids), spans, insts, src)
+        evidence, errors, hard = _check(side, proposal, set(ids), spans, insts, ident, src)
         rejects += len(errors)
         trace.write(TraceRecord(
             stage=side.value, packet_id=None, atom_id=atom.atom_id,
@@ -151,7 +163,11 @@ def _wire_schema(ids: list[str]) -> dict:
             "required": ["evidence"], "additionalProperties": False}
 
 
-def _check(side, proposal, allowed, spans, insts, src) -> tuple[list[Evidence], list[str], bool]:
+def _ident_line(doc_id: str, route: DocumentRoute) -> str:
+    return f"{doc_id}; describes {route.policy}; identification: {route.strength.value}"
+
+
+def _check(side, proposal, allowed, spans, insts, ident, src) -> tuple[list[Evidence], list[str], bool]:
     kept: list[Evidence] = []
     errors: list[str] = []
     for p in proposal.evidence:
@@ -168,7 +184,7 @@ def _check(side, proposal, allowed, spans, insts, src) -> tuple[list[Evidence], 
         if broken:
             errors.append(f"span {p.span_id}: {broken}")
             continue
-        kept.append(Evidence(side=side, span_id=sp.span_id, doc_id=sp.doc_id, reading=p.reading,
+        kept.append(Evidence(side=side, span_id=sp.span_id, doc_id=sp.doc_id, identification=ident[sp.doc_id], reading=p.reading,
                              quote=Excerpt(start=start, end=end, text=sp.text[start:end]), citation=citation))
     return kept, errors, False
 

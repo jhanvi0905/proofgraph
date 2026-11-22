@@ -23,7 +23,7 @@ from typing import Callable
 
 from rank_bm25 import BM25Okapi
 
-from proofgraph.schema import Atom, Instrument, RetrievalHit, RetrievalResult, Span, TraceRecord
+from proofgraph.schema import Atom, DocumentMappingFile, DocumentRoute, Instrument, RetrievalHit, RetrievalResult, Span, TraceRecord
 from proofgraph.trace import Trace
 
 Embed = Callable[[list[str]], "object"]  # returns an (n, d) numpy array, rows L2-normalised
@@ -166,3 +166,27 @@ def _dedupe(spans: list[Span]) -> tuple[list[Span], int]:
 
 def _ranks(order: list[int]) -> dict[int, int]:
     return {int(i): r for r, i in enumerate(order, 1)}
+
+
+def admit(instruments: tuple[Instrument, ...], mappings: DocumentMappingFile, policy: str,
+          src) -> tuple[tuple[Instrument, ...], tuple[tuple[str, DocumentRoute], ...]]:
+    """Passage selection, decided in code: only documents mapped to `policy` reach retrieval and the passes.
+
+    Returns the admitted instruments and, for each, the route that identifies the policy. Every
+    route's citation is verified against the file, and a broken one excludes its document. The
+    model is never asked which policy a passage is about.
+    """
+    from proofgraph.checker import verify_citation
+
+    by_doc = {i.doc_id: i for i in instruments}
+    admitted: list[Instrument] = []
+    routes: list[tuple[str, DocumentRoute]] = []
+    for m in mappings.documents:
+        route = next((r for r in m.describes if r.policy == policy), None)
+        inst = by_doc.get(m.doc_id)
+        if route is None or inst is None:
+            continue
+        if verify_citation(route.citation, src, within=inst) is None:
+            admitted.append(inst)
+            routes.append((m.doc_id, route))
+    return tuple(admitted), tuple(routes)

@@ -9,12 +9,12 @@ from proofgraph.arbiter import arbitrate
 from proofgraph.assertions import assert_one
 from proofgraph.model import embed
 from proofgraph.passes import attack, describe, support
-from proofgraph.retrieve import retrieve
+from proofgraph.retrieve import admit, retrieve
 from proofgraph.atomize import atomize
 from proofgraph.claims import load_claims
 from proofgraph.checker import open_source
 from proofgraph.ingest import ingest
-from proofgraph.schema import RetrievalEval, Assertion, Claim, MappingFile, SourceManifest, TraceRecord, load_predicate_set
+from proofgraph.schema import DocumentMappingFile, RetrievalEval, Assertion, Claim, MappingFile, SourceManifest, TraceRecord, load_predicate_set
 from proofgraph.trace import Trace
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -202,16 +202,23 @@ def _cmd_passes(args: argparse.Namespace) -> None:
     instruments = ingest(label, DATA / "raw").instruments
     src = open_source(DATA / "raw" / label.file)
     gold = _labelled_spans(instruments)
-    r = retrieve(atom, instruments, trace, embed=embed)
+    mappings = DocumentMappingFile.model_validate_json((DATA / "document_mappings.json").read_text(encoding="utf-8"))
+    policy = claim.slot.split(".", 1)[0]
+    admitted, routes = admit(instruments, mappings, policy, src)
     print(f"atom\n  " + describe(atom).replace("\n", "\n  "))
-    print(f"retrieved {len(r.hits)} spans; labelled among them: {sorted(set(gold[h.span_id] for h in r.hits if h.span_id in gold))}\n")
-    for res in (support(atom, r, instruments, src, trace), attack(atom, r, instruments, src, trace)):
+    print(f"\nadmitted (documents mapped to {policy}; decided in code, not by the model)")
+    for doc, route in routes:
+        print(f"  {route.strength.value.upper():8} {doc:24} {route.citation.text!r}")
+    r = retrieve(atom, admitted, trace, embed=embed)
+    print(f"\nretrieved {len(r.hits)} spans from admitted documents; labelled among them: "
+          f"{sorted(set(gold[h.span_id] for h in r.hits if h.span_id in gold))}\n")
+    for res in (support(atom, r, admitted, routes, src, trace), attack(atom, r, admitted, routes, src, trace)):
         rec = [t for t in trace.records if t.stage == res.side.value][-1]
         print(f"{res.side.value.upper()}  {len(res.evidence)} kept  failed={res.failed} repairs={res.repairs} rejects={res.rejects}  "
               f"tokens={rec.input_tokens}+{rec.output_tokens} cache_hit={rec.cache_hit}")
         for e in res.evidence:
             mark = f"   <- labelled: {gold[e.span_id]}" if e.span_id in gold else ""
-            print(f"  {e.doc_id:24} {e.quote.text!r}{mark}")
+            print(f"  {e.doc_id:24} [{e.identification.strength.value}] {e.quote.text!r}{mark}")
             print(f"  {'':24} {e.reading}")
         for err in res.errors:
             print(f"  ERROR {err}")

@@ -1,0 +1,131 @@
+{
+  "note": "Which policies each document describes, and how it identifies them (hand-labelled, read from the filing). Passages are admitted to the passes only from documents mapped to the claim's policy; the model never decides identification. Documents not listed (coda_end12, both Chubb binders, ERMA) name no primary. Only identifications of FD960228 are recorded so far; the other policies in Item VII and FD960229's own policy are not yet mapped.",
+  "documents": [
+    {
+      "doc_id": "london_fd960228",
+      "describes": [
+        {
+          "policy": "FD960228",
+          "method": "label",
+          "strength": "read",
+          "reasoning": null,
+          "citation": {
+            "source_file": "gillette_10k405_1996.txt",
+            "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+            "locator": {
+              "kind": "raw_offsets",
+              "start": 73898,
+              "end": 73922
+            },
+            "text": "POLICY NO:      FD960228"
+          }
+        }
+      ]
+    },
+    {
+      "doc_id": "london_fd960229",
+      "describes": [
+        {
+          "policy": "FD960228",
+          "method": "label",
+          "strength": "read",
+          "reasoning": null,
+          "citation": {
+            "source_file": "gillette_10k405_1996.txt",
+            "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+            "locator": {
+              "kind": "raw_offsets",
+              "start": 79787,
+              "end": 79812
+            },
+            "text": "POLICY NO:       FD960228"
+          }
+        }
+      ]
+    },
+    {
+      "doc_id": "coda_end13",
+      "describes": [
+        {
+          "policy": "FD960228",
+          "method": "policy_number",
+          "strength": "derived",
+          "reasoning": null,
+          "citation": {
+            "source_file": "gillette_10k405_1996.txt",
+            "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+            "locator": {
+              "kind": "raw_offsets",
+              "start": 68422,
+              "end": 68434
+            },
+            "text": "757/FD960228"
+          }
+        }
+      ]
+    },
+    {
+      "doc_id": "reliance_binder",
+      "describes": [
+        {
+          "policy": "FD960228",
+          "method": "cross_reference",
+          "strength": "judgment",
+          "reasoning": "This document never writes FD960228. It names the primary as Lloyd's (London), and Item VII's Primary row identifies the London primary as 757/FD960228. Caution: it gives that primary $20,000,000, while Item VII splits London into a $10M primary and a $10M first excess, so it may be describing both London layers as one.",
+          "citation": {
+            "source_file": "gillette_10k405_1996.txt",
+            "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+            "locator": {
+              "kind": "raw_offsets",
+              "start": 81115,
+              "end": 81147
+            },
+            "text": "Primary Carrier:  Lloyd's London"
+          }
+        }
+      ]
+    },
+    {
+      "doc_id": "ace_binder",
+      "describes": [
+        {
+          "policy": "FD960228",
+          "method": "cross_reference",
+          "strength": "judgment",
+          "reasoning": "This document never writes FD960228. It names the primary as Lloyd's (London), and Item VII's Primary row identifies the London primary as 757/FD960228. Caution: it gives that primary $20,000,000, while Item VII splits London into a $10M primary and a $10M first excess, so it may be describing both London layers as one.",
+          "citation": {
+            "source_file": "gillette_10k405_1996.txt",
+            "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+            "locator": {
+              "kind": "raw_offsets",
+              "start": 70521,
+              "end": 70567
+            },
+            "text": "London                $20M Primary ($0/$0/$1M)"
+          }
+        }
+      ]
+    },
+    {
+      "doc_id": "cna_binder",
+      "describes": [
+        {
+          "policy": "FD960228",
+          "method": "cross_reference",
+          "strength": "judgment",
+          "reasoning": "This document never writes FD960228. It names the primary as Lloyd's (London), and Item VII's Primary row identifies the London primary as 757/FD960228. Caution: it gives that primary $20,000,000, while Item VII splits London into a $10M primary and a $10M first excess, so it may be describing both London layers as one.",
+          "citation": {
+            "source_file": "gillette_10k405_1996.txt",
+            "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+            "locator": {
+              "kind": "raw_offsets",
+              "start": 84991,
+              "end": 85015
+            },
+            "text": "PRIMARY CARRIER:  Lloyds"
+          }
+        }
+      ]
+    }
+  ]
+}
