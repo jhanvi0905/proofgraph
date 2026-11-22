@@ -1,0 +1,17 @@
+{
+  "note": "Canonical slot keys. A claim names one of these exactly; resolve() has no aliases, no fuzzy match and no default. Each key is one that already exists in data/mappings.json or data/retrieval_eval.json.",
+  "slots": [
+    {
+      "key": "FD960228.corp_reimbursement.retention",
+      "note": "primary corporate reimbursement retention (mappings.json assertions)"
+    },
+    {
+      "key": "81385411.d_and_o.limit",
+      "note": "Chubb excess D&O limit (retrieval_eval.json chubb_do_limit)"
+    },
+    {
+      "key": "752-034765-96.d_and_o.limit",
+      "note": "ERMA excess D&O limit (retrieval_eval.json erma_limit)"
+    }
+  ]
+}

@@ -45,11 +45,8 @@ TEMPLATE = """Split the claim into atoms. An atom is the smallest unit that can 
 Predicates (closed set; use exactly one per atom):
 {predicates}
 
-Slots on an atom:
+Fields on an atom:
 - subject: what the atom is about, with every reference resolved (no "it", "the policy").
-- slot: required for `states`. A dotted path <identifier>.<part>.<measure>: the identifier as written (upper case),
-  then lower snake case, e.g. INV-2291.freight.unit_price for "the unit price of freight on invoice INV-2291".
-  The first segment is what the value belongs to, not the document that might state it.
 - quantity_raw: the amount exactly as written in the claim, with its currency if the claim writes one (e.g. "EUR 4,200"). Never compute.
 - value: a non-numeric value, if any.
 - period, territory, conditions: as written, or null.
@@ -57,7 +54,7 @@ Slots on an atom:
 - kind: only for predicates that list kinds; otherwise null.
 - negated: true if the claim asserts the opposite.
 
-Rules: one fact per atom; no "and" inside a value; leave a slot null rather than guess.
+Rules: one fact per atom; no "and" inside a value; leave a field null rather than guess.
 If no predicate fits, return no atoms and say why in no_fit_reason.
 
 Claim: {claim}"""
@@ -69,7 +66,6 @@ Your previous answer failed validation:
 Return a corrected answer."""
 
 _NULLABLE_STR = {"anyOf": [{"type": "string"}, {"type": "null"}]}
-_SLOT_RE = re.compile(r"^[A-Z0-9][A-Z0-9/ -]*[A-Z0-9](\.[a-z][a-z0-9_]*){2}$")
 _PRONOUN_RE = re.compile(r"^\s*(it|this|that|they|the policy|this policy|that policy|the document)\s*$", re.I)
 _CONJ_RE = re.compile(r"\b(and|&)\b", re.I)
 _FIELDS = list(ProposedAtom.model_fields)  # every slot required: filled or explicitly null
@@ -119,7 +115,6 @@ def _wire_schema(predicates: PredicateSet) -> dict:
             "kind": _NULLABLE_STR,
             "negated": {"type": "boolean"},
             "subject": _NULLABLE_STR,
-            "slot": _NULLABLE_STR,
             "quantity_raw": _NULLABLE_STR,
             "value": _NULLABLE_STR,
             "period": _NULLABLE_STR,
@@ -147,14 +142,14 @@ def _parse(claim: Claim, text: str, predicates: PredicateSet) -> tuple[list[Atom
     atoms: list[Atom] = []
     errors: list[AtomError] = []
     for i, w in enumerate(wires):
-        errs, amount = validate_atom_fields(w, predicates)
+        errs, amount = validate_atom_fields(w, predicates, claim.slot)
         errors += errs
         if not errs:
-            atoms.append(Atom(atom_id=f"{claim.claim_id}.a{i}", quantity=amount, **w.model_dump()))
+            atoms.append(Atom(atom_id=f"{claim.claim_id}.a{i}", slot=claim.slot, quantity=amount, **w.model_dump()))
     return atoms, errors
 
 
-def validate_atom_fields(w: ProposedAtom, predicates: PredicateSet) -> tuple[list[AtomError], Amount | None]:
+def validate_atom_fields(w: ProposedAtom, predicates: PredicateSet, claim_slot: str | None) -> tuple[list[AtomError], Amount | None]:
     """Pure validation of one proposed atom. Exposed for tests; not a pipeline stage."""
     errs: list[AtomError] = []
 
@@ -180,11 +175,8 @@ def validate_atom_fields(w: ProposedAtom, predicates: PredicateSet) -> tuple[lis
 
     amount: Amount | None = None
     if spec.name == "states":
-        slot = w.slot
-        if not slot:
-            err(AtomErrorCode.MISSING_SLOT, "slot", "states needs a slot")
-        elif not _SLOT_RE.match(slot):
-            err(AtomErrorCode.BAD_SLOT, "slot", f"{slot!r} is not <POLICY>.<part>.<measure>")
+        if not claim_slot:
+            err(AtomErrorCode.MISSING_SLOT, "slot", "a states atom needs the claim file to give a slot")
         if not w.quantity_raw and not w.value:
             err(AtomErrorCode.MISSING_SLOT, "quantity_raw", "states needs a quantity or a value")
     if w.quantity_raw and not any(e.field == "quantity_raw" for e in errs):

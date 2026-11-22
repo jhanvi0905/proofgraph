@@ -372,13 +372,17 @@ class Atom(_Model):
 
 
 class ProposedAtom(_Model):
-    """What the model returns for one atom, before code validates it. Every slot is present; null means null."""
+    """What the model returns for one atom, before code validates it. Every field is present; null means null.
+
+    There is no slot field. The slot is the claim author's canonical key, typed in the
+    claim file and resolved against data/slots.json. The model never names it, so its
+    spelling cannot drift (it drifted in 2 of 2 runs when the model did name it).
+    """
 
     predicate: str
     kind: str | None
     negated: bool
     subject: str | None
-    slot: str | None
     quantity_raw: str | None
     value: str | None
     period: str | None
@@ -396,7 +400,6 @@ class AtomErrorCode(str, Enum):
     UNKNOWN_PREDICATE = "unknown_predicate"
     BAD_KIND = "bad_kind"
     MISSING_SLOT = "missing_slot"
-    BAD_SLOT = "bad_slot"
     UNRESOLVED_REF = "unresolved_ref"
     MISSING_UNIT = "missing_unit"
     UNPARSEABLE_QUANTITY = "unparseable_quantity"
@@ -484,7 +487,23 @@ class TraceRecord(_Model):
 
 class Claim(_Model):
     claim_id: str
-    text: str
+    text: str  # written by the author, not generated
+    slot: str | None  # canonical key from data/slots.json, typed by the author; None for non-`states` claims
+
+
+class ClaimFile(_Model):
+    note: str
+    claims: tuple[Claim, ...]
+
+
+class SlotEntry(_Model):
+    key: str
+    note: str
+
+
+class SlotRegistry(_Model):
+    note: str
+    slots: tuple[SlotEntry, ...]
 
 
 class Packet(_Model):

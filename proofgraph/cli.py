@@ -11,6 +11,7 @@ from proofgraph.model import embed
 from proofgraph.passes import attack, describe, support
 from proofgraph.retrieve import retrieve
 from proofgraph.atomize import atomize
+from proofgraph.claims import load_claims
 from proofgraph.checker import open_source
 from proofgraph.ingest import ingest
 from proofgraph.schema import RetrievalEval, Assertion, Claim, MappingFile, SourceManifest, TraceRecord, load_predicate_set
@@ -46,9 +47,17 @@ def _cmd_spans(args: argparse.Namespace) -> None:
           f"{len(result.source.page_starts)} pages, extractor {result.source.extractor}")
 
 
+def _claim(claim_id: str) -> Claim:
+    """The author's claim, its slot resolved against data/slots.json before anything runs."""
+    claims = {c.claim_id: c for c in load_claims(DATA / "claims.json", DATA / "slots.json")}
+    if claim_id not in claims:
+        raise SystemExit(f"unknown claim {claim_id!r}; known: {sorted(claims)}")
+    return claims[claim_id]
+
+
 def _cmd_atomize(args: argparse.Namespace) -> None:
     trace = Trace(Path(args.trace))
-    res = atomize(Claim(claim_id=args.claim_id, text=args.claim), load_predicate_set(DATA / "predicates.json"), trace)
+    res = atomize(_claim(args.claim_id), load_predicate_set(DATA / "predicates.json"), trace)
     print(res.to_json())
     r = trace.records[-1]
     print(f"\nmodel={r.model} prompt_hash={r.prompt_hash} tokens={r.input_tokens}+{r.output_tokens} "
@@ -136,7 +145,7 @@ def _labelled_spans(instruments) -> dict[str, str]:
 
 def _cmd_retrieve(args: argparse.Namespace) -> None:
     trace = Trace(Path(args.trace))
-    res = atomize(Claim(claim_id=args.claim_id, text=args.claim), load_predicate_set(DATA / "predicates.json"), trace)
+    res = atomize(_claim(args.claim_id), load_predicate_set(DATA / "predicates.json"), trace)
     if not res.atoms:
         print(f"atomize failed: {[e.code.value for e in res.errors]}")
         return
@@ -179,18 +188,16 @@ def _cmd_recall(args: argparse.Namespace) -> None:
           f"({'bm25 only' if args.sparse_only else 'bm25 + dense'})")
 
 
-RETENTION_ATOM = dict(
-    atom_id="retention.a0", predicate="states", kind=None, negated=False,
-    subject="primary corporate reimbursement retention", slot=SLOT, quantity_raw="1,000,000", quantity=None,
-    value=None, period=None, territory=None, basis=None, conditions=None,
-)
-
-
 def _cmd_passes(args: argparse.Namespace) -> None:
-    from proofgraph.schema import Atom
-
-    atom = Atom(**RETENTION_ATOM)
+    """Claim file -> atomize -> retrieve -> support and attack. Only the claim is written by hand."""
     trace = Trace(Path(args.trace))
+    claim = _claim("retention")
+    res = atomize(claim, load_predicate_set(DATA / "predicates.json"), trace)
+    if not res.atoms:
+        print(f"atomize failed: {[e.code.value for e in res.errors]}")
+        return
+    atom = res.atoms[0]
+    print(f"claim (written by the author)\n  {claim.text}\n  slot: {claim.slot}\n")
     label = next(s for s in _load_manifest().sources if s.source_id == "gillette_ex10e")
     instruments = ingest(label, DATA / "raw").instruments
     src = open_source(DATA / "raw" / label.file)
@@ -247,8 +254,7 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--width", type=int, default=70)
     sp.set_defaults(func=_cmd_spans)
     at = sub.add_parser("atomize", help="split one claim into atoms (one model call, cached)")
-    at.add_argument("claim")
-    at.add_argument("--claim-id", default="c1")
+    at.add_argument("claim_id", help="a claim id from data/claims.json")
     at.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     at.set_defaults(func=_cmd_atomize)
     asr = sub.add_parser("assert", help="print the assertions on the retention slot")
@@ -258,8 +264,7 @@ def main(argv: list[str] | None = None) -> None:
     vd.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     vd.set_defaults(func=_cmd_verdict)
     rt = sub.add_parser("retrieve", help="atomize a claim, retrieve the top ten spans, mark the labelled ones")
-    rt.add_argument("claim")
-    rt.add_argument("--claim-id", default="c1")
+    rt.add_argument("claim_id", help="a claim id from data/claims.json")
     rt.add_argument("--sparse-only", action="store_true", help="BM25 only, no dense ranking")
     rt.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     rt.set_defaults(func=_cmd_retrieve)

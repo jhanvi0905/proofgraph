@@ -18,13 +18,14 @@ from proofgraph.schema import AtomErrorCode, Claim, ProposedAtom, load_predicate
 from proofgraph.trace import memory_trace
 
 PREDICATES = load_predicate_set(Path(__file__).resolve().parent.parent / "data" / "predicates.json")
-CLAIM = Claim(claim_id="c1", text="The corporate reimbursement retention of Lloyd's primary policy FD960228 is USD 1,000,000 each claim.")
+CLAIM = Claim(claim_id="c1", text="The primary corporate reimbursement retention under FD960228 is USD 1,000,000.",
+              slot="FD960228.corp_reimbursement.retention")
 
 
 def _atom(**over) -> dict:
     base = dict(predicate="states", kind=None, negated=False, subject="primary D&O layer corporate reimbursement retention",
-                slot="FD960228.corp_reimbursement.retention", quantity_raw="USD 1,000,000", value=None,
-                period=None, territory=None, basis="any_one_claim", conditions=None)
+                quantity_raw="USD 1,000,000", value=None,
+                period=None, territory=None, basis=None, conditions=None)
     base.update(over)
     return base
 
@@ -40,8 +41,8 @@ def _fake(*replies: dict):
     return complete
 
 
-def _errs(**over):
-    errs, _ = validate_atom_fields(ProposedAtom.model_validate_json(json.dumps(_atom(**over))), PREDICATES)
+def _errs(claim_slot="FD960228.corp_reimbursement.retention", **over):
+    errs, _ = validate_atom_fields(ProposedAtom.model_validate_json(json.dumps(_atom(**over))), PREDICATES, claim_slot)
     return {e.code for e in errs}
 
 
@@ -74,14 +75,27 @@ def test_letter_o_in_amount_is_not_repaired():
     assert AtomErrorCode.UNPARSEABLE_QUANTITY in _errs(quantity_raw="US$10,000,0O0")
 
 
-def test_slot_must_be_a_dotted_path():
-    assert AtomErrorCode.BAD_SLOT in _errs(slot="retention of the primary")
-    assert AtomErrorCode.MISSING_SLOT in _errs(slot=None)
+def test_states_needs_a_slot_from_the_claim_file():
+    assert AtomErrorCode.MISSING_SLOT in _errs(claim_slot=None)
+
+
+def test_the_model_cannot_name_a_slot():
+    """The wire schema has no slot field, and a reply that adds one is rejected outright."""
+    from proofgraph.atomize import _wire_schema
+
+    assert "slot" not in _wire_schema(PREDICATES)["properties"]["atoms"]["items"]["properties"]
+    with pytest.raises(ValidationError):
+        ProposedAtom.model_validate_json(json.dumps(_atom(slot="FD960228.corporate_reimbursement.retention")))
+
+
+def test_atom_takes_the_slot_from_the_claim():
+    res = atomize(CLAIM, PREDICATES, memory_trace(), _fake({"atoms": [_atom()], "no_fit_reason": None}))
+    assert res.atoms[0].slot == CLAIM.slot
 
 
 def test_kind_rules():
     assert AtomErrorCode.BAD_KIND in _errs(kind="follow_form")  # states takes no kind
-    assert AtomErrorCode.BAD_KIND in _errs(predicate="subject_to", kind=None, slot=None, quantity_raw=None, value="x")
+    assert AtomErrorCode.BAD_KIND in _errs(predicate="subject_to", kind=None, quantity_raw=None, value="x")
 
 
 def test_unknown_predicate_fails():
