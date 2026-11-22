@@ -12,3 +12,4 @@ runs/*.log
 .archify/
 data/raw/
 runs/
+notes/

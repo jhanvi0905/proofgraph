@@ -8,6 +8,19 @@ The hard case is two documents that disagree. Most document-AI work quietly assu
 
 The measure is reviewer trust: does the derivation let a reviewer check the answer without rereading the packet? Bucket accuracy is reported, with its denominator, but it is not the headline.
 
+## What this system demonstrates
+
+Each point is built, and each points at where to check it.
+
+- **Authority between documents, decided by rules rather than the model.** Which instrument governs is a precedence question: an endorsement over its base form, or a later effective date. Both rules are scoped to instruments issued under the policy in question, and where neither fires, the system refuses to pick a winner. Counterfactual tests show each rule flipping a verdict. → [`proofgraph/arbiter.py`](proofgraph/arbiter.py), `pgrun verdict`, [DECISIONS.md](DECISIONS.md) D3, D7
+- **Every answer is traceable to exact characters.** A citation is a file hash, a typed locator (raw-file offsets, or a page plus a quote that must occur exactly once), and the expected text. One verifier checks it against the source document, never against this project's own text conversion. → [`proofgraph/checker.py`](proofgraph/checker.py)
+- **Identification is part of the record.** Which policy each document describes is recorded with a route, a strength (read, derived or judgment) and a citation. Passages reach the model only from documents mapped to the claim's policy, decided in code, and every piece of evidence carries that strength, so a judgment identification never reads as a read one. → [`data/document_mappings.json`](data/document_mappings.json), `pgrun passes`
+- **A semantic model with a closed vocabulary.** The predicates are frozen as data, and slots are canonical keys in a registry. They resolve by exact match only (no aliases, no fuzzy matching), and the model never names one. → [`data/predicates.json`](data/predicates.json), [`data/slots.json`](data/slots.json), [`proofgraph/claims.py`](proofgraph/claims.py)
+- **Retrieval owned end to end, and measured.** BM25 plus local embeddings, fused by rank, scoped to admitted documents. Recall@10 is graded automatically on queries labelled before measuring, with design and independent queries reported apart. → [`proofgraph/retrieve.py`](proofgraph/retrieve.py), `pgrun recall`, [`data/retrieval_eval.json`](data/retrieval_eval.json)
+- **The model proposes; code decides.** Every model output is checked against the input it was given and the file it cites, and each guard has a counterfactual test showing what gets through without it. → [How the model is used, and how it is kept honest](#how-the-model-is-used-and-how-it-is-kept-honest)
+- **A harness you can replay.** One JSON line per stage: the served model, prompt hash, tokens, rejects and verdict. The published run replays from a clean clone with no API key. → `pgrun demo`, `runs/trace.jsonl`
+- **A held-out document family.** Family B (ISO HO 00 03, a different layout and line of business) is reserved for one run with no code change. Its packets and labels are not written yet. Its PDF shaped only the column parser, so it is held out from labels and evaluation, not from all development.
+
 ## Run it
 
 From a clean clone. You need [uv](https://docs.astral.sh/uv/) and a network connection; no API key.
