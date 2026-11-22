@@ -43,3 +43,12 @@ Still four verdicts: supported, contradicted, unresolved, not found. `unresolved
 
 **Supported** means nothing contradicts the answer, and nothing that could have been compared was left uncompared. One assertion with no pairs is supported, the ordinary case. A pair with no numeral (NIL) could never be compared, so it does not block supported.
 **Why:** the counterfactual without Reliance returned `supported` on two assertions whose comparison was blocked by Item VII's unstated currency. A reader would draw an agreement the arbiter never tested. Nothing disagrees there, so it needs its own name, not `documents_disagree`.
+
+## D8. The domain layer is frozen before family B (2026-11-22)
+
+The claim "no code change for family B" is no longer true: the column gutter was fixed on the ISO form. The narrower claim, which can be tested, has two layers:
+- **May change:** parser, ingest, retrieval, fetch, the CLI, the trace writer, `data/instruments.json`. Column gutters and line breaks have nothing to do with insurance meaning.
+- **Frozen, byte-identical from the freeze commit to the family B verdict commit:** the arbiter, comparators (`numbers.py`), assertions, claims and slot resolution, the checker, the passes and atomize prompts, the schema, `predicates.json`, and family A's slots, claims, citations and document mappings. Their sha256 values are in `data/freeze.json`, and `tests/test_freeze.py` fails if any file differs.
+
+Family B's claims, slot keys, document mappings and expected verdicts go in new files under `data/family_b/`, never appended to a frozen file. They are written with the system not running, and committed with the preregistration before the first family B run, so the labels provably predate the output.
+**Why:** a label written, run, seen wrong and quietly sharpened is the other way contamination gets in. A hash check means nobody has to trust that the freeze held.

@@ -1,0 +1,19 @@
+{
+  "note": "Domain-layer freeze (DECISIONS.md D8). Each file must stay byte-identical from the freeze commit to the commit that produces the family B verdict. tests/test_freeze.py checks the hashes. Family B records go in new files under data/family_b/, never appended here.",
+  "frozen_on": "2026-11-22",
+  "files": {
+    "proofgraph/arbiter.py": "957d00ec96c65ec7fe984a638f61a8b179083091ab375a07bdd2a20fa28ac1b8",
+    "proofgraph/numbers.py": "191c0c316508e0b89915fb33d2c03365436f0ce7593c15a2f038674ca0da93cf",
+    "proofgraph/assertions.py": "4d65701a762e8e63bbf2b7b4399cadc5244058a207afe00ce92c3a6ef97a180f",
+    "proofgraph/claims.py": "8b47577fdc43219ff8aba5f8b6339c87d1307af9704d05a7af681e68833ad685",
+    "proofgraph/checker.py": "9b09ae5727eff6d47f2960b9863abcacaa78fbaa9e7bbe074eededa8d7f87d7a",
+    "proofgraph/passes.py": "4f9f23a926e79dd21269fef347c66e459b2ab812955a27a07b68dc6d92cd1fcf",
+    "proofgraph/schema.py": "59c0e44f0d0c0f4d5bfafcb56ab0006fe0a623c97d7a58d6c67b7621808355f1",
+    "proofgraph/atomize.py": "50ca196d8cea77d20695da41f55917d0991ec67782c4e4a877ba77ddd3c4fa38",
+    "data/predicates.json": "a793a7893a37fcf58d7c19f517fc985cde877e1bc7308eb6d54a76dcb1a20d5c",
+    "data/slots.json": "2b17babd1a62af16954b648e288f786942fc8ba46a9a08dac8f8b73760be6b00",
+    "data/claims.json": "2124dd664614610fc450305ca32b2a134d13336c20b407c46251f9c409df152d",
+    "data/mappings.json": "287b1f9ef673c7d4d21b33b4440b9888bc435211507bd40b9e490a874c605bc5",
+    "data/document_mappings.json": "6b8568836c3491266f2364d9686141dd37ccf4b7dc804a94acb2db4715e57c9e"
+  }
+}

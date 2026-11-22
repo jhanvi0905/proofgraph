@@ -19,7 +19,7 @@ Each point is built, and each points at where to check it.
 - **Retrieval owned end to end, and measured.** BM25 plus local embeddings, fused by rank, scoped to admitted documents. Recall@10 is graded automatically on queries labelled before measuring, with design and independent queries reported apart. → [`proofgraph/retrieve.py`](proofgraph/retrieve.py), `pgrun recall`, [`data/retrieval_eval.json`](data/retrieval_eval.json)
 - **The model proposes; code decides.** Every model output is checked against the input it was given and the file it cites, and each guard has a counterfactual test showing what gets through without it. → [How the model is used, and how it is kept honest](#how-the-model-is-used-and-how-it-is-kept-honest)
 - **A harness you can replay.** One JSON line per stage: the served model, prompt hash, tokens, rejects and verdict. The published run replays from a clean clone with no API key. → `pgrun demo`, `runs/trace.jsonl`
-- **A held-out document family.** Family B (ISO HO 00 03, a different layout and line of business) is reserved for one run with no code change. Its packets and labels are not written yet. Its PDF did shape the column parser, twice: the full-width line rule, and the gutter estimate, which an earlier rule put inside the right column on 8 of 18 pages. So it is held out from claims, labels and evaluation, not from all development. The parser is frozen before any family B label is written.
+- **A held-out document family, with a frozen domain layer.** Family B (ISO homeowners forms, a different layout and line of business) is reserved for one run. The domain layer (arbiter, comparators, assertions, passes, predicates, slots and family A's labels) is frozen by hash before any family B label is written, and a test fails if any of it changes ([D8](DECISIONS.md)). Parsing may still change, because family B's PDF shaped the column parser twice, so the claim is narrower than "no code change", and testable. → [`data/freeze.json`](data/freeze.json), `tests/test_freeze.py`
 
 ## Run it
 
@@ -103,7 +103,7 @@ Each row has a test, and the counterfactual tests show what gets through when th
 - **Labels before measuring.** Retrieval queries and their gold quotes were committed (`baf5c04`) before any change was measured against them.
 - **Design and independent queries reported apart.** Queries that exposed a miss are marked as not independent evidence for its fix. Field labels improved an independent query (3/6 → 4/6). Plural folding improved only the design queries, and is reported that way.
 - **No retrieval tuned to known answers.** A hand-written synonym list was deleted before commit: it was written after reading both document families, so it encoded known answers and holdout vocabulary.
-- **A holdout family.** Family B (ISO HO 00 03) is reserved, to run once with no code change.
+- **A holdout family, with a frozen domain layer.** Family B runs once. The domain layer is byte-identical from the freeze commit to the family B verdict commit (`tests/test_freeze.py`). Only parsing and retrieval mechanics may change.
 - **Counterfactuals for rules and guards.** Each precedence rule and each model guard has a test showing the outcome changes without it.
 
 ### Reproducibility and cost
@@ -120,6 +120,6 @@ Rebuilding from scratch on this branch. What exists so far:
 - [`DECISIONS.md`](DECISIONS.md): numbered design decisions; the arbiter cites them.
 - [`DEFERRED.md`](DEFERRED.md): what was found and deliberately left, with reasons.
 
-Dataset: 20 packets. 12 come from family A (Gillette 1996 D&O exhibit, the dev set), and 8 come from family B (ISO HO 00 03 04 91, a holdout run once at the end with no code changes after). n = 20 demonstrates the design. It does not estimate a rate.
+Dataset: 20 packets. 12 come from family A (Gillette 1996 D&O exhibit, the dev set), and 8 come from family B (ISO HO 00 03 04 91, a holdout run once, after the domain-layer freeze ([D8](DECISIONS.md))). n = 20 demonstrates the design. It does not estimate a rate.
 
 The earlier version (an evidence graph over ContractNLI contracts, with an accuracy headline) is in git history up to commit `14264f0`. Why it was retired is in the commit that removed it.
