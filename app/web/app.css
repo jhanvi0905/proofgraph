@@ -79,7 +79,7 @@ html, body { overflow-x: clip; }
   .faq { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr); gap: 0 4rem; align-items: start; }
   .faq h2 { grid-row: 1 / span 4; position: sticky; top: 1.5rem; } .faq details { grid-column: 2; }
   .close { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 0 4rem; align-items: start; }
-  .close .big { grid-column: 1; } .close .btn { grid-column: 1; justify-self: start; } .close .signoff { grid-column: 2; grid-row: 1 / span 2; margin-top: .6rem; }
+  .close .big { grid-column: 1; } .close .btn { grid-column: 1; justify-self: start; } .close .signoff { grid-column: 2; grid-row: 1 / span 3; margin-top: .6rem; }
 }
 .bigname { margin: 3rem 0 0; font-size: clamp(3rem, 10vw, 6rem); font-weight: 700; letter-spacing: -.04em; line-height: .9; color: var(--ink); overflow: hidden; white-space: nowrap; }
 
@@ -90,52 +90,17 @@ html, body { overflow-x: clip; }
 .u.checking { text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--grey); text-decoration-thickness: 2px; text-underline-offset: .22em; }
 .claim.reading { text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--cyan); text-decoration-thickness: 2px; text-underline-offset: .22em; }
 
-.readgrid { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: 1.5rem; padding: 1.25rem 0; }
-@media (max-width: 760px) { .readgrid { grid-template-columns: 1fr; } }
-.checklist ul { list-style: none; margin: 0; padding: 0; font-size: var(--t-16); }
-.checklist .d { margin: 0 0 .75rem; font-weight: 700; }
-.checklist .d ul { font-weight: 400; margin-top: .15rem; }
-.checklist li.pg { display: flex; align-items: center; gap: .4rem; color: var(--grey); min-height: 1.5rem; }
-.checklist li.pg.ok { color: var(--ink); }
-.checklist .tk { color: var(--pen-green); visibility: hidden; flex: none; }
-.checklist li.ok .tk { visibility: visible; }
-.map { position: relative; min-width: 0; }
-.cols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(10rem, 1fr); gap: 1.25rem; overflow-x: auto; }
-.col { min-width: 0; }
-.col h3 { margin: 0; font-size: 1rem; line-height: 1.3; overflow-wrap: anywhere; }
-.col .role { margin: .15rem 0 .75rem; font-size: var(--t-13); color: var(--grey); min-height: 1.3em; }
-.col.reading .role::after { content: "Reading\2026"; }
-.labels { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem; }
-.col .labels { flex-direction: column; align-items: flex-start; }
-.pencil { display: inline-block; max-width: 100%; padding: .2rem .7rem; border: 2px solid var(--ink); border-radius: 999px 1000px 999px 1000px / 1000px 999px 1000px 999px; font-size: var(--t-16); line-height: 1.3; background: var(--sheet); overflow-wrap: anywhere; }
-.pencil .n { color: var(--grey); font-size: var(--t-13); margin-left: .35rem; }
-.map.deciding .pencil { border-color: var(--cyan); color: var(--grey); }
-.map.deciding .pencil.on { border-color: var(--ink); color: var(--ink); font-weight: 700; border-width: 2px; }
-.shared { margin-top: 1rem; }
-.threads { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
-.threads path { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-linecap: round; opacity: .55; }
-.map.deciding .threads path { stroke: var(--cyan); opacity: 1; }
-.latest { margin: 1rem 0 0; font-size: var(--t-16); color: var(--grey); min-height: 1.4em; }
 .linkish { background: none; border: 0; padding: .5rem 0; min-height: 44px; color: var(--stamp); text-decoration: underline; cursor: pointer; font-weight: 700; }
-.receipt { font-weight: 700; margin: .5rem 0 1rem; }
 .plist, .notes { list-style: none; margin: 0 0 1rem; padding: 0; max-width: 46rem; }
 .plist li, .notes li { padding: .65rem 0; overflow-wrap: anywhere; }
 .plist .st { display: inline-flex; align-items: center; font-weight: 700; margin-right: .5rem; }
-.plist .sub, .plist .path { display: block; font-size: var(--t-16); }
-.plist .path { font-weight: 700; margin-top: .2rem; }
+.plist .sub { display: block; font-size: var(--t-16); }
 .notes li.error { outline: 2px solid var(--pen-red); border: 0; padding: .6rem .8rem; margin: .4rem 0; border-radius: 4px; font-weight: 700; }
 .result { margin-top: 1.5rem; }
 .result { margin-top: 2.5rem; }
 .result iframe { display: block; width: 100%; height: calc(100vh - 3.5rem); min-height: 32rem; border: 0; background: transparent; }
 .result.auto iframe { min-height: 0; }
 
-@media (prefers-reduced-motion: no-preference) {
-  .pencil, .checklist .tk { animation: fade .15s ease-out both; }
-  .threads path { animation: fade .3s ease-out both; }
-  .readgrid { transition: opacity .6s var(--ease); }
-  .map .pencil { transition: border-color .9s var(--ease), color .9s var(--ease); }
-  @keyframes fade { from { opacity: 0; } }
-}
 
 /* The example is offered before the form, so a visitor with no documents has a first step that costs nothing. */
 .lede + .try { margin-top: -1rem; }
@@ -196,23 +161,8 @@ html.running { scroll-padding-top: calc(var(--bar-h, 4rem) + .5rem); }
 .sec.collapsed .sec-head { padding-bottom: .75rem; }
 .sec-body { padding-top: 1rem; }
 .result > .sec-head { margin-bottom: .5rem; }
-.checklist h3 { margin: 0 0 .5rem; font-size: 1rem; }
 .live.done .claim { display: none; }
 
-/* What reading a document produced: kind and date, how much was kept, and how the quotes were checked. */
-.col .role { color: var(--ink); font-weight: 700; margin-bottom: .4rem; }
-.col .proof { margin: 0 0 .9rem; font-size: var(--t-13); color: var(--grey); }
-.col .proof p { margin: 0 0 .3rem; }
-.col .proof .stat { color: var(--ink); }
-.col .proof .warn { color: var(--amber); font-weight: 700; }
-.col .proof .warn::before { content: "Note: "; }
-.readgrid.read { grid-template-columns: minmax(0, 1fr); }
-.readgrid.read .checklist { display: none; }
-.map-key { margin: 1.25rem 0 0; max-width: 46rem; font-size: var(--t-16); color: var(--grey); }
-.map-key[hidden] { display: none; }
-.map-key .pencil { margin: 0 .2rem; font-size: var(--t-13); color: var(--ink); }
-.map-key .pencil.on { font-weight: 700; border-color: var(--ink); }
-.readgrid.read .latest { display: none; }
 
 /* Real document pictures in "How it works": the page itself, never a stand-in. */
 .frame-pic { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: contain; object-position: center top; background: var(--paper); padding: .75rem; margin-bottom: 1rem; }
@@ -277,3 +227,22 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 .map th { font-weight: 500; opacity: .85; }
 .map code { font-size: inherit; }
 .map .how-judgment { text-decoration: underline wavy rgba(255,255,255,.8); text-underline-offset: .25em; }
+
+.topnav nav a.ext::after { content: " \2197"; }
+.code-link { display: inline-block; margin-top: 1.25rem; font-weight: 700; }
+@media (min-width: 960px) { .close .code-link { grid-column: 1; justify-self: start; } }
+
+/* What the model was allowed to see, on the run page: ink on the sheet, not white on blue. */
+.map.adm th, .map.adm td { border-bottom-color: var(--cyan); }
+.map.adm th { color: var(--grey); opacity: 1; }
+.map.adm .how-judgment { text-decoration-color: var(--amber); }
+.map.adm tr.out td { color: var(--grey); }
+.map.adm .num-cell { font-variant-numeric: tabular-nums; font-weight: 700; }
+.map.adm tr.out .num-cell { font-weight: 400; }
+
+/* Two examples in the hero; after each answer, the next step. */
+.try-btns { display: flex; flex-wrap: wrap; gap: .5rem; }
+.after { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.25rem; margin: 2rem 0 0; padding: 1.25rem 0 0; border-top: 2px solid var(--ink); }
+.after[hidden] { display: none; }
+.after #after-btns { display: contents; }
+.after a { font-weight: 700; }

@@ -84,3 +84,10 @@ def test_questions_outside_the_registry_or_without_a_claim_are_refused_before_ru
     assert r.status_code == 400 and "not in the registry" in r.json()["refusal"]
     r = client.post("/api/run/gillette/81385411.d_and_o.limit")
     assert r.status_code == 400 and "No claim has been written" in r.json()["refusal"]
+
+
+def test_the_run_shows_what_the_model_was_allowed_to_see(client):
+    body = client.post("/api/sample/endorsement-replaces-limit").text
+    assert "event: admitted" in body and "event: files" not in body
+    assert '"name": "HO 00 15 (endorsement)"' in body and '"in_scope": true' in body
+    assert "HO 00 15 (endorsement) governs" in body  # a name, not an internal id

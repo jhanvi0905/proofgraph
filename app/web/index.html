@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="/web/tokens.css?v=3">
-<link rel="stylesheet" href="/web/app.css?v=6">
+<link rel="stylesheet" href="/web/app.css?v=9">
 <script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
@@ -16,14 +16,14 @@
   <section id="entrance" class="entrance">
     <header class="topnav" id="top">
       <a class="wordmark" href="#top">ProofGraph</a>
-      <nav aria-label="Sections"><a href="#see">What you see</a><a href="#answers">How it decides</a><a href="#check">Check a claim</a><a href="#faq">Questions</a></nav>
+      <nav aria-label="Sections"><a href="#see">What you see</a><a href="#answers">How it decides</a><a href="#check">Check a claim</a><a href="#faq">Questions</a><a class="ext" href="https://github.com/jhanvi0905/proofgraph/tree/x/proofgraph-v2-arbiter">Code</a></nav>
     </header>
     <div class="hero">
       <div class="hero-in">
         <div class="hero-copy">
           <h1>An AI that checks a claim across a packet of documents, and won&rsquo;t guess when they disagree.</h1>
           <p class="lede">Give it a claim and a packet of insurance documents: the policy, its endorsements and binders. It shows where each document answers, quotes the clause on its page, and says which document wins and by which rule. When two of them conflict and no rule decides, it tells you that instead of picking one.</p>
-          <p id="try" class="try" hidden><span class="try-q">See it decide:</span> <button type="button" class="try-btn" id="try-btn">Run an example</button> <span id="try-what"></span></p>
+          <p id="try" class="try" hidden><span class="try-q">Run an example:</span> <span id="try-btns" class="try-btns"></span></p>
         </div>
         <figure class="sheet" aria-label="A real result from the family B run">
           <p class="sheet-tag"><span>Real result, ISO HO 00 03 with HO 00 15</span><button type="button" class="sheet-run" id="sheet-run" hidden>Run it<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></p>
@@ -98,7 +98,7 @@
         <fieldset class="step3">
           <legend><span class="n">2</span>What each document is, and which policy it describes</legend>
           <p class="c-note">Written by a person, not read by the model. Only text from documents that describe the question&rsquo;s policy reaches the model.</p>
-          <div class="map-wrap"><table class="map"><thead><tr><th>Document</th><th>Kind</th><th>Policy it describes</th><th>How we know</th></tr></thead><tbody id="map"></tbody></table></div>
+          <div class="map-wrap"><table class="map"><thead><tr><th>Document</th><th>Kind</th><th>Policy it describes</th><th>How we know</th></tr></thead><tbody id="pmap"></tbody></table></div>
         </fieldset>
         <fieldset class="step3">
           <legend><span class="n">3</span>Question</legend>
@@ -124,6 +124,7 @@
     <section class="band close">
       <p class="big">Check which document governs, not the summary.</p>
       <a class="btn inv-dark" href="#check">Check a claim</a>
+      <a class="code-link" href="https://github.com/jhanvi0905/proofgraph/tree/x/proofgraph-v2-arbiter">Read the code, the decisions and the results on GitHub</a>
       <ul class="signoff trust" aria-label="Who did what"><li><span>Read by</span><span>Claude Opus 5.5 reads the admitted passages and points at values.</span></li><li><span>Decided by</span><span>Code: amounts, comparisons, precedence and every citation check.</span></li><li><span>Written by a person</span><span>The claim, and which policy each document describes.</span></li></ul>
     </section>
     <footer class="bigname" aria-hidden="true">ProofGraph</footer>
@@ -134,8 +135,8 @@
       <button type="button" class="btn quiet" id="back"><svg class="arrow" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg><span>New check</span></button>
       <nav class="steps-nav" aria-label="Steps in this check">
         <ol class="steps">
-          <li><button type="button" class="step" id="st1" data-go="sec-read"><span class="num">1</span><span class="t">Documents<small>How each page was read</small></span></button></li>
-          <li><button type="button" class="step" id="st2" data-go="sec-parts" aria-disabled="true"><span class="num">2</span><span class="t">Claim<small>Each part, checked</small></span></button></li>
+          <li><button type="button" class="step" id="st1" data-go="sec-read"><span class="num">1</span><span class="t">Admitted<small>What the model saw</small></span></button></li>
+          <li><button type="button" class="step" id="st2" data-go="sec-parts" aria-disabled="true"><span class="num">2</span><span class="t">Claim<small>Support and attack</small></span></button></li>
           <li><button type="button" class="step" id="st3" data-go="result" aria-disabled="true"><span class="num">3</span><span class="t">Answer<small>Verdict and proof</small></span></button></li>
         </ol>
       </nav>
@@ -148,30 +149,20 @@
     <div id="status" class="sr" role="status" aria-live="polite"></div>
     <section id="sec-read" class="sec" aria-labelledby="read-title">
       <header class="sec-head">
-        <h2 id="read-title" tabindex="-1"><span class="num">1</span><span id="read-name">Documents</span></h2>
+        <h2 id="read-title" tabindex="-1"><span class="num">1</span>What the model was allowed to see</h2>
         <button type="button" class="linkish sec-toggle" aria-expanded="true" aria-controls="sec-read-body">Hide details</button>
-        <p class="sec-lede">Only the part of each document mapped to the claim's policy is admitted. Each column below is one admitted document and how much of it was read.</p>
+        <p class="sec-lede">Built in code before the model is called. Text is admitted only from documents mapped to this question&rsquo;s policy, and only from inside each mapping&rsquo;s scope.</p>
         <p class="sec-sum" id="read-sum"></p>
       </header>
       <div class="sec-body" id="sec-read-body">
-        <div id="readgrid" class="readgrid">
-          <aside class="checklist" aria-label="Pages read"><h3>Pages</h3><ul id="ticks"></ul></aside>
-          <div class="map" id="map" aria-label="Packet map">
-            <div class="cols" id="cols"></div>
-            <svg class="threads" id="threads" aria-hidden="true"></svg>
-            <ul class="labels shared" id="shared" aria-label="Found in the packet"></ul>
-            <p class="map-key" id="map-key" hidden><span class="pencil">Name</span> a person, office, section or term found in a document. A line joins the same one across documents. <span class="pencil on">Name</span> it is on the path that decided the claim, listed under step 2.</p>
-            <p class="latest" id="latest"></p>
-          </div>
-        </div>
-        <p id="receipt" class="receipt" hidden></p>
+        <div class="map-wrap"><table class="map adm"><thead><tr><th>Document</th><th>Kind</th><th>Policy it describes</th><th>How we know</th><th>Passages admitted</th></tr></thead><tbody id="adm"></tbody></table></div>
       </div>
     </section>
     <section id="sec-parts" class="sec" aria-labelledby="parts-title" hidden>
       <header class="sec-head">
-        <h2 id="parts-title" tabindex="-1"><span class="num">2</span>The claim</h2>
+        <h2 id="parts-title" tabindex="-1"><span class="num">2</span>The claim, checked</h2>
         <button type="button" class="linkish sec-toggle" aria-expanded="true" aria-controls="sec-parts-body">Hide details</button>
-        <p class="sec-lede">The claim states one value for one slot, and gets one answer.</p>
+        <p class="sec-lede">One proposition. A support pass and a separate attack pass each see only it and the admitted passages. The model locates and quotes; code parses, compares and applies the rules.</p>
         <p class="sec-sum" id="parts-sum"></p>
       </header>
       <div class="sec-body" id="sec-parts-body">
@@ -188,9 +179,14 @@
     </header>
     <p id="opening" class="opening" role="status" hidden>Opening the review…</p>
     <iframe id="review" title="Review: the answer, the evidence and how it was checked"></iframe>
+    <nav id="after" class="after" aria-label="Next" hidden>
+      <span id="after-btns"></span>
+      <button type="button" class="btn quiet" id="again">Check another claim</button>
+      <a href="https://github.com/jhanvi0905/proofgraph/tree/x/proofgraph-v2-arbiter">Read the code</a>
+    </nav>
   </section>
 </div>
-<script src="/web/app.js?v=6"></script>
+<script src="/web/app.js?v=9"></script>
 <script src="/web/motion.js?v=3"></script>
 </body>
 </html>

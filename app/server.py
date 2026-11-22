@@ -85,12 +85,12 @@ def _sse(name: str, data: object) -> str:
 STATUS = {"supported": "supported", "contradicted": "contradicted", "unresolved": "unresolved", "not_found": "not_found"}
 
 
-def _reason(run: PacketRun) -> str:
+def _reason(run: PacketRun, named: dict) -> str:
     v = run.verdict
     if v is None:
         return run.failure or ""
     if v.supported_reason and v.supported_reason.value == "resolved_by_rule":
-        return f"Decided by a rule: {v.governing_rule.value.replace('_', ' ')}; {v.governing_doc_id} governs."
+        return f"Decided by a rule: {v.governing_rule.value.replace('_', ' ')}; {_doc_name(v.governing_doc_id, named)} governs."
     if v.unresolved_reason:
         return {"documents_disagree": "The documents state different amounts and no rule picks one.",
                 "uncompared_agreement": "The amounts match but could not be compared on the same terms."}[v.unresolved_reason.value]
@@ -104,20 +104,30 @@ def create_app() -> FastAPI:
     reviews: OrderedDict[str, str] = OrderedDict()
     limit = LiveRunLimit()  # kept for live runs; examples replay recorded responses and are never limited
     manifest = SourceManifest.model_validate_json((DATA / "instruments.json").read_text(encoding="utf-8"))
-    pages = {i.doc_id: i.last_page - i.first_page + 1 for s in manifest.sources for i in s.instruments}
     info = {i.doc_id: i for s in manifest.sources for i in s.instruments}
+    named = {i.doc_id: (s, i) for s in manifest.sources for i in s.instruments}
 
     def stream(sample: dict):
         claim = sample["claim"]
         try:
             run = run_packet(sample["id"], claim, sample["docs"], sample["mappings"], DATA, Trace(None))
-            yield _sse("files", {"files": [{"name": d, "id": d, "ok": True, "pages": pages.get(d, 1), "note": f"{n} passage(s) admitted"}
-                                           for d, n in run.documents]})
+            admitted = dict(run.documents)
+            policy = claim.slot.split(".", 1)[0]
+            rows = []
+            for d in sample["docs"]:
+                m = next((x for x in sample["mappings"].documents if x.doc_id == d), None)
+                route = next((r for r in m.describes if r.policy == policy), None) if m else None
+                other = sorted({r.policy for r in m.describes} - {policy}) if m else []
+                rows.append({"name": _doc_name(d, named), "id": d, "kind": KIND.get(info[d].instrument_type.value, "") if d in info else "",
+                             "policy": policy if route else (", ".join(other) or "none recorded"),
+                             "how": HOW.get(route.strength.value, "") if route else "", "strength": route.strength.value if route else "",
+                             "passages": admitted.get(d, 0), "in_scope": route is not None})
+            yield _sse("admitted", {"policy": policy, "docs": rows})
             yield _sse("parts", {"parts": [{"id": "a0", "text": claim.text, "span": [0, len(claim.text)]}]})
             status = STATUS.get(run.verdict.verdict.value, "error") if run.verdict else "error"
-            yield _sse("partdone", {"part_id": "a0", "status": status, "reason": _reason(run)})
+            yield _sse("partdone", {"part_id": "a0", "status": status, "reason": _reason(run, named)})
             if run.verdict and run.verdict.unresolved_reason:
-                yield _sse("disagreement", {"part_id": "a0", "text": _reason(run)})
+                yield _sse("disagreement", {"part_id": "a0", "text": _reason(run, named)})
             rid = uuid.uuid4().hex[:12]
             reviews[rid] = render(run, DATA, f"ProofGraph: {sample['title']}")
             while len(reviews) > KEEP:

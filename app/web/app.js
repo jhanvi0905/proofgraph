@@ -1,7 +1,7 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var form = $("start"), go = $("go"), problem = $("problem");
-  var state = { answered: [], reviewId: null, parts: {}, passcode: "", cols: {}, byId: {}, chips: {}, shown: {} };
+  var state = { answered: [], reviewId: null, parts: {}, passcode: "" };
   var calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
   var NS = "http://www.w3.org/2000/svg";
   var runner = null;  // the running check, so going back can stop it
@@ -18,10 +18,8 @@
   var ANSWER = {
     supported: { word: "Supported", cls: "green", m: "tick" },
     contradicted: { word: "Contradicted", cls: "red", m: "circle" },
-    weakened: { word: "Qualified", cls: "amber", m: "caret" },
     not_found: { word: "Not in these documents", cls: "slate", m: "bracket" },
     unresolved: { word: "Can’t be settled from these documents", cls: "clash", m: "clash" },
-    cannot_tell: { word: "Can't tell", cls: "grey", m: "question" },
     error: { word: "Could not check", cls: "grey", m: "question" }
   };
   var TICK = "M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8";
@@ -35,15 +33,9 @@
     p.setAttribute("stroke-width", "2"); p.setAttribute("stroke-linecap", "round"); p.setAttribute("stroke-linejoin", "round");
     s.appendChild(p); return s;
   }
+  function esc(x) { var d = document.createElement("div"); d.textContent = x == null ? "" : x; return d.innerHTML; }
   function say(text) { $("status").textContent = text; }
   function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
-  function role(r) { r = (r || "").replace(/_/g, " "); return !r || r === "other" ? "Document" : r.charAt(0).toUpperCase() + r.slice(1); }
-  function day(iso) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); if (!m) return iso || "";
-    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-  }
-  function tidy(name) { return name.replace(/\.(pdf|png|jpe?g)$/i, "").replace(/[_]+/g, " "); }
-  function latest(text) { $("latest").textContent = text; }
   function note(key, text, cls) {
     var ul = $("notes"), li = ul.querySelector('[data-key="' + key + '"]');
     if (!li) { li = el("li"); li.dataset.key = key; ul.appendChild(li); }
@@ -74,7 +66,6 @@
   function setOpen(sec, open) {
     sec.classList.toggle("collapsed", !open);
     var t = sec.querySelector(".sec-toggle"); t.setAttribute("aria-expanded", String(open)); t.textContent = open ? "Hide details" : "Show details";
-    if (open && sec.id === "sec-read") drawThreads();
   }
   function goTo(id) {
     var sec = $(id); if (!sec || sec.hidden) return;
@@ -118,10 +109,7 @@
       sub.appendChild(b);
     });
   }
-  function tally() {
-    var words = state.answered.map(function (w) { return w; });
-    return plural(words.length, "part") + (words.length ? ": " + words.join(", ") : "");
-  }
+  function tally() { return state.answered.join(", "); }
   window.addEventListener("scroll", spy, { passive: true });
   window.addEventListener("resize", spy);
   if (window.ResizeObserver) new ResizeObserver(function () { document.documentElement.style.setProperty("--bar-h", barH() + "px"); spy(); }).observe(bar);
@@ -134,21 +122,19 @@
 
   function showStart(text) {
     if (runner) { runner.abort(); runner = null; }
-    $("review").removeAttribute("src"); $("opening").hidden = true; state.reviewId = null;
+    $("review").removeAttribute("src"); $("opening").hidden = true; state.reviewId = null; $("after").hidden = true;
     bar.hidden = true; document.documentElement.classList.remove("running"); $("entrance").hidden = false; $("live").hidden = true; $("result").hidden = true;
     go.disabled = false; go.textContent = "Decide this"; window.scrollTo(0, 0);
     if (text) { problem.textContent = text; problem.hidden = false; say(text); problem.scrollIntoView({ block: "center" }); }
   }
   function reset(claim) {
-    ["ticks", "cols", "shared", "parts", "notes"].forEach(function (id) { $(id).textContent = ""; });
-    $("threads").textContent = ""; $("receipt").hidden = true; latest("");
+    ["adm", "parts", "notes"].forEach(function (id) { $(id).textContent = ""; });
     $("read-sum").textContent = ""; $("parts-sum").textContent = ""; trip = { phase: 1, finished: false, sections: [], auto: false };
     $("result").classList.remove("auto"); $("j-sub").hidden = true; frame.style.height = ""; state.answered = [];
     setOpen($("sec-read"), true); setOpen($("sec-parts"), true); $("sec-parts").hidden = true;
-    $("live").classList.remove("done"); $("read-name").textContent = "Reading the documents";
-$("readgrid").classList.remove("read"); $("map-key").hidden = true;
-    bar.hidden = false; document.documentElement.classList.add("running"); paint(1); $("map").classList.remove("deciding");
-    state.parts = {}; state.cols = {}; state.byId = {}; state.chips = {}; state.shown = {};
+    $("live").classList.remove("done");
+    bar.hidden = false; document.documentElement.classList.add("running"); paint(1);
+    state.parts = {};
     var c = $("claim-line"); c.textContent = claim; c.className = "claim reading";
     problem.hidden = true; $("entrance").hidden = true; $("live").hidden = false; $("result").hidden = true;
     window.scrollTo(0, 0);
@@ -166,104 +152,16 @@ $("readgrid").classList.remove("read"); $("map-key").hidden = true;
     line.textContent = ""; line.appendChild(out); line.className = "claim";
   }
 
-  // Threads join the same thing across documents. Fixed columns, never force-directed.
-  var queued = false;
-  function drawThreads() {
-    if (queued) return; queued = true;
-    requestAnimationFrame(function () {
-      queued = false;
-      var map = $("map"), box = map.getBoundingClientRect(), t = $("threads"); t.textContent = "";
-      Object.keys(state.chips).forEach(function (key) {
-        var list = state.chips[key].slice().sort(function (a, b) { return a.getBoundingClientRect().left - b.getBoundingClientRect().left; });
-        for (var i = 0; i + 1 < list.length; i++) {
-          var a = list[i].getBoundingClientRect(), b = list[i + 1].getBoundingClientRect();
-          var x1 = a.right - box.left, y1 = a.top + a.height / 2 - box.top, x2 = b.left - box.left, y2 = b.top + b.height / 2 - box.top;
-          var mid = (x1 + x2) / 2, p = document.createElementNS(NS, "path");
-          p.setAttribute("d", "M" + x1 + " " + y1 + "C" + mid + " " + y1 + " " + mid + " " + y2 + " " + x2 + " " + y2);
-          t.appendChild(p);
-        }
-      });
-    });
-  }
-  window.addEventListener("resize", drawThreads);
-
-  function finishReading() {
-    Array.prototype.forEach.call(document.querySelectorAll(".col.reading"), function (c) {
-      c.classList.remove("reading");
-      var r = c.querySelector(".role"); if (r && !r.textContent) r.textContent = "Read";
-    });
-    $("read-name").textContent = "How the documents were read"; $("readgrid").classList.add("read"); $("map-key").hidden = false;
-  }
-
   var on = {
-    files: function (d) {
-      var pages = 0, n = 0;
-      d.files.forEach(function (f, i) {
-        if (!f.ok) { note("f" + i, f.name + ": " + f.note, "error"); return; }
-        n++; pages += f.pages;
-        var col = el("div", "col reading"), h = el("h3", null, tidy(f.name));
-        var labels = el("ul", "labels");
-        col.appendChild(h); col.appendChild(el("p", "role")); col.appendChild(el("div", "proof")); col.appendChild(labels); $("cols").appendChild(col);
-        state.cols[f.name] = { col: col, ticks: {}, labels: labels, pages: f.pages, scan: f.note || "" };
-        if (f.id) state.byId[f.id] = state.cols[f.name];  // same ids as DocRead.doc, so a cached graph still finds its columns
-        var d1 = el("li", "d"); d1.appendChild(document.createTextNode(tidy(f.name)));
-        var ul = el("ul");
-        for (var k = 1; k <= f.pages; k++) {
-          var li = el("li", "pg"); li.appendChild(svg(TICK, "tk")); li.appendChild(el("span", null, "Page " + k + " of " + f.pages));
-          ul.appendChild(li); state.cols[f.name].ticks[k] = li;
-        }
-        d1.appendChild(ul); $("ticks").appendChild(d1);
-        if (f.note) note("fn" + i, f.name + ": " + f.note);
-      });
-      latest("Reading each document once. Later claims on these documents skip this step.");
-      say("Files accepted: " + plural(n, "document") + ", " + plural(pages, "page") + ".");
-    },
-    docstarted: function (d) {
-      var c = state.cols[d.name]; if (c) state.byId[d.doc] = c;
-      latest("Reading " + tidy(d.name) + "\u2026");
-    },
-    docread: function (d) {
-      var c = state.cols[d.name]; if (!c) return;
-      c.col.classList.remove("reading"); c.col.querySelector(".role").textContent = role(d.role) + (d.date ? ", " + d.date : "");
-      state.byId[d.doc] = c;
-      say(d.name + " read as " + role(d.role) + (d.date ? ", " + d.date : "") + ".");
-    },
-    pageread: function (d) {
-      var c = state.cols[d.name]; if (!c || !c.ticks[d.page]) return;
-      c.ticks[d.page].classList.add("ok");
-      latest("Reading " + tidy(d.name) + ", page " + d.page + " of " + d.of);
-    },
-    docsummary: function (d) {
-      var c = state.byId[d.doc]; if (!c) return;
-      c.col.classList.remove("reading");
-      c.col.querySelector(".role").textContent = role(d.role) + (d.date ? ", " + day(d.date) : "");
-      var box = c.col.querySelector(".proof"); box.textContent = "";
-      box.appendChild(el("p", "stat", plural(c.pages, "page") + " read. " + plural(d.rules, "statement") + " kept, " + plural(d.names, "name") + " found."));
-      if (d.rules) {
-        var how = [];
-        if (d.exact) how.push(d.exact + " word for word");
-        if (d.tidied) how.push(d.tidied + " after tidying spacing and punctuation");
-        if (d.close) how.push(d.close + " as a close match");
-        box.appendChild(el("p", "ok", "Each one is a quote found on the page: " + how.join(", ") + "."));
-      } else box.appendChild(el("p", "ok", "Nothing in it stated who must, may or must not do something."));
-      if (c.scan) box.appendChild(el("p", "warn", c.scan.replace(/ will be transcribed;/, " was transcribed by the model;")));
-    },
-    entity: function (d) {
-      var key = d.name.toLowerCase(), holders = (d.doc_ids || []).map(function (id) { return state.byId[id]; }).filter(Boolean);
-      var made = [];
-      if (holders.length) {
-        holders.forEach(function (h) { var li = el("li"); li.appendChild(el("span", "pencil", d.name)); h.labels.appendChild(li); made.push(li.firstChild); });
-      } else {
-        var li = el("li"), chip = el("span", "pencil", d.name); chip.appendChild(el("span", "n", "in " + plural(d.docs, "document")));
-        li.appendChild(chip); $("shared").appendChild(li); made.push(chip);
-      }
-      state.shown[key] = made; state.chips[key] = made.length > 1 ? made : (state.chips[key] || []);
-      latest(d.name + ", in " + plural(d.docs, "document"));
-    },
-    graphready: function (d) {
-      var r = $("receipt"); r.hidden = false;
-      r.textContent = (d.cached ? "These documents were already read, so this step was not repeated. " : "") + "ProofGraph read " + plural(d.pages, "page") + " and kept " + plural(d.rules, "statement") + " (who must, may or must not do what), each one a quote found on its page. It named " + plural(d.entities, "name") + " (people, offices, sections and terms)" + (d.entities > 12 ? "; the map above shows the 12 named in the most documents." : ".");
-      finishReading(); drawThreads(); say(r.textContent);
+    admitted: function (d) {
+      var n = 0, docs = 0;
+      $("adm").innerHTML = d.docs.map(function (x) {
+        if (x.in_scope) { docs++; n += x.passages; }
+        return '<tr class="' + (x.in_scope ? "in" : "out") + '"><td>' + esc(x.name) + '</td><td>' + esc(x.kind) + '</td><td><code>' + esc(x.policy) + '</code></td><td class="how-' +
+          esc(x.strength || "none") + '">' + esc(x.how || "describes another policy") + '</td><td class="num-cell">' + (x.in_scope ? esc(String(x.passages)) : "not admitted") + '</td></tr>';
+      }).join("");
+      $("read-sum").textContent = plural(n, "passage") + " from " + plural(docs, "document") + " mapped to " + d.policy + (d.docs.length > docs ? "; " + plural(d.docs.length - docs, "other document") + " kept out." : ".");
+      say($("read-sum").textContent);
     },
     parts: function (d) {
       underline(d.parts);
@@ -272,28 +170,15 @@ $("readgrid").classList.remove("read"); $("map-key").hidden = true;
         var li = el("li"); li.dataset.key = p.id; li.textContent = "Checking: " + p.text; $("parts").appendChild(li);
       });
       phase(2);
-      latest("Checking " + plural(d.parts.length, "part") + " of the claim.");
       say("Checking " + plural(d.parts.length, "part") + " of the claim.");
-    },
-    linked: function () {},
-    path: function (d) {
-      var li = $("parts").querySelector('[data-key="' + d.part_id + '"]');
-      if (li && d.labels.length > 1) {
-        var old = li.querySelector(".path"); if (old) old.remove();
-        li.appendChild(el("span", "path", d.labels.join(" → ")));
-      }
-      var lit = 0;
-      d.labels.forEach(function (name) { (state.shown[name.toLowerCase()] || []).forEach(function (c) { c.classList.add("on"); lit++; }); });
-      if (lit) $("map").classList.add("deciding");
     },
     partdone: function (d) {
       var a = ANSWER[d.status] || ANSWER.error, li = $("parts").querySelector('[data-key="' + d.part_id + '"]');
-      var path = li && li.querySelector(".path"), text = state.parts[d.part_id] || "";
+      var text = state.parts[d.part_id] || "";
       li.textContent = "";
       var st = el("strong", "st " + a.cls); st.appendChild(svg(STROKES[a.m], "mark m-" + a.m)); st.appendChild(document.createTextNode(a.word));
       li.appendChild(st); li.appendChild(document.createTextNode(text));
       if (d.reason) li.appendChild(el("span", "sub", d.reason));
-      if (path) li.appendChild(path);
       var u = document.querySelector('.u[data-part="' + d.part_id + '"]');
       if (u) u.className = "u " + a.cls;
       state.answered.push(a.word);
@@ -303,13 +188,13 @@ $("readgrid").classList.remove("read"); $("map-key").hidden = true;
     done: function (d) {
       state.reviewId = d.review_id;
       (d.banners || []).forEach(function (b, i) { note("b" + i, b); });
-      finishReading(); latest("Done."); $("live").classList.add("done");
+      $("live").classList.add("done");
       trip.finished = true; phase(3); $("opening").hidden = false;
       frame.onload = function () { $("opening").hidden = true; };
       frame.src = "/api/review/" + d.review_id;
-      $("result").hidden = false; say("Answer ready. The review is below.");
+      $("result").hidden = false; showAfter(); say("Answer ready. The review is below.");
       setTimeout(function () {
-        $("read-sum").textContent = $("receipt").textContent; $("parts-sum").textContent = tally();
+        $("parts-sum").textContent = tally();
         setOpen($("sec-read"), false); setOpen($("sec-parts"), false);
         scrollTo(window.scrollY + $("result").getBoundingClientRect().top - barH());
       }, calm ? 0 : 400);
@@ -354,7 +239,6 @@ $("readgrid").classList.remove("read"); $("map-key").hidden = true;
 
   // The three-step form: packet, the person-written mapping, and a question from the registry.
   var pick = { packet: null, slot: null, claim: "" }, packs = [];
-  function esc(x) { var d = document.createElement("div"); d.textContent = x == null ? "" : x; return d.innerHTML; }
   function choice(name, value, title, sub, mono, checked, off) {
     return '<label class="choice' + (off ? ' off' : '') + '"><input type="radio" name="' + name + '" value="' + esc(value) + '"' +
       (checked ? ' checked' : '') + (off ? ' disabled' : '') + '><span class="c-t">' + esc(title) + '</span>' +
@@ -363,7 +247,7 @@ $("readgrid").classList.remove("read"); $("map-key").hidden = true;
   function showPacket(id) {
     var p = packs.filter(function (x) { return x.id === id; })[0]; if (!p) return;
     pick.packet = id;
-    $("map").innerHTML = p.docs.map(function (d) {
+    $("pmap").innerHTML = p.docs.map(function (d) {
       return '<tr><td>' + esc(d.name) + '</td><td>' + esc(d.kind) + '</td><td><code>' + esc(d.policy || "none recorded") + '</code></td><td class="how-' +
         esc(d.strength || "none") + '">' + esc(d.how || "not mapped, so not admitted") + '</td></tr>';
     }).join("");
@@ -392,6 +276,7 @@ $("readgrid").classList.remove("read"); $("map-key").hidden = true;
     if (!pick.packet || !pick.slot) return;
     state.passcode = $("passcode").value;
     var fd = new FormData(); fd.append("passcode", state.passcode);
+    current = null;
     run("/api/run/" + encodeURIComponent(pick.packet) + "/" + encodeURIComponent(pick.slot), fd, pick.claim);
   });
 
@@ -403,16 +288,32 @@ $("readgrid").classList.remove("read"); $("map-key").hidden = true;
     state.passcode = $("passcode").value;
     if (state.needPass && !state.passcode) { $("passcode").focus(); problem.textContent = "Enter the passcode to open a packet."; problem.hidden = false; return; }
     var fd = new FormData(); fd.append("passcode", state.passcode);
+    current = s.id;
     run("/api/sample/" + s.id, fd, s.claim);
   }
 
+  // Both examples, one click each: the case a rule decides, and the case it refuses to pick.
+  var LABEL = { "endorsement-replaces-limit": "A rule decides", "documents-disagree": "The documents disagree" };
+  var samples = [], current = null;
+  function sampleButton(s, cls) {
+    var b = el("button", cls, LABEL[s.id] || s.title); b.type = "button"; b.title = s.title;
+    b.addEventListener("click", function () { runSample(s); }); return b;
+  }
   fetch("/api/samples").then(function (r) { return r.json(); }).then(function (list) {
     if (!list.length) return;
-    $("try-what").textContent = list[0].title;
+    samples = list;
+    list.forEach(function (s) { $("try-btns").appendChild(sampleButton(s, "try-btn")); });
     $("try").hidden = false;
-    $("try-btn").addEventListener("click", function () { runSample(list[0]); });
     $("sheet-run").hidden = false; $("sheet-run").addEventListener("click", function () { runSample(list[0]); });
   }).catch(function () {});
+  function showAfter() {
+    var box = $("after-btns"); box.textContent = "";
+    samples.filter(function (s) { return s.id !== current; }).forEach(function (s) {
+      var b = sampleButton(s, "btn"); b.textContent = "Run: " + b.textContent.charAt(0).toLowerCase() + b.textContent.slice(1); box.appendChild(b);
+    });
+    $("after").hidden = false;
+  }
+  $("again").addEventListener("click", function () { showStart(); var c = $("check"); if (c) c.scrollIntoView(); });
 
   window.addEventListener("message", function (e) {
     if (e.origin !== location.origin || !e.data) return;
@@ -420,8 +321,5 @@ $("readgrid").classList.remove("read"); $("map-key").hidden = true;
       trip.auto = true; trip.sections = e.data.sections || []; $("result").classList.add("auto");
       frame.style.height = e.data.height + "px"; buildSub(trip.sections); spy(); return;
     }
-    if (e.data.type !== "proofgraph-ask" || !state.reviewId) return;
-    var fd = new FormData(); fd.append("claim", e.data.claim); fd.append("passcode", state.passcode);
-    run("/api/review/" + state.reviewId + "/ask", fd, e.data.claim);
   });
 })();

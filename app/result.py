@@ -66,7 +66,7 @@ def render(run: PacketRun, data: Path, title: str) -> str:
 <section aria-labelledby="ev"><h2 id="ev">What each document states, and where</h2>{rows}</section>
 {pairs}
 <footer>
-  <p><strong>Who wrote what.</strong> The claim, its slot (<code>{E(run.claim.slot)}</code>), and which policy each document describes are written by a person.
+  <p><strong>Who wrote what.</strong> The claim, its question (<code>{E(run.claim.slot)}</code>), and which policy each document describes are written by a person.
   The model read the admitted passages and pointed at the values; code parsed every amount, compared every pair, applied the precedence rules,
   and checked every citation against the file. Nothing on this page is generated prose standing in for a document.</p>
 </footer>"""
