@@ -7,6 +7,7 @@ from pathlib import Path
 
 from proofgraph.arbiter import arbitrate
 from proofgraph.assertions import assert_one
+from proofgraph.model import embed
 from proofgraph.retrieve import retrieve
 from proofgraph.atomize import atomize
 from proofgraph.checker import open_source
@@ -143,7 +144,7 @@ def _cmd_retrieve(args: argparse.Namespace) -> None:
     gold = _labelled_spans(instruments)
     spans = {sp.span_id: sp for i in instruments for sp in i.spans}
     for atom in res.atoms:
-        r = retrieve(atom, instruments, trace)
+        r = retrieve(atom, instruments, trace, embed=None if args.sparse_only else embed)
         print(f"atom {atom.atom_id}: {atom.predicate} slot={atom.slot} quantity_raw={atom.quantity_raw!r}")
         print(f"query  {' '.join(r.query_terms)}")
         print(f"searched {r.candidates} spans ({r.deduped} duplicates dropped, {r.capped} capped), dense={r.dense}\n")
@@ -179,6 +180,7 @@ def main(argv: list[str] | None = None) -> None:
     rt = sub.add_parser("retrieve", help="atomize a claim, retrieve the top ten spans, mark the labelled ones")
     rt.add_argument("claim")
     rt.add_argument("--claim-id", default="c1")
+    rt.add_argument("--sparse-only", action="store_true", help="BM25 only, no dense ranking")
     rt.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     rt.set_defaults(func=_cmd_retrieve)
     args = parser.parse_args(argv)
