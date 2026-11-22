@@ -58,7 +58,6 @@ html, body { overflow-x: clip; }
 .band h3 { font-size: var(--t-20); margin: 0 0 .4rem; }
 .band p { margin: 0; }
 .note { font-size: var(--t-13); color: var(--grey); margin: -.5rem 0 1rem !important; }
-.frames { display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); border-top: 2px solid var(--ink); padding-top: 1.25rem; }
 .big { font-size: var(--t-25); line-height: 1.35; font-weight: 500; max-width: 44rem; }
 .pillars { list-style: none; margin: 1.5rem 0 0; padding: 0; display: grid; gap: .75rem; max-width: 44rem; }
 .pillars li { padding: .9rem 1rem; background: var(--paper); }
@@ -76,10 +75,6 @@ html, body { overflow-x: clip; }
 @media (min-width: 960px) {
   .beyond { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 0 4rem; align-items: start; }
   .beyond h2 { grid-column: 1 / -1; } .beyond .pillars { margin-top: .4rem; }
-  .faq { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr); gap: 0 4rem; align-items: start; }
-  .faq h2 { grid-row: 1 / span 4; position: sticky; top: 1.5rem; } .faq details { grid-column: 2; }
-  .close { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 0 4rem; align-items: start; }
-  .close .big { grid-column: 1; } .close .btn { grid-column: 1; justify-self: start; } .close .signoff { grid-column: 2; grid-row: 1 / span 3; margin-top: .6rem; }
 }
 .bigname { margin: 3rem 0 0; font-size: clamp(3rem, 10vw, 6rem); font-weight: 700; letter-spacing: -.04em; line-height: .9; color: var(--ink); overflow: hidden; white-space: nowrap; }
 
@@ -166,7 +161,6 @@ html.running { scroll-padding-top: calc(var(--bar-h, 4rem) + .5rem); }
 
 /* Real document pictures in "How it works": the page itself, never a stand-in. */
 .frame-pic { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: contain; object-position: center top; background: var(--paper); padding: .75rem; margin-bottom: 1rem; }
-.frames > div { display: flex; flex-direction: column; }
 /* The wordmark close sits apart from the sign-off above it. */
 .bigname { margin-top: 7rem; }
 
@@ -179,7 +173,6 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 .faq summary { cursor: pointer; }
 .faq summary:hover { transform: translateX(4px); }
 .frame-pic { transition: transform .9s var(--ease); }
-.frames > div:hover .frame-pic { transform: scale(1.015); }
 @media (prefers-reduced-motion: reduce) {
   html.js [data-rise] { transform: none; transition: opacity .3s linear; }
   .frame-pic, .faq summary, .btn, .try-btn { transition: none; transform: none !important; }
@@ -187,19 +180,7 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 .beyond-pic { display: block; width: 100%; max-width: 44rem; height: auto; background: var(--paper); margin: 1.75rem 0 0; }
 
 /* The four plain statements: what you see, how it decides, what it refuses, what it can't do yet. */
-.spec { display: grid; grid-template-columns: minmax(0, 1fr); gap: 3rem; }
-.spec-block { min-width: 0; }
-@media (min-width: 900px) { .spec { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3.5rem 4rem; } }
-.spec-block p, .spec-block li { font-size: var(--t-16, 1rem); line-height: 1.6; max-width: 38rem; }
-.spec-block ul { margin: 0; padding: 0 0 0 1.1rem; display: grid; gap: .5rem; }
-.spec-block .beyond-pic { margin-top: 1.25rem; }
-.spec-note { margin-top: 1rem !important; color: var(--grey); }
 
-@media (min-width: 900px) { .spec-block.wide { grid-column: 1 / -1; } .spec-block.wide > p, .spec-block.wide .three { max-width: 46rem; } }
-.spec-block .frames { margin-top: 1.75rem; }
-.three { list-style: none; padding: 0 !important; margin-top: 1.25rem !important; }
-.three li { padding: .8rem 1rem; background: var(--paper); }
-.three-note { margin-top: .9rem !important; font-weight: 600; }
 .q-sub { margin-top: 1rem !important; max-width: 44rem; font-size: var(--t-20); line-height: 1.5; }
 /* The claim form keeps the hero's blue ground, so its white-on-blue fields read the same. */
 .check { background: var(--stamp); color: #fff; margin: 4.5rem calc(50% - 50vw) 0; padding: 3.5rem max(1rem, calc(50vw - 40rem + 1rem)); }
@@ -230,7 +211,6 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 
 .topnav nav a.ext::after { content: " \2197"; }
 .code-link { display: inline-block; margin-top: 1.25rem; font-weight: 700; }
-@media (min-width: 960px) { .close .code-link { grid-column: 1; justify-self: start; } }
 
 /* What the model was allowed to see, on the run page: ink on the sheet, not white on blue. */
 .map.adm th, .map.adm td { border-bottom-color: var(--cyan); }
@@ -246,3 +226,52 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 .after[hidden] { display: none; }
 .after #after-btns { display: contents; }
 .after a { font-weight: 700; }
+
+/* One rail for the whole middle of the page. Every row shares the same two grid lines: the heading and its
+   argument on the left, held in place while the evidence scrolls past on the right. One axis, one rhythm:
+   a 2px ink rule opens each row, generous space between rows, tight space inside them. */
+:root { --rail: minmax(0, 5fr) minmax(0, 7fr); --rail-gap: clamp(2rem, 5vw, 5rem); --row-gap: clamp(4rem, 9vw, 7.5rem); }
+.question { padding-top: var(--row-gap); }
+.question .big { font-size: clamp(1.6rem, 3vw, 2.4rem); line-height: 1.2; font-weight: 700; letter-spacing: -.015em; max-width: 52rem; text-wrap: balance; }
+.question .q-sub { margin-top: 1.5rem !important; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem var(--rail-gap); margin-top: var(--row-gap); padding-top: 1.25rem; border-top: 2px solid var(--ink); align-items: start; }
+.row > .rail, .row > .body { min-width: 0; }
+.rail h2 { font-size: var(--t-31); line-height: 1.15; margin: 0 0 1rem; letter-spacing: -.01em; }
+.rail p { font-size: var(--t-16); line-height: 1.6; max-width: 34rem; margin: 0; }
+@media (min-width: 900px) {
+  .row { grid-template-columns: var(--rail); }
+  .row > .rail { position: sticky; top: 5rem; }
+}
+.body > * + * { margin-top: 1.5rem; }
+
+/* What you see: the three pictures are one sequence, read top to bottom. */
+.steps-seq { display: grid; gap: 3rem; }
+.steps-seq > * + * { margin-top: 0; }
+.shot { margin: 0; }
+.shot figcaption { padding-top: .9rem; border-top: 1px solid var(--cyan); margin-top: .9rem; }
+.shot h3 { font-size: var(--t-20); margin: 0 0 .35rem; }
+.shot p { font-size: var(--t-16); line-height: 1.6; max-width: 40rem; }
+.frame-pic { margin-bottom: 0 !important; }
+
+/* How it decides: the three answers as rules, each with the mark the result page uses. */
+.answers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--cyan); }
+.answers li { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: .5rem; padding: 1rem 0; border-bottom: 1px solid var(--cyan); font-size: var(--t-20); line-height: 1.45; }
+.answers .mark { margin: .2rem 0 0; }
+.three-note { font-weight: 700; font-size: var(--t-16); }
+.exhibit { margin-left: 0; margin-right: 0; }
+.exhibit img { display: block; width: 100%; height: auto; background: var(--paper); padding: .75rem; }
+
+/* Refusals and limits: the same ruled list. */
+.ruled { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--cyan); }
+.ruled li { padding: .9rem 0; border-bottom: 1px solid var(--cyan); font-size: var(--t-20); line-height: 1.45; }
+.spec-note { color: var(--grey); font-size: var(--t-16); }
+
+/* The form keeps its blue field, on the same two grid lines. */
+.check.row { border-top: 0; padding-top: 3.5rem; }
+.check .rail p { color: #fff; }
+.check .body.start { max-width: none; }
+.faq .body > * + * { margin-top: .5rem; }
+.close .rail .btn { margin-top: 1.5rem; }
+.close .code-link { display: block; margin-top: 1.25rem; font-weight: 700; }
+.close .body.signoff { margin-top: 0; max-width: none; }
+.rail .big, .question .big { font-size: clamp(1.6rem, 3vw, 2.4rem); line-height: 1.2; font-weight: 700; letter-spacing: -.015em; max-width: 52rem; text-wrap: balance; }
