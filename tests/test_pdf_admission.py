@@ -79,7 +79,7 @@ def test_pdf_evidence_cites_whole_lines_and_verifies(env):
     [hit] = r.hits
 
     def fake(prompt, schema, *, system, template, effort="low"):
-        return ModelReply(json.dumps({"evidence": [{"span_id": hit.span_id, "reading": "r", "quote": "$200"}]}),
+        return ModelReply(json.dumps({"evidence": [{"span_id": hit.span_id, "reading": "r", "quote": "$200", "value": "$200"}]}),
                           "fake", "ph", 1, 1, 1, False)
 
     out = support(ATOM, r, insts, routes, src, memory_trace(), fake)

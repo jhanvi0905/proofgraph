@@ -188,45 +188,86 @@ def _cmd_recall(args: argparse.Namespace) -> None:
           f"({'bm25 only' if args.sparse_only else 'bm25 + dense'})")
 
 
-def _cmd_passes(args: argparse.Namespace) -> None:
-    """Claim file -> atomize -> retrieve -> support and attack. Only the claim is written by hand."""
-    trace = Trace(Path(args.trace))
+def _chain(trace: Trace, quiet: bool = False):
+    """Claim file -> atomize -> admit -> retrieve -> support and attack. Only the claim is written by hand."""
     claim = _claim("retention")
     res = atomize(claim, load_predicate_set(DATA / "predicates.json"), trace)
     if not res.atoms:
-        print(f"atomize failed: {[e.code.value for e in res.errors]}")
-        return
+        raise SystemExit(f"atomize failed: {[e.code.value for e in res.errors]}")
     atom = res.atoms[0]
-    print(f"claim (written by the author)\n  {claim.text}\n  slot: {claim.slot}\n")
     label = next(s for s in _load_manifest().sources if s.source_id == "gillette_ex10e")
     ingested = ingest(label, DATA / "raw")
-    instruments = ingested.instruments
     src = open_source(DATA / "raw" / label.file)
     mappings = DocumentMappingFile.model_validate_json((DATA / "document_mappings.json").read_text(encoding="utf-8"))
     policy = claim.slot.split(".", 1)[0]
-    admitted, routes = admit(instruments, mappings, policy, src, trace, ingested.source.extractor)
-    print(f"atom\n  " + describe(atom).replace("\n", "\n  "))
-    print(f"\nadmitted (text inside a scope mapped to {policy}; decided in code, not by the model)")
-    for doc, route in routes:
-        scope = " ".join(route.citation.text.split())
-        print(f"  {route.strength.value.upper():8} {doc:24} {scope[:70]!r}{'...' if len(scope) > 70 else ''}")
+    admitted, routes = admit(ingested.instruments, mappings, policy, src, trace, ingested.source.extractor)
     r = retrieve(atom, admitted, trace, embed=embed)
-    print(f"\nretrieved {len(r.hits)} passages from admitted scopes\n")
-    for res in (support(atom, r, admitted, routes, src, trace), attack(atom, r, admitted, routes, src, trace)):
+    results = (support(atom, r, admitted, routes, src, trace), attack(atom, r, admitted, routes, src, trace))
+    if not quiet:
+        print(f"claim (written by the author)\n  {claim.text}\n  slot: {claim.slot}\n")
+        print(f"atom\n  " + describe(atom).replace("\n", "\n  "))
+        print(f"\nadmitted (text inside a scope mapped to {policy}; decided in code, not by the model)")
+        for doc, route in routes:
+            scope = " ".join(route.citation.text.split())
+            print(f"  {route.strength.value.upper():8} {doc:24} {scope[:70]!r}{'...' if len(scope) > 70 else ''}")
+        print(f"\nretrieved {len(r.hits)} passages from admitted scopes\n")
+    return claim, atom, admitted, results
+
+
+def _cmd_passes(args: argparse.Namespace) -> None:
+    trace = Trace(Path(args.trace))
+    claim, atom, admitted, results = _chain(trace)
+    labelled = [(inp.citation.locator.start, inp.citation.locator.end, inp.assertion_id)
+                for inp in MappingFile.model_validate_json((DATA / "mappings.json").read_text(encoding="utf-8")).assertions]
+    for res in results:
         rec = [t for t in trace.records if t.stage == res.side.value][-1]
         print(f"{res.side.value.upper()}  {len(res.evidence)} kept  failed={res.failed} repairs={res.repairs} rejects={res.rejects}  "
               f"tokens={rec.input_tokens}+{rec.output_tokens} cache_hit={rec.cache_hit}")
-        labelled = [(inp.citation.locator.start, inp.citation.locator.end, inp.assertion_id)
-                    for inp in MappingFile.model_validate_json((DATA / "mappings.json").read_text(encoding="utf-8")).assertions]
         for e in res.evidence:
             loc = e.citation.locator
             hit = next((aid for a, b, aid in labelled if a < loc.end and loc.start < b), None)
             mark = f"   <- labelled: {hit}" if hit else ""
+            value = f"value {e.value.text!r}" if e.value else "no value"
             print(f"  {e.doc_id:24} [{e.identification.strength.value}] {e.quote.text!r}{mark}")
-            print(f"  {'':24} {e.reading}")
+            print(f"  {'':24} {value}; {e.reading}")
         for err in res.errors:
             print(f"  ERROR {err}")
         print()
+
+
+def _cmd_derive(args: argparse.Namespace) -> None:
+    """The verdict from the pipeline's own evidence, beside the verdict from hand-labelled citations."""
+    from proofgraph.assertions import assert_from_evidence
+
+    trace = Trace(Path(args.trace))
+    claim, atom, admitted, results = _chain(trace, quiet=True)
+    insts = {i.doc_id: i for i in admitted}
+    derived = [assert_from_evidence(e, insts[e.doc_id], claim.slot, trace) for res in results for e in res.evidence]
+    valid = tuple(a for a in derived if isinstance(a, Assertion))
+    print(f"claim (written by the author): {claim.text}\n")
+    print("assertions derived from the passes' evidence")
+    for a in derived:
+        if not isinstance(a, Assertion):
+            print(f"  INVALID {a.mapping_id}: {a.reason}")
+            continue
+        cur = a.amount.currency.value if a.amount.currency else "not stated"
+        basis = a.basis.value if a.basis else "not stated"
+        routes = ", ".join(f"{r.mapping_id.split(':')[0]}={r.strength.value}" for r in a.routes)
+        print(f"  {a.instrument.doc_id:20} value {a.value.text!r:18} currency {cur:10} basis {basis:11} routes {routes}")
+    v = arbitrate(claim.slot, valid)
+    hand = arbitrate(claim.slot, tuple(a for a in _load_assertions(Trace(None)) if isinstance(a, Assertion)))
+    trace.write(TraceRecord(
+        stage="arbiter", packet_id="derived", atom_id=claim.slot, span_ids=(), model=None, prompt_hash=None,
+        input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False, verdict=v.verdict,
+        rejects=tuple(f"{p.a}~{p.b}:{p.reason.value}" for p in v.pairs if not p.compared), repairs=0, detail=v.to_json(),
+    ))
+    why = lambda x: f"{x.verdict.value}{' (' + (x.unresolved_reason or x.not_found_reason).value + ')' if (x.unresolved_reason or x.not_found_reason) else ''}"
+    print("\nrules")
+    for r in v.rules:
+        print(f"  {'FIRED' if r.fired else 'no   '} {r.name.value}: {r.reason[:150]}")
+    print(f"\nVERDICT from the pipeline     {why(v)}   {len(v.assertions)} assertions, {v.unresolved_pairs} unresolved pairs, governing {v.governing_assertion}")
+    print(f"VERDICT from hand labels     {why(hand)}   {len(hand.assertions)} assertions, {hand.unresolved_pairs} unresolved pairs")
+    print("MOVED" if why(v) != why(hand) else "verdict unchanged", "(same verdict, different evidence)" if why(v) == why(hand) and len(v.assertions) != len(hand.assertions) else "")
 
 
 def _cmd_fetch(args: argparse.Namespace) -> bool:
@@ -254,6 +295,8 @@ def _cmd_demo(args: argparse.Namespace) -> None:
     _cmd_recall(argparse.Namespace(sparse_only=False, trace=args.trace))
     print("\n4. support and attack passes (replayed from data/recorded/model; no API key needed)\n")
     _cmd_passes(args)
+    print("\n5. the verdict from the pipeline's own evidence, beside the hand-labelled one\n")
+    _cmd_derive(args)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -286,6 +329,9 @@ def main(argv: list[str] | None = None) -> None:
     ps = sub.add_parser("passes", help="support and attack passes on the retention atom, side by side (two model calls)")
     ps.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     ps.set_defaults(func=_cmd_passes)
+    dv = sub.add_parser("derive", help="the verdict from the pipeline's own evidence, beside the hand-labelled one")
+    dv.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
+    dv.set_defaults(func=_cmd_derive)
     ft = sub.add_parser("fetch", help="download sources by pinned URL and check their sha256")
     ft.set_defaults(func=_cmd_fetch)
     dm = sub.add_parser("demo", help="one command: fetch sources, then verdict, recall and passes")

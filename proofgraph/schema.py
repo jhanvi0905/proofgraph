@@ -648,6 +648,7 @@ class ProposedEvidence(_Model):
     span_id: str
     reading: str  # one line: what this span says about the atom
     quote: str  # the characters in the span that bear on the atom, copied verbatim
+    value: str  # the value it states for the atom's subject, copied verbatim from the quote; "" if none
 
 
 class EvidenceProposal(_Model):
@@ -664,6 +665,7 @@ class Evidence(_Model):
     reading: str
     quote: Excerpt  # offsets relative to the span's text
     citation: Citation  # built by code from the span and the quote, never by the model
+    value: Excerpt | None  # the model's pointer to the value, located by code inside citation.text; None if it gave none
 
 
 class PassResult(_Model):

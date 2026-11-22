@@ -42,7 +42,10 @@ def _fake(*replies):
 
     def complete(prompt, schema, *, system, template, effort="low"):
         calls.append({"prompt": prompt, "system": system, "template": template, "schema": schema})
-        return ModelReply(json.dumps(replies[len(calls) - 1]), "fake", "ph", 100, 20, 1, False)
+        reply = replies[len(calls) - 1]
+        for e in reply.get("evidence", []):
+            e.setdefault("value", "")  # older fixtures predate the value field
+        return ModelReply(json.dumps(reply), "fake", "ph", 100, 20, 1, False)
 
     complete.calls = calls
     return complete
@@ -239,3 +242,52 @@ def test_a_binders_own_terms_are_not_admitted_as_the_primarys(env):
     assert "$500,000 Corporate Reimbursement, each loss" in text["reliance_binder"]  # what it says of the primary
     assert "GS-8099D" not in text["ace_binder"] and "($0/$0/$1M)" in text["ace_binder"]
     assert "FD960229" not in text["london_fd960229"]  # the cover note's own policy stays out
+
+
+# ---- evidence -> assertion
+
+
+def _evidence(env, needle, quote, value, side="attack"):
+    (insts, routes), r, src, spans = env
+    sp = _span_with(env, needle)
+    fn = attack if side == "attack" else support
+    res = fn(ATOM, r, insts, routes, src, memory_trace(),
+             _fake({"evidence": [{"span_id": sp.span_id, "reading": "r", "quote": quote, "value": value}]}))
+    assert not res.failed, res.errors
+    return res.evidence[0], next(i for i in insts if i.doc_id == sp.doc_id)
+
+
+def test_item7_row_becomes_an_assertion_with_currency_and_basis_unstated(env):
+    from proofgraph.assertions import assert_from_evidence
+
+    ev, inst = _evidence(env, "757/FD960228", "Primary      London    757/FD960228     6/1/96-99    $10M    NIL/NIL/1,000,000",
+                         "1,000,000", side="support")
+    a = assert_from_evidence(ev, inst, ATOM.slot, memory_trace())
+    assert a.amount.minor_units == 100_000_000 and a.amount.currency is None and a.basis is None
+    assert [(r.mapping_id.split(":")[0], r.strength.value) for r in a.routes] == [("identify", "derived"), ("reading", "judgment")]
+    assert a.weakest.value == "judgment"  # which figure is the retention is the model's reading
+
+
+def test_reliance_becomes_usd_500000_each_loss_on_a_judgment_identification(env):
+    from proofgraph.assertions import assert_from_evidence
+
+    ev, inst = _evidence(env, "Corporate Reimbursement", "$500,000                  Corporate Reimbursement, each loss", "$500,000")
+    a = assert_from_evidence(ev, inst, ATOM.slot, memory_trace())
+    assert (a.amount.minor_units, a.amount.currency.value, a.basis.value) == (50_000_000, "USD", "each_loss")
+    assert a.routes[0].strength.value == "judgment"
+
+
+def test_a_value_not_in_the_cited_text_is_rejected(env):
+    (insts, routes), r, src, spans = env
+    sp = _span_with(env, "Corporate Reimbursement")
+    bad = {"evidence": [{"span_id": sp.span_id, "reading": "r", "quote": "$500,000", "value": "$5,000,000"}]}
+    res = attack(ATOM, r, insts, routes, src, memory_trace(), _fake(bad, bad))
+    assert res.failed and "value" in res.errors[0]
+
+
+def test_evidence_without_a_value_does_not_become_an_assertion(env):
+    from proofgraph.assertions import assert_from_evidence
+    from proofgraph.schema import InvalidAssertion
+
+    ev, inst = _evidence(env, "Corporate Reimbursement", "$500,000", "")
+    assert isinstance(assert_from_evidence(ev, inst, ATOM.slot, memory_trace()), InvalidAssertion)

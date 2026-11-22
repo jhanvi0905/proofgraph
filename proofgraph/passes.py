@@ -56,6 +56,8 @@ states the fact the proposition asserts. For each, give:
 - span_id: the passage id, exactly as listed;
 - reading: one line, what this passage says about the proposition;
 - quote: the characters in the passage that bear on it, copied exactly (one line, no paraphrase).
+- value: the amount or value the passage states for the proposition's subject, copied exactly from the quote
+  (for a cell holding several figures, only the one for this subject); empty if the passage states none.
 If no passage supports it, return an empty list."""
 
 ATTACK_SYSTEM = (
@@ -76,6 +78,8 @@ For each, give:
 - span_id: the passage id, exactly as listed;
 - reading: one line, what this passage says against the proposition;
 - quote: the characters in the passage that bear on it, copied exactly (one line, no paraphrase).
+- value: the amount or value the passage states for the proposition's subject, copied exactly from the quote
+  (for a cell holding several figures, only the one for this subject); empty if the passage states none.
 If no passage cuts against it, return an empty list."""
 
 REPAIR = """{prompt}
@@ -155,8 +159,9 @@ def _wire_schema(ids: list[str]) -> dict:
             "span_id": {"type": "string", "enum": ids},
             "reading": {"type": "string"},
             "quote": {"type": "string"},
+            "value": {"type": "string"},
         },
-        "required": ["span_id", "reading", "quote"],
+        "required": ["span_id", "reading", "quote", "value"],
         "additionalProperties": False,
     }
     return {"type": "object", "properties": {"evidence": {"type": "array", "items": item}},
@@ -184,8 +189,15 @@ def _check(side, proposal, allowed, spans, insts, ident, src) -> tuple[list[Evid
         if broken:
             errors.append(f"span {p.span_id}: {broken}")
             continue
+        value = None
+        if p.value.strip():
+            vfound = locate(p.value, citation.text)
+            if vfound is None:
+                errors.append(f"span {p.span_id}: value {p.value!r} does not occur exactly once in the cited text")
+                continue
+            value = Excerpt(start=vfound[0], end=vfound[1], text=citation.text[vfound[0]:vfound[1]])
         kept.append(Evidence(side=side, span_id=sp.span_id, doc_id=sp.doc_id, identification=ident[sp.doc_id], reading=p.reading,
-                             quote=Excerpt(start=start, end=end, text=sp.text[start:end]), citation=citation))
+                             quote=Excerpt(start=start, end=end, text=sp.text[start:end]), citation=citation, value=value))
     return kept, errors, False
 
 

@@ -19,6 +19,7 @@ from proofgraph.numbers import find_amount, find_basis, parse_amount
 from proofgraph.schema import (
     Assertion,
     AssertionInput,
+    Evidence,
     Citation,
     Excerpt,
     Instrument,
@@ -142,3 +143,51 @@ def _containing_span(instrument: Instrument, c: Citation) -> str | None:
         if shift + sp.start <= c.locator.start and c.locator.end <= shift + sp.end:
             return sp.span_id
     return None
+
+
+
+def assert_from_evidence(ev: Evidence, instrument: Instrument, slot: str, trace: Trace) -> Assertion | InvalidAssertion:
+    """One checked piece of pass evidence -> one assertion on the claim's slot.
+
+    It has two routes. The identification route comes from the document mapping, decided in
+    code, with that mapping's strength. The reading route is the model's pointer to which
+    characters are the value (in Item VII's row, that the retention is the third figure). It is
+    always judgment: the model read it, the document did not say so. Amount and currency
+    are parsed by code from the value's characters, and the basis from inside the citation (D1).
+    """
+    aid = f"{ev.side.value}:{ev.doc_id}:{ev.span_id[:8]}"
+
+    def bad(reason: str) -> InvalidAssertion:
+        return InvalidAssertion(mapping_id=aid, reason=reason)
+
+    result: Assertion | InvalidAssertion
+    if ev.doc_id != instrument.doc_id:
+        result = bad(f"evidence from {ev.doc_id}, instrument {instrument.doc_id}")
+    elif ev.value is None:
+        result = bad("the pass gave no value")
+    else:
+        amount = parse_amount(ev.value.text)
+        if isinstance(amount, ParseFailure):
+            result = bad(f"value {ev.value.text!r}: {amount.reason}")
+        else:
+            b = find_basis(ev.citation.text)
+            routes = (
+                RouteRef(mapping_id=f"identify:{ev.doc_id}", method=ev.identification.method,
+                         strength=ev.identification.strength),
+                RouteRef(mapping_id=f"reading:{ev.span_id}", method=MappingMethod.JUDGMENT, strength=RouteStrength.JUDGMENT),
+            )
+            result = Assertion(
+                assertion_id=aid, slot=slot,
+                instrument=InstrumentRef(doc_id=instrument.doc_id, version=instrument.version,
+                                         instrument_type=instrument.instrument_type,
+                                         policy_numbers=instrument.policy_numbers, effective_date=instrument.effective_date),
+                citation=ev.citation, value=ev.value, amount=amount,
+                basis=b[0] if b else None, basis_phrase=_excerpt(ev.citation, b[1], b[2]) if b else None,
+                routes=routes, weakest=max((r.strength for r in routes), key=_ORDER.index),
+            )
+    trace.write(TraceRecord(
+        stage="derive_assertion", packet_id=None, atom_id=aid, span_ids=(ev.span_id,), model=None, prompt_hash=None,
+        input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False, verdict=None,
+        rejects=(result.reason,) if isinstance(result, InvalidAssertion) else (), repairs=0, detail=result.to_json(),
+    ))
+    return result
