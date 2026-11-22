@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from proofgraph.schema import Amount, Basis, Currency, ParseFailure
+from proofgraph.schema import Amount, Assertion, Basis, Comparison, ComparisonReason, Currency, ParseFailure
 
 _CURRENCY = [  # (pattern, currency); first match wins
     (re.compile(r"^\s*(?:US\$|USD\s*|\$)"), Currency.USD),
@@ -67,3 +67,32 @@ def find_basis(text: str) -> tuple[Basis, int, int] | None:
         return None
     start, basis, end = min(hits)
     return basis, start, end
+
+
+def compare(a: Assertion, b: Assertion) -> Comparison:
+    """The only place that decides whether two asserted quantities are comparable.
+
+    Comparable only when both state a currency, the currencies match, both state
+    a basis, and the bases match. Otherwise compared=False with the reason. No
+    equivalence between bases is assumed, and no currency is converted.
+    """
+    ca, cb = a.amount.currency, b.amount.currency
+    ba, bb = a.basis, b.basis
+    differ = a.amount.minor_units != b.amount.minor_units
+
+    def out(compared: bool, reason: ComparisonReason, detail: str) -> Comparison:
+        return Comparison(a=a.assertion_id, b=b.assertion_id, compared=compared, reason=reason,
+                          detail=detail, raw_values_differ=differ)
+
+    if ca is None or cb is None:
+        missing = [x.assertion_id for x, c in ((a, ca), (b, cb)) if c is None]
+        return out(False, ComparisonReason.CURRENCY_NOT_STATED, f"not stated by {', '.join(missing)}")
+    if ca is not cb:
+        return out(False, ComparisonReason.CURRENCY_MISMATCH, f"{ca.value} vs {cb.value}")
+    if ba is None or bb is None:
+        missing = [x.assertion_id for x, v in ((a, ba), (b, bb)) if v is None]
+        return out(False, ComparisonReason.BASIS_NOT_STATED, f"not stated by {', '.join(missing)}")
+    if ba is not bb:
+        return out(False, ComparisonReason.BASIS_MISMATCH, f"{ba.value} vs {bb.value}")
+    return out(True, ComparisonReason.DIFFERENT if differ else ComparisonReason.EQUAL,
+               f"{a.amount.minor_units} vs {b.amount.minor_units} minor units")

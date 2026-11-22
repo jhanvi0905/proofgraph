@@ -423,6 +423,48 @@ class InvalidAssertion(_Model):
     reason: str
 
 
+# ---------------------------------------------------------------- comparison and slot verdicts
+
+
+class ComparisonReason(str, Enum):
+    EQUAL = "equal"
+    DIFFERENT = "different"
+    CURRENCY_NOT_STATED = "currency_not_stated"
+    CURRENCY_MISMATCH = "currency_mismatch"
+    BASIS_NOT_STATED = "basis_not_stated"
+    BASIS_MISMATCH = "basis_mismatch"
+
+
+class Comparison(_Model):
+    """One pair of asserters on a slot. Every pair is recorded, compared or not (D6)."""
+
+    a: str  # assertion_id
+    b: str
+    compared: bool
+    reason: ComparisonReason
+    detail: str  # e.g. "each_claim vs each_loss"
+    raw_values_differ: bool  # minor units differ, whether or not the pair is comparable
+
+
+class RuleEvaluation(_Model):
+    name: RuleName
+    fired: bool
+    reason: str
+    governing_assertion: str | None
+
+
+class SlotVerdict(_Model):
+    schema_version: str = SCHEMA_VERSION
+    slot: str
+    verdict: Verdict
+    assertions: tuple[str, ...]
+    in_scope: tuple[str, ...]  # asserters issued under the slot's policy (D3)
+    pairs: tuple[Comparison, ...]
+    rules: tuple[RuleEvaluation, ...]
+    governing_assertion: str | None
+    unresolved_pairs: int  # counted in the eval (D6)
+
+
 # ---------------------------------------------------------------- evidence and verdicts
 
 

@@ -5,10 +5,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from proofgraph.arbiter import arbitrate
 from proofgraph.assertions import assert_one
 from proofgraph.atomize import atomize
 from proofgraph.ingest import ingest
-from proofgraph.schema import Assertion, Claim, MappingFile, SourceManifest, load_predicate_set
+from proofgraph.schema import Assertion, Claim, MappingFile, SourceManifest, TraceRecord, load_predicate_set
 from proofgraph.trace import Trace
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -80,6 +81,33 @@ def _cmd_assert(args: argparse.Namespace) -> None:
         _print_assertion(a)
 
 
+SLOT = "FD960228.corp_reimbursement.retention"
+
+
+def _cmd_verdict(args: argparse.Namespace) -> None:
+    trace = Trace(Path(args.trace))
+    results = _load_assertions(trace)
+    for a in results:
+        _print_assertion(a)
+    valid = tuple(a for a in results if isinstance(a, Assertion))
+    v = arbitrate(SLOT, valid)
+    trace.write(TraceRecord(
+        stage="arbiter", packet_id=None, atom_id=SLOT, span_ids=(), model=None, prompt_hash=None,
+        input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False, verdict=v.verdict,
+        rejects=tuple(f"{p.a}~{p.b}:{p.reason.value}" for p in v.pairs if not p.compared), repairs=0,
+        detail=v.to_json(),
+    ))
+    print("pairs")
+    for p in v.pairs:
+        state = "compared    " if p.compared else "NOT compared"
+        print(f"  {state} {p.a} vs {p.b}: {p.reason.value} ({p.detail}); values differ: {p.raw_values_differ}")
+    print(f"in scope (issued under {SLOT.split('.')[0]}): {', '.join(v.in_scope) or 'none'}")
+    print("rules")
+    for r in v.rules:
+        print(f"  {'FIRED' if r.fired else 'no   '} {r.name.value}: {r.reason}")
+    print(f"\nVERDICT  {v.verdict.value}   slot {v.slot}   unresolved pairs {v.unresolved_pairs}   governing {v.governing_assertion}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="pgrun")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -96,6 +124,9 @@ def main(argv: list[str] | None = None) -> None:
     asr = sub.add_parser("assert", help="print the assertions on the retention slot")
     asr.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     asr.set_defaults(func=_cmd_assert)
+    vd = sub.add_parser("verdict", help="assertions, pairs, rules and verdict for the retention slot")
+    vd.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
+    vd.set_defaults(func=_cmd_verdict)
     args = parser.parse_args(argv)
     args.func(args)
 
