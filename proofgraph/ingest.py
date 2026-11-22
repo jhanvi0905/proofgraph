@@ -276,13 +276,25 @@ def _heading(line: str, allcaps: bool, bold: bool | None) -> tuple[int, str] | N
     return None
 
 
+# A key-value form field: a short label at line start, then a colon ("RETENTIONS:",
+# "Retention:", "8. LIMIT OF LIABILITY:"). The label is context for the lines
+# below it until the next label or numbered heading, across blank lines.
+_FIELD_RE = re.compile(r"^\s*(?:\d{1,2}\.\s+|[A-Z]\.\s+|(?:-\s*)+)?([A-Z][A-Za-z0-9 &/()'.,-]{1,38}[A-Za-z)]):(?:\s|$)")
+
+
 def _clauses(il: InstrumentLabel, text: str, lines: list[_Line], allcaps: bool):
     """Split at headings and numbered items. Blank lines also split (fallback).
 
     A SECTION heading wraps onto the next line ("SECTION I – PERILS" /
     "INSURED AGAINST"). An all-caps line that directly follows a SECTION
     heading continues it; it is not a new level.
+
+    A form field's label is recorded as the last section_path entry of every
+    span under it, so "USD 1,000,000 each Claim" keeps its "RETENTIONS"
+    context after a blank line splits it off. Labels never move a span
+    boundary, so span text, offsets and ids are unchanged.
     """
+    field: str | None = None
     prev_was_section = False
     path: list[tuple[int, str]] = []
     cur: list[_Line] = []
@@ -315,7 +327,7 @@ def _clauses(il: InstrumentLabel, text: str, lines: list[_Line], allcaps: bool):
             start=s,
             end=e,
             text=span_text,
-            section_path=(il.doc_id,) + cur_path,
+            section_path=(il.doc_id,) + cur_path + ((field,) if field else ()),
             bbox=bbox,
         )
 
@@ -344,6 +356,11 @@ def _clauses(il: InstrumentLabel, text: str, lines: list[_Line], allcaps: bool):
             path = [p for p in path if p[0] < level] + [(level, name)]
             cur_path = tuple(n for _, n in path)
         if not blank:
+            fm = _FIELD_RE.match(line_text)
+            if fm:
+                field = " ".join(fm.group(1).split())
+            elif h is not None and h[0] <= 2:
+                field = None
             cur.append(ln)
     sp = flush()
     if sp is not None:

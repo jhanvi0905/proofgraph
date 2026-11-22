@@ -12,7 +12,7 @@ from proofgraph.retrieve import retrieve
 from proofgraph.atomize import atomize
 from proofgraph.checker import open_source
 from proofgraph.ingest import ingest
-from proofgraph.schema import Assertion, Claim, MappingFile, SourceManifest, TraceRecord, load_predicate_set
+from proofgraph.schema import RetrievalEval, Assertion, Claim, MappingFile, SourceManifest, TraceRecord, load_predicate_set
 from proofgraph.trace import Trace
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -158,6 +158,26 @@ def _cmd_retrieve(args: argparse.Namespace) -> None:
               f"(missed: {', '.join(sorted(set(gold.values()) - found)) or 'none'})")
 
 
+def _cmd_recall(args: argparse.Namespace) -> None:
+    ev = RetrievalEval.model_validate_json((DATA / "retrieval_eval.json").read_text(encoding="utf-8"))
+    label = next(s for s in _load_manifest().sources if s.source_id == "gillette_ex10e")
+    instruments = ingest(label, DATA / "raw").instruments
+    spans = {sp.span_id: sp for i in instruments for sp in i.spans}
+    trace = Trace(Path(args.trace))
+    norm = lambda t: " ".join(t.split())
+    total = found_total = 0
+    print(f"{'query':28} {'found':>5}  missed")
+    for q in ev.queries:
+        r = retrieve(q.atom, instruments, trace, embed=None if args.sparse_only else embed)
+        top = [spans[h.span_id] for h in r.hits]
+        missed = [g for g in q.gold if not any(sp.doc_id == g.doc_id and norm(g.quote) in norm(sp.text) for sp in top)]
+        total += len(q.gold)
+        found_total += len(q.gold) - len(missed)
+        print(f"{q.query_id:28} {len(q.gold) - len(missed)}/{len(q.gold):<3}  {', '.join(g.doc_id for g in missed) or '-'}")
+    print(f"\nrecall@10: {found_total}/{total} gold quotes over {len(ev.queries)} queries "
+          f"({'bm25 only' if args.sparse_only else 'bm25 + dense'})")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="pgrun")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -183,6 +203,10 @@ def main(argv: list[str] | None = None) -> None:
     rt.add_argument("--sparse-only", action="store_true", help="BM25 only, no dense ranking")
     rt.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     rt.set_defaults(func=_cmd_retrieve)
+    rc = sub.add_parser("recall", help="recall@10 on the labelled retrieval queries")
+    rc.add_argument("--sparse-only", action="store_true")
+    rc.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
+    rc.set_defaults(func=_cmd_recall)
     args = parser.parse_args(argv)
     args.func(args)
 

@@ -50,10 +50,21 @@ def tokenize(text: str) -> list[str]:
         tok = tok.strip(",.")
         if not tok or tok in _STOP:
             continue
-        out.append(tok)
+        out.append(_fold(tok))
         if "/" in tok or "-" in tok:  # 757/fd960228 also yields fd960228
-            out += [p for p in re.split(r"[/-]", tok) if p and p not in _STOP]
+            out += [_fold(p) for p in re.split(r"[/-]", tok) if p and p not in _STOP]
     return out
+
+
+def _fold(tok: str) -> str:
+    """Light plural folding for words: retentions -> retention, claims -> claim.
+
+    Same rule for query and documents. Words only (numbers and ids untouched),
+    longer than four letters, and never -ss (loss, gross) or -us/-is (bonus, basis).
+    """
+    if tok.isalpha() and len(tok) > 4 and tok.endswith("s") and not tok.endswith(("ss", "us", "is")):
+        return tok[:-1]
+    return tok
 
 
 def retrieve(
@@ -66,7 +77,8 @@ def retrieve(
     spans, deduped = _dedupe([sp for inst in instruments for sp in inst.spans])
     by_doc = {sp.span_id: sp.doc_id for sp in spans}
 
-    bm25 = BM25Okapi([tokenize(sp.text) or ["_"] for sp in spans])
+    docs = [_indexed_text(sp) for sp in spans]
+    bm25 = BM25Okapi([tokenize(d) or ["_"] for d in docs])
     sparse_scores = bm25.get_scores(query)
     sparse = _ranks([i for i in sorted(range(len(spans)), key=lambda i: -sparse_scores[i]) if sparse_scores[i] > 0])
 
@@ -74,7 +86,7 @@ def retrieve(
     if embed is not None:
         import numpy as np
 
-        vecs = embed([sp.text for sp in spans])
+        vecs = embed(docs)
         qv = embed([" ".join(query)])[0]
         sims = np.asarray(vecs) @ np.asarray(qv)
         dense = _ranks(list(np.argsort(-sims)))
@@ -128,6 +140,16 @@ def _query_terms(atom: Atom) -> list[str]:
         if tok not in terms:
             terms.append(tok)
     return terms
+
+
+def _indexed_text(sp: Span) -> str:
+    """What is searched: the span's headings and field label, then its text.
+
+    The label context is searched but never cited. Citations still point at
+    the span's own characters.
+    """
+    context = " ".join(sp.section_path[1:])
+    return f"{context}\n{sp.text}" if context else sp.text
 
 
 def _dedupe(spans: list[Span]) -> tuple[list[Span], int]:
