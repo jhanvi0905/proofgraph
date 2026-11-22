@@ -13,7 +13,37 @@ Run once, at commit `eeb9a2f`. The domain layer was frozen at tag `domain-freeze
 | B-firearms-endorsed | supported (resolved_by_rule, endorsement_over_base → ho_00_15) | same | yes | 2/2 |
 | B-silverware-endorsed | supported (resolved_by_rule, endorsement_over_base → ho_00_15) | same | yes | 2/2 |
 
-**8 of 8 packets match their labels** (n = 8).
+**8 of 8 packets match their labels.** That score overstates the evidence, and the next section says why.
+
+## The informative sample is four packets
+
+The four base-only packets have one instrument each, so no precedence rule can fire in them. They test that the right item is found and its amount parsed. They could still have failed, as `not_found` (nothing cited) or as a disagreement inside one block (two different items cited), but they cannot test transfer of precedence. **The informative sample is the four endorsed packets.** Three of them are packets where the endorsement replaces the item. The fourth, money, is the control: the endorsement leaves item 1 alone, and no rule may fire.
+
+## Where precedence is what decides
+
+The same recorded assertions, scored three ways with no new model calls (`uv run pgrun familyb --ablate`):
+
+| Packet | Naive build: string comparison, no rules | Frozen comparator, precedence disabled | As built |
+|---|---|---|---|
+| B-jewelry-endorsed | documents_disagree (`$1,000` ≠ `$1000`) | unresolved (uncompared_agreement) | supported (resolved_by_rule → ho_00_15) |
+| B-firearms-endorsed | documents_disagree (`$2,000` ≠ `$2000`) | unresolved (uncompared_agreement) | supported (resolved_by_rule → ho_00_15) |
+| B-silverware-endorsed | documents_disagree (`$2,500` ≠ `$2500`) | unresolved (uncompared_agreement) | supported (resolved_by_rule → ho_00_15) |
+| B-money-endorsed | supported | supported (no_conflict) | supported (no_conflict) |
+
+**In three packets, string comparison fails and precedence succeeds.** Each fix does different work:
+- the numeral comparator removes the disagreement that string comparison invents;
+- precedence turns an agreement that cannot be certified (no basis is stated on either line) into a decision that names the governing instrument.
+
+Without precedence, the frozen system stays `unresolved` on all three. In the control packet, all three builds agree.
+
+## The freeze held
+
+`git diff domain-freeze eeb9a2f` over the 13 files in `data/freeze.json` is empty, and `tests/test_freeze.py` passes at the run commit. The domain layer that produced these verdicts is byte-identical to the one frozen before any family B label was written.
+
+## What the transfer claim covers
+
+- **Agreement plus one rule.** Family B exercised `supported (no_conflict)` and `supported (resolved_by_rule)` via `endorsement_over_base`. It never produced `unresolved`, `not_found` or `contradicted`, and `later_effective_date` did not fire (both forms are undated).
+- **The refusal path has only been exercised on family A**, as `unresolved (documents_disagree)` on the retention slot. `not_found` has never been produced on a real packet in either family, only in a unit test. `contradicted` is not built.
 - No pass failed, needed a repair, or had a quote rejected.
 - Every assertion cites exactly its gold line, with no extra lines.
 - The attack pass correctly found nothing in all 9 of its calls with evidence lists returned empty.

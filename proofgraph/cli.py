@@ -297,6 +297,7 @@ def _cmd_familyb(args: argparse.Namespace) -> None:
     trace = Trace(Path(args.trace))
     norm = lambda t: " ".join(t.split())
     rows = []
+    ablations = []
     for pk in labels["packets"]:
         claim = claims[pk["claim_id"]]
         policy = claim.slot.split(".", 1)[0]
@@ -332,6 +333,17 @@ def _cmd_familyb(args: argparse.Namespace) -> None:
             rows.append((pk, None, [], "; ".join(notes)))
             continue
         v = arbitrate(claim.slot, tuple(assertions))
+        if args.ablate:
+            # 1. naive build: values compared as strings, no precedence rules
+            texts = {a.value.text for a in assertions}
+            naive = "documents_disagree" if len(texts) > 1 else ("supported" if assertions else "not_found")
+            # 2. the frozen comparator, with precedence disabled: no instrument is in the rules' scope
+            out_of_scope = tuple(a.model_copy(update={"instrument": a.instrument.model_copy(update={"policy_numbers": ()})})
+                                 for a in assertions)
+            nr = arbitrate(claim.slot, out_of_scope)
+            nr_reason = nr.supported_reason or nr.unresolved_reason or nr.not_found_reason
+            ablations.append((pk["packet_id"], naive, f"{nr.verdict.value} ({nr_reason.value if nr_reason else '-'})",
+                              sorted(texts)))
         trace.write(TraceRecord(stage="arbiter", packet_id=pk["packet_id"], atom_id=claim.slot, span_ids=(), model=None,
                                 prompt_hash=None, input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False,
                                 verdict=v.verdict, rejects=(), repairs=0, detail=v.to_json()))
@@ -354,6 +366,10 @@ def _cmd_familyb(args: argparse.Namespace) -> None:
         print(f"{pk['packet_id']:24} {exp:48} {got:48} {'yes' if ok else 'NO':5} {len(cited)}/{len(pk['gold'])}  {note}")
     if not args.dry_run:
         print(f"\nverdict matches label: {hits}/{len(rows)} packets")
+    if ablations:
+        print(f"\n{'packet':24} {'naive (string compare, no rules)':34} {'frozen comparator, rules disabled':38} values")
+        for pid, naive, nr, texts in ablations:
+            print(f"{pid:24} {naive:34} {nr:38} {texts}")
 
 
 def _cmd_fetch(args: argparse.Namespace) -> bool:
@@ -420,6 +436,7 @@ def main(argv: list[str] | None = None) -> None:
     dv.set_defaults(func=_cmd_derive)
     fbp = sub.add_parser("familyb", help="the family B transfer run, scored against the preregistered labels")
     fbp.add_argument("--dry-run", action="store_true", help="admission only, no model calls")
+    fbp.add_argument("--ablate", action="store_true", help="also score the same assertions without precedence, and with naive string comparison")
     fbp.add_argument("--trace", default=str(ROOT / "runs" / "familyb_trace.jsonl"))
     fbp.set_defaults(func=_cmd_familyb)
     ft = sub.add_parser("fetch", help="download sources by pinned URL and check their sha256")
