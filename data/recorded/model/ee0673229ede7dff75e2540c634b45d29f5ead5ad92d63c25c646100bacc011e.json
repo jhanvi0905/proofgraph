@@ -1,0 +1,1 @@
+{"input_tokens": 1792, "model": "claude-opus-5-5", "output_tokens": 106, "text": "{\"atoms\":[{\"predicate\":\"states\",\"kind\":null,\"negated\":false,\"subject\":\"SPECIMEN-HO3 special limit of liability on money\",\"quantity_raw\":\"$200\",\"value\":null,\"period\":null,\"territory\":null,\"basis\":null,\"conditions\":null}],\"no_fit_reason\":null}"}
