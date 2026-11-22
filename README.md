@@ -59,7 +59,7 @@ To open it in a browser:
 uv run uvicorn app.server:app --port 8765
 ```
 
-Then go to http://localhost:8765 and choose **Run an example**. Both examples replay from recorded model responses: no API key, no charge. Uploads and your own claims are not built yet, because which policy each document describes is still labelled by hand.
+Then go to http://localhost:8765 and choose **Run an example**. Both examples replay from recorded model responses: no API key, no charge. Uploads are off. Which document describes which policy is decided by a person before the run and then frozen, because a mapping written after seeing the documents can be quietly shaped to agree with the answer. That is what stops the system grading its own homework. An upload has no mapping, so the system would have to guess one, and a guessed mapping produces a confident wrong verdict rather than a refusal.
 
 ## Run it
 
@@ -150,6 +150,16 @@ Each row has a test, and the counterfactual tests show what gets through when th
 
 - Current models reject `temperature`. The trace records the prompt template's hash and the model that actually served each call, and every response is cached on disk, so a rerun replays exactly.
 - Cost comes from the trace's token counts, not an estimate. The support and attack passes on the retention atom cost about $0.03 together.
+
+## Limitations
+
+| Limitation | What is true today | Where to check |
+|---|---|---|
+| **It does not tell you a claim is wrong.** | `contradicted` is in the schema and never emitted. The arbiter does not read the claim's own value: it reports what the packet states and which document governs it. A claim with the wrong amount is not flagged. | [`proofgraph/arbiter.py`](proofgraph/arbiter.py), [`proofgraph/schema.py`](proofgraph/schema.py) |
+| **It does not notice a missing governing document.** | `governing_instrument_absent` is in the schema and never emitted. If the document that would govern is not in the packet, the verdict is drawn from what is there. In the Gillette packet, the base GS-212C wording that Endorsement 13 amends is not in the packet, and nothing reports that ([D5](DECISIONS.md)). | [`proofgraph/arbiter.py`](proofgraph/arbiter.py) |
+| **The endorsement rule has fired only on an assembled packet.** | `endorsement_over_base` fired 3 of 3 on two real ISO forms paired under a specimen policy, since ISO forms carry no policy number. Both forms stated the same amount, so the rule picked a governing form over values that could not be compared. No disagreement in value has yet been settled by a rule. | [`results/family_b.md`](results/family_b.md) |
+| **Small samples.** | 20 packets across two document families. This demonstrates the design; it does not estimate a rate. | [`PREREGISTRATION.md`](PREREGISTRATION.md) |
+| **No uploads.** | An upload has no document mapping, and a guessed mapping gives a confident wrong verdict rather than a refusal. | [`data/document_mappings.json`](data/document_mappings.json) |
 
 ## Status
 

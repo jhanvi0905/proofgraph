@@ -70,10 +70,10 @@
       <header class="rail" data-rise><h2>What it can&rsquo;t do yet</h2></header>
       <div class="body" data-rise><ul class="ruled">
           <li>Small samples: one D&amp;O program from an SEC filing, and eight homeowners packets.</li>
-          <li>Your own documents. Which policy each one describes is still labelled by hand, so uploads are off.</li>
+          <li>Your own documents. They&rsquo;d have to guess which policy each document describes, and a wrong guess produces a confident wrong answer instead of saying so.</li>
           <li>Tell you a claim is wrong. Comparing the governing value with the claim&rsquo;s own value isn&rsquo;t built.</li>
           <li>Notice a missing document. If the policy that governs isn&rsquo;t in the packet, it doesn&rsquo;t say so yet.</li>
-          <li>Prove the endorsement rule on real packets. It has only fired where a script inserted the endorsement.</li>
+          <li>Prove the endorsement rule on a packet found in the wild. It has fired on two real ISO forms paired under a specimen policy, since ISO forms carry no policy number.</li>
         </ul><p class="spec-note">The results are in the repo, including the predictions it got wrong.</p></div>
     </section>
     </div>
@@ -84,7 +84,7 @@
         <fieldset class="step3">
           <legend><span class="n">1</span>Packet</legend>
           <div id="pk" class="choices"></div>
-          <label class="choice off"><input type="radio" name="packet" disabled><span class="c-t">Your own files</span><span class="c-s">Off for now. Step 2 is written by a person for every document, and uploads would need you to write it here first.</span></label>
+          <label class="choice off"><input type="radio" name="packet" disabled><span class="c-t">Your own files</span><span class="c-s">Off. It would have to guess which policy each document describes, and a wrong guess produces a confident wrong answer instead of saying so.</span></label>
         </fieldset>
         <fieldset class="step3">
           <legend><span class="n">2</span>What each document is, and which policy it describes</legend>
@@ -109,7 +109,7 @@
       <div class="body">
       <details data-rise><summary>Is this another chatbot?</summary><p>No. It checks one claim, and every value it reports is a quote checked against the file. The model reads and points; code compares numbers and applies precedence.</p></details>
       <details data-rise><summary>What if an answer is wrong?</summary><p>Every value is boxed on its page so you can check it in seconds. A quote that cannot be found exactly on its page is rejected and never decides an answer.</p></details>
-      <details data-rise><summary>Which documents work?</summary><p>Two document families so far: a 1996 D&amp;O filing from SEC EDGAR, and ISO homeowners forms (PDF). Uploads are off, because which policy each document describes is still written by a person.</p></details>
+      <details data-rise><summary>Which documents work?</summary><p>Two document families so far: a 1996 D&amp;O filing from SEC EDGAR, and ISO homeowners forms (PDF). Uploads are off: it would have to guess which policy each document describes, and a wrong guess produces a confident wrong answer instead of saying so.</p></details>
       <details data-rise><summary>Does it replace my lawyer?</summary><p>No. It checks a claim against the documents you give it. It does not give legal advice.</p></details>
       </div>
     </section>

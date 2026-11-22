@@ -58,7 +58,7 @@ def test_disagreement_page_says_neither_rule_fired_and_why(client):
 
 def test_uploads_are_refused_with_a_reason(client):
     r = client.post("/api/review")
-    assert r.status_code == 400 and "not built yet" in r.json()["refusal"]
+    assert r.status_code == 400 and "guess which policy" in r.json()["refusal"]
 
 
 def test_form_lists_each_packet_with_its_mapping_and_registry_questions(client):

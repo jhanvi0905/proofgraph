@@ -3,7 +3,8 @@
 Routes are the ones app/web/app.js calls. Only the labelled examples run, from the model
 responses recorded in data/recorded/model, so no API key is needed and nothing is charged.
 Uploads and free-form claims are refused with a plain reason: retrieval and the passes run
-on any text, but identification (which policy a document describes) is still labelled by hand.
+on any text, but which policy a document describes is decided by a person before the run, and a guessed one
+would give a confident wrong answer instead of a refusal.
 """
 
 from __future__ import annotations
@@ -186,8 +187,8 @@ def create_app() -> FastAPI:
     async def review(request: Request):
         if not limit.allow(visitor_id(request.headers, request.client.host if request.client else None)):
             return JSONResponse({"refusal": "Too many runs from here for now. Try again later."}, status_code=429)
-        return JSONResponse({"refusal": "Uploads and your own claims are not built yet: which policy each document describes is "
-                                        "still labelled by hand. Run one of the examples instead."}, status_code=400)
+        return JSONResponse({"refusal": "Uploads are off: the system would have to guess which policy each document describes, and a wrong guess produces a confident wrong answer instead of saying so. "
+                                        "Run one of the examples instead."}, status_code=400)
 
     @app.get("/api/review/{review_id}", response_class=HTMLResponse)
     def review_page(review_id: str):
