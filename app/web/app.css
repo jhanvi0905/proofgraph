@@ -244,3 +244,15 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 .spec-block ul { margin: 0; padding: 0 0 0 1.1rem; display: grid; gap: .5rem; }
 .spec-block .beyond-pic { margin-top: 1.25rem; }
 .spec-note { margin-top: 1rem !important; color: var(--grey); }
+
+@media (min-width: 900px) { .spec-block.wide { grid-column: 1 / -1; } .spec-block.wide > p, .spec-block.wide .three { max-width: 46rem; } }
+.spec-block .frames { margin-top: 1.75rem; }
+.three { list-style: none; padding: 0 !important; margin-top: 1.25rem !important; }
+.three li { padding: .8rem 1rem; background: var(--paper); }
+.three-note { margin-top: .9rem !important; font-weight: 600; }
+.q-sub { margin-top: 1rem !important; max-width: 44rem; font-size: var(--t-20); line-height: 1.5; }
+/* The claim form keeps the hero's blue ground, so its white-on-blue fields read the same. */
+.check { background: var(--stamp); color: #fff; margin: 4.5rem calc(50% - 50vw) 0; padding: 3.5rem max(1rem, calc(50vw - 40rem + 1rem)); }
+.check :focus-visible { outline-color: #fff; }
+.check-lede { margin: 0 0 1.5rem !important; max-width: 40rem; }
+.check-run { margin: 0 0 2rem !important; }

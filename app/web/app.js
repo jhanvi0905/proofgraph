@@ -20,7 +20,7 @@
     contradicted: { word: "Contradicted", cls: "red", m: "circle" },
     weakened: { word: "Qualified", cls: "amber", m: "caret" },
     not_found: { word: "Not in these documents", cls: "slate", m: "bracket" },
-    unresolved: { word: "Unresolved", cls: "clash", m: "clash" },
+    unresolved: { word: "Can’t be settled from these documents", cls: "clash", m: "clash" },
     cannot_tell: { word: "Can't tell", cls: "grey", m: "question" },
     error: { word: "Could not check", cls: "grey", m: "question" }
   };

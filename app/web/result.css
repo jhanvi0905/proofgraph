@@ -37,6 +37,7 @@ dd { margin: 0; font-weight: 500; }
 dd.big { font-size: var(--t-25); font-weight: 700; font-variant-numeric: tabular-nums; }
 dd.ns { color: var(--amber); font-style: italic; }
 .routes { list-style: none; padding: 0; margin: 0; display: grid; gap: .3rem; }
+.weakest { margin: .6rem 0 0; font-size: var(--t-13); color: var(--ink); font-weight: 600; }
 .routes .k { color: var(--grey); margin-right: .35rem; }
 .s { font-weight: 700; text-decoration-line: underline; text-decoration-thickness: 2px; text-underline-offset: .2em; }
 .s-read { text-decoration-color: var(--pen-green); }

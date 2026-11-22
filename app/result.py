@@ -88,10 +88,10 @@ def _verdict(v, names, info) -> str:
         cls, mark, word = "green", "tick", "Supported"
         line = "The documents that state this agree, and nothing disputes it. No rule had anything to decide."
     elif v.verdict.value == "unresolved" and r == "documents_disagree":
-        cls, mark, word = "clash", "clash", "Unresolved: the documents disagree"
+        cls, mark, word = "clash", "clash", "Can\u2019t be settled from these documents: they disagree"
         line = "Documents state different amounts, and no precedence rule applies to pick one. The system refuses to choose."
     elif v.verdict.value == "unresolved":
-        cls, mark, word = "amber", "caret", "Unresolved: agreement that could not be tested"
+        cls, mark, word = "amber", "caret", "Can\u2019t be settled from these documents: the amounts match but could not be compared"
         line = "The amounts match, but they could not be compared on the same terms, and no rule applies."
     else:
         cls, mark, word = "slate", "bracket", "Not in these documents"
@@ -132,6 +132,12 @@ def _rules(v, info, names) -> str:
 </section>"""
 
 
+def _weakest_label(a: Assertion) -> str:
+    r = next(r for r in a.routes if r.strength is a.weakest)
+    which = "which policy" if r.mapping_id.startswith("identify") else "which figure"
+    return f"{which}, {STRENGTH[r.strength.value]}"
+
+
 def _assertion(a: Assertion, v, name: str, info, data: Path) -> str:
     governs = a.assertion_id == v.governing_assertion
     side = "Cited against the claim" if a.assertion_id.startswith("attack:") else "Cited for the claim"
@@ -150,6 +156,7 @@ def _assertion(a: Assertion, v, name: str, info, data: Path) -> str:
       <dt>Basis</dt><dd class="{'ns' if basis == 'not stated' else ''}">{E(basis)}</dd>
     </dl>
     <ul class="routes" aria-label="How it reaches the claim">{routes}</ul>
+    <p class="weakest">Weakest step: {E(_weakest_label(a))}. Check this one first.</p>
   </div>
   <figure class="src">{_source(a, info, data)}</figure>
 </article>"""

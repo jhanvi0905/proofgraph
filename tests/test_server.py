@@ -51,7 +51,7 @@ def test_rule_one_page_names_the_rule_the_governing_form_and_boxes_the_lines(cli
 def test_disagreement_page_says_neither_rule_fired_and_why(client):
     stream, page = _run(client, "documents-disagree")
     assert '"status": "unresolved"' in stream
-    assert "Unresolved: the documents disagree" in page and "Neither precedence rule fired" in page
+    assert "Can’t be settled from these documents: they disagree" in page and "Neither precedence rule fired" in page
     assert "Only Underwriters at Lloyd" in page and "<mark>" in page  # raw-text pane marks the cited characters
     assert "in scope: [" not in page and "support:" not in page  # no internal ids on the screen
 

@@ -7,8 +7,8 @@
 <meta name="description" content="Check a claim about an insurance policy against every document that could govern it: which one governs, by which rule, or that they disagree, with the lines boxed on the page.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
-<link rel="stylesheet" href="/web/tokens.css">
-<link rel="stylesheet" href="/web/app.css">
+<link rel="stylesheet" href="/web/tokens.css?v=3">
+<link rel="stylesheet" href="/web/app.css?v=4">
 <script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
@@ -16,7 +16,7 @@
   <section id="entrance" class="entrance">
     <header class="topnav" id="top">
       <a class="wordmark" href="#top">ProofGraph</a>
-      <nav aria-label="Sections"><a href="#claim">Check a claim</a><a href="#how">How it works</a><a href="#answers">How it decides</a><a href="#faq">Questions</a></nav>
+      <nav aria-label="Sections"><a href="#see">What you see</a><a href="#answers">How it decides</a><a href="#check">Check a claim</a><a href="#faq">Questions</a></nav>
     </header>
     <div class="hero">
       <div class="hero-in">
@@ -24,7 +24,73 @@
           <h1>An AI that checks a claim across a packet of documents, and won&rsquo;t guess when they disagree.</h1>
           <p class="lede">Give it a claim and a packet of insurance documents: the policy, its endorsements and binders. It shows where each document answers, quotes the clause on its page, and says which document wins and by which rule. When two of them conflict and no rule decides, it tells you that instead of picking one.</p>
           <p id="try" class="try" hidden><span class="try-q">See it decide:</span> <button type="button" class="try-btn" id="try-btn">Run an example</button> <span id="try-what"></span></p>
-          <form id="start" class="start" autocomplete="off">
+        </div>
+        <figure class="sheet" aria-label="A real result from the family B run">
+          <p class="sheet-tag"><span>Real result, ISO HO 00 03 with HO 00 15</span><button type="button" class="sheet-run" id="sheet-run" hidden>Run it<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></p>
+          <p class="sheet-claim">Jewelry theft limit: <span class="u green">$1,000.</span></p>
+          <p class="sheet-answer"><svg class="mark m-tick" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span class="st green">Supported, decided by a rule</span></p>
+          <p class="sheet-quote says"><span class="ref">HO 00 15, page 2</span><q>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</q></p>
+          <p class="sheet-part">The base form says $1000 for theft alone. Neither line states a basis, so they cannot be compared; the endorsement governs over the base form.</p>
+          <ul class="sheet-signoff" aria-label="Sign-off"><li><span>Claim and policy identification</span><span>Written by a person</span></li><li><span>Rule applied</span><span>Endorsement over base form</span></li></ul>
+          <ul class="sheet-legend" aria-label="Marks">
+            <li><svg class="mark m-tick" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg>Supported</li>
+            <li><svg class="mark m-clash" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/></svg>Can&rsquo;t be settled</li>
+          </ul>
+        </figure>
+      </div>
+    </div>
+
+
+    <section class="band question" id="question">
+      <p class="big" data-rise>Most tools will answer whatever you paste. This one tells you which document wins, and tells you when it can&rsquo;t tell.</p>
+      <p class="q-sub" data-rise>The question is not &ldquo;what does this policy say.&rdquo; It is &ldquo;which document says that, and does anything override it.&rdquo; That second half is where people lose afternoons, and where an answer without a citation is worth nothing.</p>
+    </section>
+    <section class="band spec" id="see">
+      <div class="spec-block wide" data-rise>
+        <h2>What you see</h2>
+        <p>Every answer is a claim plus the assertions behind it. Each assertion carries its document, its place in it (a page, or character offsets in a text filing) and the exact quote, and a strength for every step: <strong>read</strong> straight off the page, <strong>derived</strong> by code from what was read, or <strong>judgment</strong>, from the model&rsquo;s reading or a person&rsquo;s identification. The weakest step is always named, so you know which part to check first.</p>
+        <div class="frames">
+        <div data-rise><img class="frame-pic" src="/media/ho15-header.png" width="640" height="200" alt="The top of HO 00 15: This endorsement changes the policy. Special personal property coverage. Form HO 00 03 only."><h3>A claim and its packet</h3><p>The claim states one value: a retention, a special limit. The packet is everything that could govern it: the policy form, its endorsements, binders and schedules.</p></div>
+        <div data-rise><img class="frame-pic" src="/media/ho03-limits.png" width="640" height="420" alt="HO 00 03, page 2, the special limits list, with item 5 boxed: $1000 for loss by theft of jewelry."><h3>Each document is read where it applies</h3><p>Only the part of each document that describes the claim's policy is admitted. The model reads it and points at the value; code parses the amount and checks the quote against the file.</p></div>
+        <div data-rise><img class="frame-pic" src="/media/ho15-limits.png" width="640" height="420" alt="HO 00 15, page 2, deleting and replacing items 5 to 7, with item 5 boxed: $1,000 for loss by theft, misplacing or losing of jewelry."><h3>A rule decides, or it refuses</h3><p>An endorsement governs its base form; a later effective date governs an earlier one. When no rule applies and the documents disagree, nothing is picked. Every value is shown boxed on its page.</p></div>
+      </div>
+      </div>
+      <div class="spec-block wide" id="answers" data-rise>
+        <h2>How it decides</h2>
+        <p>Two documents speaking to the same thing get compared, not merged, and only on the same currency and basis. When a rule settles it, the rule is printed: an endorsement beats its base form, a later effective date beats an earlier one. When no rule applies, the answer is that it can&rsquo;t be settled from these documents, and every pair carries its reason.</p>
+        <ul class="three">
+          <li><strong>Supported.</strong> One document states it and nothing disputes it, or a rule names the document that governs.</li>
+          <li><strong>Can&rsquo;t be settled from these documents.</strong> They state different amounts and no rule decides, or the amounts match but can&rsquo;t be compared on the same terms.</li>
+          <li><strong>Not found.</strong> Nothing in the packet states a value for it.</li>
+        </ul>
+        <p class="three-note">Every answer above is one of these three. There is no fourth kind of answer where it guesses.</p>
+        <img class="beyond-pic" src="/media/gillette-item7.png" width="1100" height="300" alt="Item VII of Endorsement 13 to the Gillette D&amp;O policy (SEC filing, 1996): the schedule of underlying insurance, with the Primary row boxed: London, 757/FD960228, $10M, retention NIL/NIL/1,000,000.">
+      </div>
+      <div class="spec-block" data-rise>
+        <h2>What it refuses</h2>
+        <ul>
+          <li>No answer without a citation: every value is a quote found, exactly, in the file.</li>
+          <li>No winner picked between documents that conflict, unless a rule decides.</li>
+          <li>No answer from outside the packet: if nothing in it states a value, the answer is not found.</li>
+        </ul>
+      </div>
+      <div class="spec-block" data-rise>
+        <h2>What it can&rsquo;t do yet</h2>
+        <ul>
+          <li>Small samples: one D&amp;O program from an SEC filing, and eight homeowners packets.</li>
+          <li>Your own documents. Which policy each one describes is still labelled by hand, so uploads are off.</li>
+          <li>Tell you a claim is wrong. Comparing the governing value with the claim&rsquo;s own value isn&rsquo;t built.</li>
+          <li>Notice a missing document. If the policy that governs isn&rsquo;t in the packet, it doesn&rsquo;t say so yet.</li>
+          <li>Prove the endorsement rule on real packets. It has only fired where a script inserted the endorsement.</li>
+        </ul>
+        <p class="spec-note">The results are in the repo, including the predictions it got wrong.</p>
+      </div>
+    </section>
+    <section class="band check" id="check">
+      <h2 data-rise>Check a claim</h2>
+      <p class="check-lede" data-rise>Pick a pre-loaded packet and run it. Uploads are off for now: which policy each document describes is still labelled by hand.</p>
+      <p class="check-run" data-rise><button type="button" class="btn inv" onclick="document.getElementById('try-btn').click()">Run a pre-loaded packet</button></p>
+      <form id="start" class="start" autocomplete="off">
             <div class="field">
               <label for="claim">The claim</label>
               <textarea id="claim" name="claim" rows="3" required placeholder="Your own claims are not built yet. Run an example."></textarea>
@@ -43,63 +109,6 @@
             <button class="btn inv" type="submit" id="go">Check claim</button>
             <p id="problem" class="problem" role="alert" hidden></p>
           </form>
-        </div>
-        <figure class="sheet" aria-label="A real result from the family B run">
-          <p class="sheet-tag"><span>Real result, ISO HO 00 03 with HO 00 15</span><button type="button" class="sheet-run" id="sheet-run" hidden>Run it<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></p>
-          <p class="sheet-claim">Jewelry theft limit: <span class="u green">$1,000.</span></p>
-          <p class="sheet-answer"><svg class="mark m-tick" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span class="st green">Supported, decided by a rule</span></p>
-          <p class="sheet-quote says"><span class="ref">HO 00 15, page 2</span><q>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</q></p>
-          <p class="sheet-part">The base form says $1000 for theft alone. Neither line states a basis, so they cannot be compared; the endorsement governs over the base form.</p>
-          <ul class="sheet-signoff" aria-label="Sign-off"><li><span>Claim and policy identification</span><span>Written by a person</span></li><li><span>Rule applied</span><span>Endorsement over base form</span></li></ul>
-          <ul class="sheet-legend" aria-label="Marks">
-            <li><svg class="mark m-tick" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg>Supported</li>
-            <li><svg class="mark m-clash" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/></svg>Unresolved</li>
-          </ul>
-        </figure>
-      </div>
-    </div>
-
-    <section class="band question" id="question">
-      <p class="big" data-rise>The question is not &ldquo;what does this policy say.&rdquo; It is &ldquo;which document says that, and does anything override it.&rdquo; That second half is where people lose afternoons, and where an answer without a citation is worth nothing.</p>
-    </section>
-    <section class="band how" id="how">
-      <h2 data-rise>How it works</h2>
-      <div class="frames">
-        <div data-rise><img class="frame-pic" src="/media/ho15-header.png" width="640" height="200" alt="The top of HO 00 15: This endorsement changes the policy. Special personal property coverage. Form HO 00 03 only."><h3>A claim and its packet</h3><p>The claim states one value: a retention, a special limit. The packet is everything that could govern it: the policy form, its endorsements, binders and schedules.</p></div>
-        <div data-rise><img class="frame-pic" src="/media/ho03-limits.png" width="640" height="420" alt="HO 00 03, page 2, the special limits list, with item 5 boxed: $1000 for loss by theft of jewelry."><h3>Each document is read where it applies</h3><p>Only the part of each document that describes the claim's policy is admitted. The model reads it and points at the value; code parses the amount and checks the quote against the file.</p></div>
-        <div data-rise><img class="frame-pic" src="/media/ho15-limits.png" width="640" height="420" alt="HO 00 15, page 2, deleting and replacing items 5 to 7, with item 5 boxed: $1,000 for loss by theft, misplacing or losing of jewelry."><h3>A rule decides, or it refuses</h3><p>An endorsement governs its base form; a later effective date governs an earlier one. When no rule applies and the documents disagree, nothing is picked. Every value is shown boxed on its page.</p></div>
-      </div>
-    </section>
-
-    <section class="band spec" id="answers">
-      <div class="spec-block" data-rise>
-        <h2>What you see</h2>
-        <p>Every answer is a claim plus the assertions behind it. Each assertion carries its document, its place in it (a page, or character offsets in a text filing) and the exact quote. Every step it rests on has a strength: <strong>read</strong> straight off the page; <strong>derived</strong> by a mechanical step over what was read, such as a table cell&rsquo;s position; or <strong>judgment</strong>, something the packet doesn&rsquo;t state, with the reasoning written out. The weakest step is the one to check first.</p>
-      </div>
-      <div class="spec-block" data-rise>
-        <h2>How it decides</h2>
-        <p>Two documents that state the same figure are compared, not merged, and only on the same currency and basis. When a rule resolves it, the rule is printed: an endorsement beats its base form, a later effective date beats an earlier one. Rules only rank documents issued under the policy in question. When no rule applies, the answer is unresolved and every pair of documents carries its reason.</p>
-        <img class="beyond-pic" src="/media/gillette-item7.png" width="1100" height="300" alt="Item VII of Endorsement 13 to the Gillette D&amp;O policy (SEC filing, 1996): the schedule of underlying insurance, with the Primary row boxed: London, 757/FD960228, $10M, retention NIL/NIL/1,000,000.">
-      </div>
-      <div class="spec-block" data-rise>
-        <h2>What it refuses</h2>
-        <ul>
-          <li>No value without a quote found, exactly, in the file.</li>
-          <li>No winner between documents that conflict, unless a rule decides.</li>
-          <li>No answer from outside the packet: if nothing admitted states a value, the answer is not found.</li>
-        </ul>
-      </div>
-      <div class="spec-block" data-rise>
-        <h2>What it can&rsquo;t do yet</h2>
-        <ul>
-          <li>Small samples: one D&amp;O program from an SEC filing, and eight homeowners packets.</li>
-          <li>Your own documents. Which policy each one describes is still labelled by hand, so uploads are off.</li>
-          <li>Tell you a claim is wrong. Comparing the governing value with the claim&rsquo;s own value isn&rsquo;t built.</li>
-          <li>Notice a missing document. If the policy that governs isn&rsquo;t in the packet, it doesn&rsquo;t say so yet.</li>
-          <li>Prove the endorsement rule on real packets. It has only fired where a script inserted the endorsement.</li>
-        </ul>
-        <p class="spec-note">The results are in the repo, including the predictions it got wrong.</p>
-      </div>
     </section>
     <section class="band faq" id="faq">
       <h2 data-rise>Questions</h2>
@@ -111,7 +120,7 @@
 
     <section class="band close">
       <p class="big">Check which document governs, not the summary.</p>
-      <a class="btn inv-dark" href="#claim">Check a claim</a>
+      <a class="btn inv-dark" href="#check">Check a claim</a>
       <ul class="signoff trust" aria-label="Who did what"><li><span>Read by</span><span>Claude Opus 5.5 reads the admitted passages and points at values.</span></li><li><span>Decided by</span><span>Code: amounts, comparisons, precedence and every citation check.</span></li><li><span>Written by a person</span><span>The claim, and which policy each document describes.</span></li></ul>
     </section>
     <footer class="bigname" aria-hidden="true">ProofGraph</footer>
@@ -178,7 +187,7 @@
     <iframe id="review" title="Review: the answer, the evidence and how it was checked"></iframe>
   </section>
 </div>
-<script src="/web/app.js"></script>
-<script src="/web/motion.js"></script>
+<script src="/web/app.js?v=3"></script>
+<script src="/web/motion.js?v=3"></script>
 </body>
 </html>
