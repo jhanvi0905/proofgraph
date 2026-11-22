@@ -9,6 +9,8 @@ Items found and deliberately left. Each has the reason it waits. Line numbers re
 
 - **Retrieval misses Item VII's rows for other layers.** In `data/retrieval_eval.json`, `chubb_do_limit` and `erma_limit` miss `coda_end13`. Item VII's whole schedule is a single span (one table), and its policy numbers drift from the binders': `81385411B` vs `81385411`, `752034765-96` vs `752-034765-96`. *Deferred:* found while measuring another change, so fixing it now would be fitting to the eval. Candidate fixes are splitting table rows into spans, or normalising identifiers. Either must be judged on queries written before the fix.
 
+- **A fifth asserter, found by the support pass.** The FD960229 cover note (the first excess layer) restates the primary's terms: `POLICY NO: FD960228 … RETENTION: USD NIL/USD NIL/USD 1,000,000`. It agrees with $1M, and unlike Item VII it states USD. It is not in `data/mappings.json`. *Deferred:* it becomes an assertion when pass evidence is turned into assertions (next step). Recording it by hand now would be labelling what the pass already found.
+
 ## Done before the family B run
 
 - ~~Assertions reject PDF citations.~~ Citations now carry a typed locator: `raw_offsets` for text sources, `page_quote` (a single-line quote that must occur exactly once on the page, as found by the PDF parser) for PDFs. Both are verified by `checker.verify_citation`. No citation is checked against this project's own text rebuild.

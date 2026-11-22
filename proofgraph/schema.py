@@ -593,26 +593,37 @@ class Side(str, Enum):
     ATTACK = "attack"
 
 
-class SlotStatement(_Model):
-    """A document asserting a value for a slot.
+class ProposedEvidence(_Model):
+    """What a pass returns for one span, before code checks it."""
 
-    The slot names what the value is about (FD960228.corp_reimbursement.retention).
-    asserted_by names the instrument whose text says it (coda_end13, because Item
-    VII is a table inside Endorsement 13). Keep them separate, or the trace loses
-    which document said what. The checker requires the quantity's span to belong
-    to asserted_by.
-    """
+    span_id: str
+    reading: str  # one line: what this span says about the atom
+    quote: str  # the characters in the span that bear on the atom, copied verbatim
 
-    slot: str
-    quantity: Quantity
-    asserted_by: str  # doc_id of the asserting instrument
+
+class EvidenceProposal(_Model):
+    evidence: tuple[ProposedEvidence, ...]
 
 
 class Evidence(_Model):
+    """A checked pass result: the quote was found in the span, exactly once, and cited."""
+
     side: Side
     span_id: str
-    reading: str  # one line: what this span says about the atom
-    statement: SlotStatement | None  # set when the span binds the atom's slot
+    doc_id: str
+    reading: str
+    quote: Excerpt  # offsets relative to the span's text
+    citation: Citation  # built by code from the span and the quote, never by the model
+
+
+class PassResult(_Model):
+    side: Side
+    atom_id: str
+    evidence: tuple[Evidence, ...]  # empty when the pass failed or found nothing
+    failed: bool  # true after a failed repair or a hard failure; evidence is then empty
+    errors: tuple[str, ...]  # what failed validation on the last attempt
+    rejects: int  # validation errors across attempts
+    repairs: int  # 0 or 1
 
 
 class Rule(_Model):

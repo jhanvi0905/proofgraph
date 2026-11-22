@@ -8,6 +8,7 @@ from pathlib import Path
 from proofgraph.arbiter import arbitrate
 from proofgraph.assertions import assert_one
 from proofgraph.model import embed
+from proofgraph.passes import attack, describe, support
 from proofgraph.retrieve import retrieve
 from proofgraph.atomize import atomize
 from proofgraph.checker import open_source
@@ -178,6 +179,38 @@ def _cmd_recall(args: argparse.Namespace) -> None:
           f"({'bm25 only' if args.sparse_only else 'bm25 + dense'})")
 
 
+RETENTION_ATOM = dict(
+    atom_id="retention.a0", predicate="states", kind=None, negated=False,
+    subject="primary corporate reimbursement retention", slot=SLOT, quantity_raw="1,000,000", quantity=None,
+    value=None, period=None, territory=None, basis=None, conditions=None,
+)
+
+
+def _cmd_passes(args: argparse.Namespace) -> None:
+    from proofgraph.schema import Atom
+
+    atom = Atom(**RETENTION_ATOM)
+    trace = Trace(Path(args.trace))
+    label = next(s for s in _load_manifest().sources if s.source_id == "gillette_ex10e")
+    instruments = ingest(label, DATA / "raw").instruments
+    src = open_source(DATA / "raw" / label.file)
+    gold = _labelled_spans(instruments)
+    r = retrieve(atom, instruments, trace, embed=embed)
+    print(f"atom\n  " + describe(atom).replace("\n", "\n  "))
+    print(f"retrieved {len(r.hits)} spans; labelled among them: {sorted(set(gold[h.span_id] for h in r.hits if h.span_id in gold))}\n")
+    for res in (support(atom, r, instruments, src, trace), attack(atom, r, instruments, src, trace)):
+        rec = [t for t in trace.records if t.stage == res.side.value][-1]
+        print(f"{res.side.value.upper()}  {len(res.evidence)} kept  failed={res.failed} repairs={res.repairs} rejects={res.rejects}  "
+              f"tokens={rec.input_tokens}+{rec.output_tokens} cache_hit={rec.cache_hit}")
+        for e in res.evidence:
+            mark = f"   <- labelled: {gold[e.span_id]}" if e.span_id in gold else ""
+            print(f"  {e.doc_id:24} {e.quote.text!r}{mark}")
+            print(f"  {'':24} {e.reading}")
+        for err in res.errors:
+            print(f"  ERROR {err}")
+        print()
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="pgrun")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -207,6 +240,9 @@ def main(argv: list[str] | None = None) -> None:
     rc.add_argument("--sparse-only", action="store_true")
     rc.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
     rc.set_defaults(func=_cmd_recall)
+    ps = sub.add_parser("passes", help="support and attack passes on the retention atom, side by side (two model calls)")
+    ps.add_argument("--trace", default=str(ROOT / "runs" / "trace.jsonl"))
+    ps.set_defaults(func=_cmd_passes)
     args = parser.parse_args(argv)
     args.func(args)
 
