@@ -167,7 +167,19 @@ def pdf_text_layer(path: Path, first_pages: int = 3) -> tuple[int, list[str], bo
 _FULL_WIDTH_MAX_GAP = 12.0
 
 
+def _without_stamps(page):
+    """The page without watermark and stamp characters: any glyph more than three times the page's typical
+    text size ("SAMPLE", "SPECIMEN", "COPY" printed across the page). Body text, headings and footers are far
+    below that. Without this, stamp letters land inside sentences and no verbatim quote of them can verify."""
+    sizes = sorted(c["size"] for c in page.chars if c.get("text", "").strip())
+    if not sizes:
+        return page
+    limit = 3 * sizes[len(sizes) // 2]
+    return page.filter(lambda o: o.get("object_type") != "char" or o.get("size", 0) <= limit)
+
+
 def _page_lines(page) -> list[tuple[str, BBox, bool]]:
+    page = _without_stamps(page)
     words = page.extract_words(x_tolerance=1.5, y_tolerance=2, keep_blank_chars=False, extra_attrs=["fontname"])
     gutter = _gutter_x(words, page.width)
     rows = _rows(words)
