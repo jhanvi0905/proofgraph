@@ -13,6 +13,7 @@ import html
 import io
 import threading
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pdfplumber
 
@@ -194,7 +195,9 @@ def _footer(run, info, rerun) -> str:
     for d in dict.fromkeys(docs):
         if d in info:
             label, _ = info[d]
-            files.append(f"<li>{E(_doc_name(d, info))}: <code>{E(label.file)}</code> sha256 <code>{E(label.sha256_of_file[:16])}…</code>, extractor <code>{E(label.extractor.value)}</code></li>")
+            src = (f' <a href="{E(label.url)}" target="_blank" rel="noopener">Open the original</a> '
+                   f'<span class="src-host">({E(urlparse(label.url).netloc.removeprefix("www."))})</span>.') if label.url else ""
+            files.append(f"<li>{E(_doc_name(d, info))}: <code>{E(label.file)}</code> sha256 <code>{E(label.sha256_of_file[:16])}…</code>, extractor <code>{E(label.extractor.value)}</code>.{src}</li>")
     again = f' <a href="{E(rerun)}" target="_top">Re-run this check</a>.' if rerun else ""
     return f"""<footer>
   <p><strong>Who wrote what.</strong> A person wrote the claim, its question and which policy each document describes. The model read the admitted passages and quoted; code parsed every amount, compared, applied the rules and checked every quote against the file.</p>
