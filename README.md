@@ -6,7 +6,7 @@
 - **With ProofGraph:** an answer you can check in seconds, or a named reason it cannot answer.
 - **The line it never crosses:** the model finds and quotes. Code compares and applies the rules. A model never decides which document wins.
 
-**Not:** a document store, a coverage opinion or legal advice. Tested on three document sets: a 1996 D&O program filed with the SEC, ISO homeowners forms, and a Chubb cyber policy it was never built on ([2 of 5, and why](results/family_c.md)).
+**Not:** a document store, a coverage opinion or legal advice. Tested on three document sets: a 1996 D&O program filed with the SEC, ISO homeowners forms, and a Chubb cyber policy it was never built on ([2 of 5, then 5 of 5 after D12](results/family_c.md)).
 
 **Bring your own claim** ([D11](DECISIONS.md)). Type any amount or wording claim. Code reads it; the for and against reads find lines in every document of that policy; a person confirms which lines are about the claim (or sets one aside, with a reason, shown on the result); the unchanged decision tree runs. The eight hand-written questions are now the regression test: typed as plain text, all five amount claims give the same answers ([results](results/d11_regression.md)).
 
@@ -82,7 +82,7 @@ SEC_USER_AGENT="Your Name you@example.com" uv run pgrun demo
 - text from documents mapped to the claim's policy, inside each mapping's scope (`admit()` in [`retrieve.py`](proofgraph/retrieve.py));
 - one claim per pass (support or attack), never the whole packet ([`passes.py`](proofgraph/passes.py)).
 
-**The model returns:** a passage id, an exact quote, the value copied from it, a one-line reading.
+**The model returns:** a passage id, an exact quote, a pointer to the value inside it, a one-line reading. Code reads the value from the verified quote: one amount, code reads it; several, the pointer decides, only if it lies inside the quote; otherwise it refuses ([D12](DECISIONS.md)).
 
 **Code does the rest:**
 
@@ -90,14 +90,15 @@ SEC_USER_AGENT="Your Name you@example.com" uv run pgrun demo
 |---|---|---|
 | Atomise | splits the claim into a closed predicate set | validates every field; one repair, then fail |
 | Retrieve | — | BM25 + local embeddings, fused by rank; ten admitted passages |
-| Support / attack | picks a passage, quotes it | id must be one it was shown; quote must occur exactly once; citation verified against the file |
+| Support / attack | picks a passage, quotes it | id must be one it was shown; quote must occur once inside the region it was shown, in one column; citation verified against the file |
 | Numbers | — | parses to integer minor units; `NIL` is not comparable |
 | Verdict | — | the two rules; `unresolved` unless one picks a winner |
 
 Every route carries a strength: **read** off the page, **derived** by code, or **judgment**. A judgment with no reasoning is rejected.
 
-- **Every citation is checkable.** File hash, a locator (raw-file offsets, or page + quote occurring exactly once), the expected text, the extractor version. One verifier checks it against the source file, never against our own text conversion ([`checker.py`](proofgraph/checker.py)).
+- **Every citation is checkable.** File hash, a locator (raw-file offsets, or page + the region shown + a hash of the quote, which must occur once inside that region; columns come from page coordinates), the expected text, the extractor version. One verifier checks it against the source file, never against our own text conversion ([`checker.py`](proofgraph/checker.py)).
 - **Closed vocabulary.** Predicates are frozen data; questions are keys in a registry, matched exactly (no aliases, no fuzzy matching). The model never names one ([`predicates.json`](data/predicates.json), [`slots.json`](data/slots.json)).
+- **Currencies and bases are data.** [`currencies.json`](data/currencies.json) (ISO 4217) and [`basis_phrases.json`](data/basis_phrases.json), each phrase its own basis. "$" is recorded as dollars, country not printed; against a named currency it isn't comparable until a person sets the claim's currency, recorded on the result. An unknown currency token is refused by name.
 - **The pipeline matches the hand labels, and found more.** `pgrun derive` reaches the same verdict (*unresolved, documents disagree*) from four assertions instead of three: support found the FD960229 cover note restating the retention, which the hand labels missed.
 
 **The measure is reviewer trust:** can someone check the answer without rereading the packet? Accuracy is reported with its denominator, but it is not the headline.
@@ -137,7 +138,7 @@ Each guard has a test; counterfactual tests show what gets through without it.
 | Missing-document check needs an `amends` route | Recorded by hand or read from an upload's printed line. Out-of-policy amendments (Gillette's Endorsement 13 → GS-212C) are listed as set aside, not checked. |
 | Endorsement rule only on an assembled packet | Fired 3 of 3 on two ISO forms paired under a specimen policy; both state the same amount, so no value dispute has yet been settled by a rule. |
 | Small sample | 20 packets (12 Gillette dev, 8 ISO holdout) plus 5 typed claims on a third set. Shows the design; not a rate. |
-| New layouts | On the Chubb cyber sample, 2 of 5 preregistered answers; none wrong. Misses: 2-up pages, repeated wording across coverages, a missing value pointer, a wording claim about a duration. Fixes accepted as [D12](DECISIONS.md), not built ([results](results/family_c.md)). |
+| New layouts | On the Chubb cyber sample: 2 of 5 preregistered answers at first, none wrong. The misses (columns, repeated wording across coverages, a missing value pointer, a wording claim about a duration) led to [D12](DECISIONS.md); after it, two fresh runs matched 5 of 5. One D12 fix was made after seeing this packet's output, so that 5 of 5 is not a clean holdout; the next unseen set is ([results](results/family_c.md)). |
 | Typed claims | A person confirms every grouping; pre-fill from past confirmations and auto-accept are not built. Dates are refused (no comparator). Proposer checked on the two ISO forms and one Chubb form. No public API. |
 
 ## Repo map
@@ -147,5 +148,5 @@ Each guard has a test; counterfactual tests show what gets through without it.
 - [`data/SOURCES.md`](data/SOURCES.md): both document sets, read from the files.
 - [`results/family_b.md`](results/family_b.md): the holdout run.
 - [`results/d11_regression.md`](results/d11_regression.md): typed claims reproduce the frozen answers.
-- [`results/family_c.md`](results/family_c.md): a third document set, preregistered, 2 of 5.
+- [`results/family_c.md`](results/family_c.md): a third document set, preregistered: 2 of 5, D12, then 5 of 5.
 - Earlier version (ContractNLI evidence graph): git history up to `14264f0`.

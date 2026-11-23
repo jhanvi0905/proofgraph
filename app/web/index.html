@@ -172,7 +172,7 @@
       <div class="body">
       <details data-rise><summary>Is this another chatbot?</summary><p>No. It checks one claim. The model only quotes; code compares and applies the rules.</p></details>
       <details data-rise><summary>What if an answer is wrong?</summary><p>Every value is boxed on its page. A quote not found exactly on its page is rejected.</p></details>
-      <details data-rise><summary>Which documents work?</summary><p>Three sets so far: a 1996 D&amp;O program (SEC filing), ISO homeowners forms, and a Chubb cyber policy it was never built on. On that one it matched 2 of 5 answers written before the run and never answered wrong; the misses come from page layout, and <a href="https://github.com/jhanvi0905/proofgraph/blob/x/proofgraph-v2-arbiter/results/family_c.md">each is documented</a>.</p></details>
+      <details data-rise><summary>Which documents work?</summary><p>Three sets so far: a 1996 D&amp;O program (SEC filing), ISO homeowners forms, and a Chubb cyber policy it was never built on. On that one it first matched 2 of 5 answers written before the run, never wrongly; the misses came from page layout, and after the fixes (<a href="https://github.com/jhanvi0905/proofgraph/blob/x/proofgraph-v2-arbiter/results/family_c.md">documented</a>) two fresh runs matched 5 of 5.</p></details>
       <details data-rise><summary>Is this a coverage opinion?</summary><p>No. It compares stated amounts and names the controlling document by a stated rule. Not a coverage determination, not legal advice.</p></details>
       </div>
     </section>
@@ -181,7 +181,7 @@
       <header class="rail"><p class="big">Check which document controls, not the summary.</p>
       <a class="btn inv-dark" href="#check">Check a claim</a>
       <a class="code-link" href="https://github.com/jhanvi0905/proofgraph/tree/x/proofgraph-v2-arbiter">Read the code, the design decisions and the preregistered results, including the predictions it got wrong</a></header>
-      <p class="code-note"><a href="https://github.com/jhanvi0905/proofgraph/blob/x/proofgraph-v2-arbiter/results/family_c.md">The third document set: 2 of 5, and why</a></p>
+      <p class="code-note"><a href="https://github.com/jhanvi0905/proofgraph/blob/x/proofgraph-v2-arbiter/results/family_c.md">The third document set: 2 of 5, the fixes, then 5 of 5</a></p>
       <ul class="body signoff trust" aria-label="Who did what"><li><span>Read by</span><span>Claude Opus 5.5 reads only the passages it is allowed to see, and quotes the values.</span></li><li><span>Decided by</span><span>Code: amounts, comparisons, which document controls, and checking every quote against the file.</span></li><li><span>Written by a person</span><span>The claim, and which policy each document describes.</span></li></ul>
     </section>
     <footer class="bigname" aria-hidden="true">ProofGraph</footer>
