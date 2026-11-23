@@ -1,13 +1,14 @@
 """Tax holdout, Phase B: the fc_run_d12.py protocol (server routes, every candidate line confirmed, nothing set aside),
 plus the preregistered figure-pick rules and the diagnostic decide. argv[1]: output folder. Set PROOFGRAPH_CACHE to a
 fresh empty folder so every call is live."""
+import os
 import json, pathlib, re, sys
 from fastapi.testclient import TestClient
 import app.server as server
 from proofgraph.trace import Trace
 from app.server import create_app
 from app.limit import LiveRunLimit
-S = pathlib.Path("/private/tmp/claude-501/-Users-jhanviarora-proofgraph--claude-worktrees-proofgraph-claim-retirement-0b9c72/55a852c0-17de-44db-ab38-7f0858561734/scratchpad")
+S = pathlib.Path(os.environ["PROOFGRAPH_TAX_WORKDIR"]) / ""
 UPLOADS = {"T-SALT": "7ae086963c22", "T-1099K": "f9dd0b20bdb1", "T-BONUS": "5c86f56cc81a"}
 out = pathlib.Path(sys.argv[1]); out.mkdir(parents=True, exist_ok=True)
 server.Trace = lambda _p: Trace(out / "trace.jsonl")

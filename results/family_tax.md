@@ -90,3 +90,5 @@ No parsing/layout break (c) was seen: every quote verified, including two-column
 - a one-claim trial run before run 1: $0.11;
 - run 1: 53 calls, $1.15;
 - run 2: 54 calls, $1.19.
+
+To rerun: set `PROOFGRAPH_TAX_WORKDIR` to a scratch folder holding the downloaded PDFs (URLs and hashes in the preregistration), then run the scripts in `data/family_tax/harness/`.
