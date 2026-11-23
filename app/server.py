@@ -124,7 +124,10 @@ def _reason(run: PacketRun, named: dict) -> str:
         head = {"documents_disagree": "The documents state different amounts and no rule picks one.",
                 "amounts_not_comparable": "The amounts cannot be compared.",
                 "governing_instrument_absent": "The document that would govern is not in the packet."}.get(v.unresolved_reason.value, "")
-        return f"{head} {v.unresolved_detail or ''}".strip()
+        detail = v.unresolved_detail or ""
+        for d in sorted(named, key=len, reverse=True):  # document names, never internal ids
+            detail = detail.replace(d, _doc_name(d, named))
+        return f"{head} {detail}".strip()
     return "No document in the packet addresses this question."
 
 
