@@ -1,0 +1,37 @@
+{
+  "note": "Family C: a packet never used to build or tune anything. Written and committed before the first run (DECISIONS.md D11, step 9). The run goes through the product path only: upload, propose, a person confirms the document, typed claims, every candidate line confirmed (no line set aside, so no judgment helps the answer), decide. Expected answers are the author's reading of the document; predictions say where the author expects the system to break. The PDF is a carrier's published sample and is not committed: the URL and hash below fetch it.",
+  "written_on": "2026-11-24",
+  "source": {
+    "url": "https://studio.chubb.com/connect/files/NA_Cyber_Sample.pdf",
+    "sha256": "9a74daf0c8a580ed8fc8b9bffe3553495afa9fd14eca63e596a59c723ced886b",
+    "what": "Chubb Blink personal cyber policy, sample (Executive Risk Indemnity Inc.), forms PF-53914 / PF-53915 (07/20). 13 PDF pages carrying 25 printed pages, two columns, a diagonal SAMPLE watermark. Coverage-summary limits are placeholders ($[XXX.XX]); fixed amounts appear in the coverage wording.",
+    "policy": "1m23456789"
+  },
+  "how_it_differs": [
+    "carrier, line of business and vocabulary: personal cyber (cyber bullying, cyber disruption, identity fraud), not homeowners or D&O",
+    "no form number in the ISO 'XX 00 00 00 00' shape; form numbers change per page (PF-53914, PF-53915)",
+    "two printed pages per PDF page, two columns, and watermark letters interleaved in the text layer",
+    "basis written as 'per coverage period', which is not in the basis lexicon"
+  ],
+  "claims": [
+    {"id": "C1", "text": "Under policy 1m23456789, reimbursement for wages lost after a cyber bullying occurrence is up to $5,000 per coverage period.",
+     "expected": "supported", "expected_value": "$5,000", "expected_page": 8,
+     "note": "Cyber bullying item 3: 'up to $5,000 per coverage period'. Two other coverages print the same $5,000 wage line; if the reads return them too and all are confirmed, they agree, so the answer holds."},
+    {"id": "C2", "text": "Under policy 1m23456789, reimbursement for wages lost after a cyber bullying occurrence is up to $10,000 per coverage period.",
+     "expected": "contradicted", "expected_value": "$5,000", "expected_page": 8},
+    {"id": "C3", "text": "Under policy 1m23456789, additional fees after an identity fraud are covered up to $5,000.",
+     "expected": "supported", "expected_value": "$5,000", "expected_page": 9},
+    {"id": "C4", "text": "Under policy 1m23456789, lost wages are reimbursed only for the first 60 days after a cyber disruption occurrence begins.",
+     "expected": "quoted", "expected_page": 9,
+     "note": "A wording claim: quoted with its page, not judged."},
+    {"id": "C5", "text": "Under policy 1m23456789, the cyber extortion coverage part limit is $25,000.",
+     "expected": "not_found or refused",
+     "note": "The only cyber extortion limit is the placeholder $[XXX.XX]. The right outcome is not to answer: no amount is stated. A 'contradicted' here would be a failure (comparing against a placeholder or another coverage's amount)."}
+  ],
+  "predictions": [
+    "P1: the upload proposer finds a form number (PF-53914) and the title, despite the non-ISO shape.",
+    "P2: at least one claim is hurt by the text layer (watermark letters or two printed pages per PDF page breaking a line).",
+    "P3: C5 does not come back 'supported' or 'contradicted'.",
+    "P4: C1 and C2 return wage lines from more than one coverage, because the same sentence is printed three times."
+  ]
+}
