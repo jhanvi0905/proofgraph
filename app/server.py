@@ -207,7 +207,8 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
                 m = maps[d].describes[0] if d in maps and maps[d].describes else None
                 docs.append({"doc_id": d, "name": _doc_name(d, {d: (None, i)}), "kind": KIND[i.instrument_type.value],
                              "policy": m.policy if m else None, "how": HOW[m.strength.value] if m else None,
-                             "strength": m.strength.value if m else None, "effective": i.effective_date})
+                             "strength": m.strength.value if m else None, "effective": i.effective_date,
+                             "source": named[d][0].url, "pages": [i.first_page, i.last_page]})
             qs = [{"id": c.claim_id, "slot": c.slot, "label": QUESTION.get(c.slot, c.slot), "claim": c.text, "kind": c.kind}
                   for c in p["choices"]]
             qs += [{"id": k, "slot": k, "label": QUESTION.get(k, k), "claim": None, "kind": None}

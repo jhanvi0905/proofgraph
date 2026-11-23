@@ -179,6 +179,9 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 .map th { font-weight: 500; opacity: .85; }
 .map code { font-size: inherit; }
 .map .how-judgment { text-decoration: underline wavy rgba(255,255,255,.8); text-underline-offset: .25em; }
+.map td a { color: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: .2em; }
+.map td a:hover { text-decoration-thickness: 2px; }
+.map .src { display: block; opacity: .8; margin-top: .15rem; }
 
 .topnav nav a.ext::after { content: " \2197"; }
 .code-link { display: inline-block; margin-top: 1.25rem; font-weight: 700; }
@@ -303,3 +306,4 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 html.running .steps-nav { visibility: hidden; }
 .result { margin-top: 1rem; }
 .why-band h2.big { margin: 0; }
+.map .src .nw { white-space: nowrap; }

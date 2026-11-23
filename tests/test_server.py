@@ -80,6 +80,9 @@ def test_form_lists_each_packet_with_its_mapping_and_its_claims(client):
     gil = packs["gillette"]
     assert [q["slot"] for q in gil["questions"] if q["claim"]] == ["FD960228.corp_reimbursement.retention"]
     assert {d["strength"] for d in gil["docs"]} == {"read", "derived", "judgment"}
+    # every worked document links to its published original (linked, not served: NOTICE.md)
+    assert all(d["source"].startswith("https://") for p in packs.values() for d in p["docs"])
+    assert {d["source"] for d in gil["docs"]} == {"https://www.sec.gov/Archives/edgar/data/0000041499/000095013597001269/0000950135-97-001269.txt"}
 
 
 def test_each_hero_example_gives_its_answer_and_names_why(client):

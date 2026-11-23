@@ -246,7 +246,14 @@
     var p = packs.filter(function (x) { return x.id === id; })[0]; if (!p) return;
     pick.packet = id;
     $("pmap").innerHTML = p.docs.map(function (d) {
-      return '<tr><td>' + esc(d.name) + '</td><td>' + esc(d.kind) + '</td><td><code>' + esc(d.policy || "none recorded") + '</code></td><td class="how-' +
+      var where = "";
+      if (d.source) {
+        var host = d.source.replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
+        var pg = d.pages && d.pages[0] === d.pages[1] ? "page " + d.pages[0] : "pages " + d.pages[0] + "\u2013" + d.pages[1];
+        where = '<span class="src">' + esc(host === "sec.gov" ? "SEC EDGAR filing, Exhibit 10(e)" : host) + ', <span class="nw">' + esc(pg) + '</span></span>';
+      }
+      var name = d.source ? '<a href="' + esc(d.source) + '" target="_blank" rel="noopener">' + esc(d.name) + '<span class="sr"> (opens the original in a new tab)</span></a>' : esc(d.name);
+      return '<tr><td>' + name + where + '</td><td>' + esc(d.kind) + '</td><td><code>' + esc(d.policy || "none recorded") + '</code></td><td class="how-' +
         esc(d.strength || "none") + '">' + esc(d.how || "not mapped, so not admitted") + '</td></tr>';
     }).join("");
     $("qs").innerHTML = p.questions.map(function (q) {
