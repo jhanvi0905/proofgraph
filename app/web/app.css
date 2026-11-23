@@ -225,7 +225,7 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 
 /* How it decides: the three answers as rules, each with the mark the result page uses. */
 .answers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--cyan); }
-.answers li { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: .5rem; padding: 1rem 0; border-bottom: 1px solid var(--cyan); font-size: var(--t-20); line-height: 1.45; }
+.answers > li { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: .5rem; padding: 1rem 0; border-bottom: 1px solid var(--cyan); font-size: var(--t-20); line-height: 1.45; }
 .answers .mark { margin: .2rem 0 0; }
 .three-note { font-weight: 700; font-size: var(--t-16); }
 .exhibit { margin-left: 0; margin-right: 0; }
@@ -277,7 +277,9 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 .for-two { display: grid; gap: 1.5rem 4rem; grid-template-columns: minmax(0, 1fr); margin-top: 2rem; border-top: 2px solid var(--ink); padding-top: 1.25rem; }
 @media (min-width: 900px) { .for-two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .for-two p { font-size: var(--t-20); line-height: 1.45; max-width: 36rem; }
-.reasons { margin: .5rem 0 0; padding-left: 1.1rem; font-size: var(--t-16); display: grid; gap: .2rem; }
+.reasons { margin: .6rem 0 0; padding-left: 1.1rem; font-size: var(--t-16); line-height: 1.5; color: var(--ink); }
+.reasons li { display: list-item; padding: .2rem 0; border: 0; }
+.reasons li::marker { color: var(--slate); }
 
 /* Check a claim: two doors as tabs on the blue band. */
 .d-tabs { display: flex; gap: .5rem; margin-bottom: 1.25rem; }
