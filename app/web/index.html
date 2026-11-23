@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="/web/tokens.css?v=3">
-<link rel="stylesheet" href="/web/app.css?v=15">
+<link rel="stylesheet" href="/web/app.css?v=17">
 <script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
@@ -22,7 +22,7 @@
       <div class="hero-in">
         <div class="hero-copy">
           <h1>A coverage check that shows its work.</h1>
-          <p class="lede">Give it a question, a claim somebody wrote, and the documents that might answer it. It says whether the claim is right, which document decided it, which clause, and which page. When the documents cannot settle it, it says so instead of picking one.</p>
+          <p class="lede">Give it a question, a claim somebody wrote (&ldquo;the jewelry theft limit is $1,000&rdquo;), and the documents that might answer it. It says whether the claim is right, which document decided it, which clause, and which page. When the documents cannot settle it, it says so instead of picking one.</p>
           <div class="doors">
             <a class="door door-main" href="#check" data-door="worked">Run a worked packet</a>
             <a class="door" href="#check" data-door="upload">Upload your documents</a>
@@ -38,9 +38,9 @@
             <p class="r-q">Special limit on theft of jewelry &middot; ISO HO 00 03 with endorsement HO 00 15</p>
             <p class="r-claim">Claim: the special limit for theft of jewelry is <b>$1,000</b>.</p>
             <p class="r-ans green"><svg class="mark m-tick" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span class="st">The claim is right.</span></p>
-            <p class="r-why"><strong>HO 00 15 governs</strong> over the base form HO 00 03: an endorsement governs the form it amends.</p>
+            <p class="r-why"><strong>HO 00 15 governs</strong> over the base form HO 00 03: an endorsement controls over the form it amends where they differ.</p>
             <blockquote class="r-quote says"><span class="ref">HO 00 15, page 2</span>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</blockquote>
-            <button type="button" class="r-run" data-sample="endorsement-replaces-limit">Run it and see the page</button>
+            <button type="button" class="r-run" data-sample="endorsement-replaces-limit">See the full evidence</button>
           </div>
           <div class="r-panel" data-ex="wrong" hidden>
             <p class="r-q">Special limit on theft of jewelry &middot; ISO HO 00 03 with endorsement HO 00 15</p>
@@ -48,15 +48,15 @@
             <p class="r-ans red"><svg class="mark m-circle" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg><span class="st">The claim is wrong.</span></p>
             <p class="r-why"><strong>HO 00 15 governs and states $1,000.</strong> The claim says $1,500. Both amounts are shown, with the page.</p>
             <blockquote class="r-quote says"><span class="ref">HO 00 15, page 2</span>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</blockquote>
-            <button type="button" class="r-run" data-sample="claim-is-wrong">Run it and see the page</button>
+            <button type="button" class="r-run" data-sample="claim-is-wrong">See the full evidence</button>
           </div>
           <div class="r-panel" data-ex="cant">
             <p class="r-q">Corporate reimbursement retention &middot; Gillette D&amp;O program, 1996 SEC filing</p>
             <p class="r-claim">Claim: the primary retention under FD960228 is <b>USD 1,000,000</b>.</p>
             <p class="r-ans clash"><svg class="mark m-clash" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/></svg><span class="st">Can&rsquo;t be settled from these documents.</span></p>
-            <p class="r-why"><strong>They disagree, and no rule picks one.</strong> Three documents state 1,000,000. Reliance&rsquo;s binder states $500,000, each loss.</p>
+            <p class="r-why"><strong>They disagree, and no rule picks one.</strong> Three documents state 1,000,000 (one without a currency). Reliance&rsquo;s binder states $500,000, each loss.</p>
             <blockquote class="r-quote says"><span class="ref">Reliance binder</span>$500,000 Corporate Reimbursement, each loss</blockquote>
-            <button type="button" class="r-run" data-sample="documents-disagree">Run it and see the documents</button>
+            <button type="button" class="r-run" data-sample="documents-disagree">See the full evidence</button>
           </div>
         </figure>
       </div>
@@ -64,7 +64,7 @@
     </div>
 
     <section class="band why-band" id="why">
-      <p class="big" data-rise>Everyone else sells a better reader. A better reader still gives you an answer you cannot verify without re-reading. This sells an answer checkable in seconds, and a refusal when the documents cannot support one.</p>
+      <h2 class="big" data-rise>Most tools sell a better reader. A better reader still gives you an answer you cannot verify without re-reading. This sells an answer checkable in seconds, and a refusal when the documents cannot support one.</h2>
       <div class="for-two">
         <div data-rise><h3>For the person answering</h3><p>The governing document, the clause and the page, in seconds, with a verdict on the amount or a named reason it cannot decide.</p></div>
         <div data-rise><h3>For the person signing off</h3><p>Every answer carries its own evidence, so the file can be defended without re-reading it.</p></div>
@@ -73,7 +73,7 @@
 
     <div class="rows">
     <section class="row" id="answers">
-      <header class="rail" data-rise><h2>Three answers, no fourth</h2><p>Two documents speaking to the same amount are compared, not merged, and only on the same currency and basis. When a rule settles which one governs, the rule is printed: an endorsement beats the form it amends, a later effective date beats an earlier one.</p></header>
+      <header class="rail" data-rise><h2>Three answers, and no guessing</h2><p>Amount claims get one of three answers. Two documents speaking to the same amount are compared, not merged, and only on the same currency and basis. When a rule settles which one governs, the rule is printed: an endorsement beats the form it amends, a later effective date beats an earlier one.</p></header>
       <div class="body">
         <ul class="answers">
           <li data-rise><svg class="mark m-tick" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span><strong>The claim is right.</strong> A document governs this line and states the same amount.</span></li>
@@ -100,7 +100,7 @@
     </div>
     <section class="band check row" id="check">
       <header class="rail" data-rise><h2>Check a claim</h2>
-      <p class="check-lede">Two ways in. A worked packet runs in seconds with nothing to type. Your own documents go through one extra step: the system proposes what each one is, and you confirm it before anything runs.</p></header>
+      <p class="check-lede">Two ways in. A worked packet runs in seconds with nothing to type. Your own documents go through one extra step: the system proposes what each one is, and you confirm it before anything runs. Today this is a web app and a command-line tool; there is no public API yet.</p></header>
       <div class="body doors-body">
       <div class="d-tabs" role="tablist" aria-label="Ways in">
         <button type="button" role="tab" id="tab-worked" aria-controls="start" aria-selected="true">Worked packets</button>
@@ -118,7 +118,7 @@
         </fieldset>
         <fieldset class="step3">
           <legend><span class="n">3</span>Question</legend>
-          <p class="c-note">Only questions in the registry can be decided. A new one is added by hand, never by the model.</p>
+          <p class="c-note">Only questions on a fixed list can be decided. A new one is added by a person, never by the model.</p>
           <div id="qs" class="choices"></div>
         </fieldset>
         <div class="field narrow" id="passcode-field" hidden>
@@ -156,15 +156,15 @@
       <div class="body">
       <details data-rise><summary>Is this another chatbot?</summary><p>No. It checks one claim, and every value it reports is a quote checked against the file. The model reads and points; code compares numbers and applies precedence.</p></details>
       <details data-rise><summary>What if an answer is wrong?</summary><p>Every value is boxed on its page so you can check it in seconds. A quote that cannot be found exactly on its page is rejected and never decides an answer.</p></details>
-      <details data-rise><summary>Which documents work?</summary><p>Two document families so far: a 1996 D&amp;O filing from SEC EDGAR, and ISO homeowners forms (PDF). Uploads are off: it would have to guess which policy each document describes, and a wrong guess produces a confident wrong answer instead of saying so.</p></details>
-      <details data-rise><summary>Does it replace my lawyer?</summary><p>No. It checks a claim against the documents you give it. It does not give legal advice.</p></details>
+      <details data-rise><summary>Which documents work?</summary><p>Two document families so far: a 1996 D&amp;O filing from SEC EDGAR, and ISO homeowners forms (PDF). You can upload your own PDFs: the system proposes what each document is from what is printed on it, and nothing runs until you confirm or correct every row. It answers only questions on its fixed list.</p></details>
+      <details data-rise><summary>Is this a coverage opinion?</summary><p>No. It compares the amounts the documents state with the amount in the claim, and shows which document controls by a stated rule. It is not a coverage determination and not legal advice.</p></details>
       </div>
     </section>
 
     <section class="row close">
       <header class="rail"><p class="big">Check which document governs, not the summary.</p>
       <a class="btn inv-dark" href="#check">Check a claim</a>
-      <a class="code-link" href="https://github.com/jhanvi0905/proofgraph/tree/x/proofgraph-v2-arbiter">Read the code, the decisions and the results on GitHub</a></header>
+      <a class="code-link" href="https://github.com/jhanvi0905/proofgraph/tree/x/proofgraph-v2-arbiter">Read the code, the design decisions and the preregistered results, including the predictions it got wrong</a></header>
       <ul class="body signoff trust" aria-label="Who did what"><li><span>Read by</span><span>Claude Opus 5.5 reads the admitted passages and points at values.</span></li><li><span>Decided by</span><span>Code: amounts, comparisons, precedence and every citation check.</span></li><li><span>Written by a person</span><span>The claim, and which policy each document describes.</span></li></ul>
     </section>
     <footer class="bigname" aria-hidden="true">ProofGraph</footer>

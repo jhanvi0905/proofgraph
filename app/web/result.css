@@ -92,3 +92,5 @@ footer p + p { margin-top: .4rem; }
 footer a { color: var(--stamp); font-weight: 700; }
 .clauses { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.25rem; }
 .clauses blockquote { margin: .5rem 0 .3rem; padding: .8rem 1rem; background: var(--paper); color: #0E1A2B; max-width: 62ch; line-height: 1.55; }
+.not-opinion { margin-top: 1rem !important; font-size: var(--t-13); color: var(--grey); }
+dt small { font-size: var(--t-13); }

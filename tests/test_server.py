@@ -50,7 +50,7 @@ def test_rule_one_page_names_the_rule_the_governing_form_and_boxes_the_lines(cli
     assert page.count("data:image/png;base64,") == 3  # the governing page up front, then both pages in the chain
     assert page.index("The claim is right.") < page.index("How this was decided")  # conclusion before mechanism
     assert "Re-run this check" in page and "sha256" in page and "Commit" in page
-    assert "compared: same amount" in page  # the pair's reason in plain words
+    assert "compared: same amount; same currency; neither states a basis" in page  # the pair's reason in plain words
 
 
 def test_disagreement_page_says_neither_rule_fired_and_why(client):

@@ -99,7 +99,7 @@ def _sse(name: str, data: object) -> str:
 
 STATUS = {"supported": "supported", "contradicted": "contradicted", "unresolved": "unresolved", "not_found": "not_found",
           "quoted": "quoted"}
-RULE = {"endorsement_over_base": "an endorsement governs the form it amends",
+RULE = {"endorsement_over_base": "an endorsement controls over the form it amends where they differ",
         "later_effective_date": "the later effective date governs"}
 
 

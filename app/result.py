@@ -67,8 +67,8 @@ def render(run: PacketRun, data: Path, title: str, question: str | None = None, 
   {_admitted(run, v, info)}
   {_rules(v, info, names)}
   <section aria-labelledby="ev"><h2 id="ev">What each document states, and where</h2>
-  <p class="why">A support pass and a separate attack pass each saw only the claim and the admitted passages. The model located and quoted; code parsed every amount and checked every quote against the file.</p>{rows}</section>
-  {_pairs(v, names) if v.verdict.value != "quoted" else _clauses(v, info)}
+  <p class="why">A support pass and a separate attack pass each saw only the claim and the admitted passages. The model located and quoted; code parsed every amount and checked every quote against the file. Each step is <strong>read</strong> off the page, <strong>derived</strong> by code, or a <strong>judgment</strong> (the model&rsquo;s reading or a person&rsquo;s identification); a judgment step still rests on a quote checked against the file.</p>{rows}</section>
+  {_pairs(v, names, {a.assertion_id: a for a in run.assertions}) if v.verdict.value != "quoted" else _clauses(v, info)}
 </details>"""
     body = f"""{head}
 {_answer(run, v, names, info, data)}
@@ -86,7 +86,7 @@ ANSWER = {
     "not_found": ("clash", "clash", "This can\u2019t be settled from these documents."),
     "quoted": ("slate", "bracket", "Quoted, not checked."),
 }
-RULE_WHY = {"endorsement_over_base": "an endorsement governs the form it amends",
+RULE_WHY = {"endorsement_over_base": "an endorsement controls over the form it amends where they differ",
             "later_effective_date": "the later effective date governs the earlier"}
 
 
@@ -143,6 +143,7 @@ def _answer(run, v, names, info, data: Path) -> str:
   <h2 id="vd"><span class="st">{_mark(mark)}{E(word)}</span></h2>
   {why}
   {pane}
+  <p class="not-opinion">A comparison of the amounts the documents state, not a coverage opinion.</p>
 </section>"""
 
 
@@ -265,7 +266,7 @@ def _assertion(a: Assertion, v, name: str, info, data: Path) -> str:
     <dl>
       <dt>States</dt><dd class="num big">{E(a.value.text)}</dd>
       <dt>Currency</dt><dd class="{'ns' if cur == 'not stated' else ''}">{E(cur)}</dd>
-      <dt>Basis</dt><dd class="{'ns' if basis == 'not stated' else ''}">{E(basis)}</dd>
+      <dt>Basis <small>(each loss, each claim, aggregate)</small></dt><dd class="{'ns' if basis == 'not stated' else ''}">{E(basis)}</dd>
     </dl>
     <ul class="routes" aria-label="How it reaches the claim">{routes}</ul>
     <p class="weakest">Weakest step: {E(_weakest_label(a))}. Check this one first.</p>
@@ -274,7 +275,7 @@ def _assertion(a: Assertion, v, name: str, info, data: Path) -> str:
 </article>"""
 
 
-def _pairs(v, names) -> str:
+def _pairs(v, names, by=None) -> str:
     if not v.pairs:
         return ('<section aria-labelledby="pr"><h2 id="pr">Pairs</h2>'
                 '<p class="empty">Only one document states this, so there is nothing to compare.</p></section>')
@@ -283,6 +284,12 @@ def _pairs(v, names) -> str:
         who_ids = [x.strip() for x in p.detail.replace("not stated by", "").split(",")] if "not stated by" in p.detail else []
         who = " and ".join(names.get(x, x) for x in who_ids) or "one side"
         text = REASON.get(p.reason.value, p.reason.value).format(who=who, detail=p.detail)
+        x, y = (by or {}).get(p.a), (by or {}).get(p.b)
+        if p.reason.value in ("equal", "different") and x is not None and y is not None:
+            amt = "same amount" if p.reason.value == "equal" else "different amounts"
+            cur = "same currency" if x.amount.currency else "neither states a currency"
+            bas = "same basis" if x.basis else "neither states a basis"
+            text = f"compared: {amt}; {cur}; {bas}"
         if len(who_ids) > 1:
             text = text.replace(" states no ", " state no ")
         same = {"equal": "same", "different": "different", "not_comparable": "no figure"}[p.value.value]

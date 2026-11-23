@@ -300,3 +300,4 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 /* The answer comes first: once it is in, the step bar is only a way back. */
 html.running .steps-nav { visibility: hidden; }
 .result { margin-top: 1rem; }
+.why-band h2.big { margin: 0; }
