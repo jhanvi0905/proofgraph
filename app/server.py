@@ -10,17 +10,20 @@ would give a confident wrong answer instead of a refusal.
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from collections import OrderedDict
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.limit import LiveRunLimit, visitor_id
+from app.upload import Refusal, UploadStore
 from app.result import _doc_name, crop_png, render
 from proofgraph.claims import load_claims
+from proofgraph.model import complete_json
 from proofgraph.pipeline import PacketRun, run_packet
 from proofgraph.schema import DocumentMappingFile, SourceManifest
 from proofgraph.trace import Trace
@@ -100,18 +103,29 @@ def _reason(run: PacketRun, named: dict) -> str:
     return "No admitted passage states a value for this."
 
 
-def create_app() -> FastAPI:
+def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: LiveRunLimit | None = None,
+               upload_limit: LiveRunLimit | None = None) -> FastAPI:
+    """`complete` is the model call the proposer uses (tests pass a fake). `limit` caps live runs and `upload_limit`
+    caps uploads (each upload calls the model once per file); examples replay recorded responses and are never limited."""
     app = FastAPI(title="ProofGraph")
     reviews: OrderedDict[str, str] = OrderedDict()
-    limit = LiveRunLimit()  # kept for live runs; examples replay recorded responses and are never limited
-    manifest = SourceManifest.model_validate_json((DATA / "instruments.json").read_text(encoding="utf-8"))
-    info = {i.doc_id: i for s in manifest.sources for i in s.instruments}
-    named = {i.doc_id: (s, i) for s in manifest.sources for i in s.instruments}
+    limit = limit or LiveRunLimit()
+    upload_limit = upload_limit or LiveRunLimit()
+    uploads = UploadStore(uploads_dir or DATA / "uploads", DATA / "predicates.json", complete)
+
+    def maps(data: Path):
+        m = SourceManifest.model_validate_json((data / "instruments.json").read_text(encoding="utf-8"))
+        return ({i.doc_id: i for s in m.sources for i in s.instruments}, {i.doc_id: (s, i) for s in m.sources for i in s.instruments})
+
+    info_main, named_main = maps(DATA)
+    info, named = info_main, named_main
 
     def stream(sample: dict):
         claim = sample["claim"]
+        data = sample.get("data", DATA)  # an uploaded packet runs from its own folder: raw/, instruments.json, predicates.json
+        info, named = (maps(data) if data != DATA else (info_main, named_main))
         try:
-            run = run_packet(sample["id"], claim, sample["docs"], sample["mappings"], DATA, Trace(None))
+            run = run_packet(sample["id"], claim, sample["docs"], sample["mappings"], data, Trace(None))
             admitted = dict(run.documents)
             policy = claim.slot.split(".", 1)[0]
             rows = []
@@ -130,7 +144,7 @@ def create_app() -> FastAPI:
             if run.verdict and run.verdict.unresolved_reason:
                 yield _sse("disagreement", {"part_id": "a0", "text": _reason(run, named)})
             rid = uuid.uuid4().hex[:12]
-            reviews[rid] = render(run, DATA, f"ProofGraph: {sample['title']}")
+            reviews[rid] = render(run, data, f"ProofGraph: {sample['title']}")
             while len(reviews) > KEEP:
                 reviews.popitem(last=False)
             yield _sse("done", {"review_id": rid, "status": status,
@@ -183,12 +197,74 @@ def create_app() -> FastAPI:
                   "claim": p["claims"][slot], "docs": p["docs"], "mappings": p["mappings"]}
         return StreamingResponse(stream(sample), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
 
+    def refuse(exc: Refusal) -> JSONResponse:
+        body = {"refusal": exc.text}
+        if exc.errors:
+            body["errors"] = exc.errors
+        return JSONResponse(body, status_code=exc.status)
+
+    def guarded(fn):
+        try:
+            return fn()
+        except Refusal as exc:
+            return refuse(exc)
+
+    def who(request: Request) -> str:
+        return visitor_id(request.headers, request.client.host if request.client else None)
+
+    # ---- upload, propose, confirm, run. Nothing runs on an unconfirmed proposal.
+
+    @app.post("/api/upload")
+    def upload(request: Request, files: list[UploadFile] = File(...)):
+        if not upload_limit.allow(who(request)):
+            return JSONResponse({"refusal": "Too many uploads from here for now. Try again later."}, status_code=429)
+        return guarded(lambda: uploads.view(uploads.create([(f.filename or "", f.file.read()) for f in files])))
+
+    @app.get("/api/upload/{upload_id}")
+    def upload_view(upload_id: str):
+        return guarded(lambda: uploads.view(upload_id))
+
+    @app.post("/api/upload/{upload_id}/confirm")
+    def upload_confirm(upload_id: str, body: dict):
+        return guarded(lambda: uploads.confirm(upload_id, body))
+
+    @app.post("/api/upload/{upload_id}/rows")
+    def upload_row(upload_id: str, body: dict):
+        return guarded(lambda: uploads.add_row(upload_id, body))
+
+    @app.post("/api/upload/{upload_id}/run/{slot}")
+    def upload_run(upload_id: str, slot: str, request: Request):
+        try:
+            if uploads.confirmed(upload_id) is None:
+                raise Refusal("The document mapping for this upload has not been confirmed by a person, so nothing ran.")
+            folder, docs, mappings = uploads.packet(upload_id)
+        except Refusal as exc:
+            return refuse(exc)
+        policies = {r.policy for m in mappings.documents for r in m.describes}
+        known, claims = [], {}
+        for p in _packets():
+            known += [k for k in p["slots"] if k.split(".", 1)[0] in policies]
+            claims.update({k: c for k, c in p["claims"].items() if k.split(".", 1)[0] in policies})
+        if slot not in known:
+            return JSONResponse({"refusal": "This question is not in the registry for this packet, so nothing ran."}, status_code=400)
+        if slot not in claims:
+            return JSONResponse({"refusal": "No claim has been written for this question yet, so nothing ran."}, status_code=400)
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            return JSONResponse({"refusal": "No API key is configured on this server, so a live run cannot happen and nothing ran."}, status_code=400)
+        if not limit.allow(who(request)):
+            return JSONResponse({"refusal": "Too many runs from here for now. Try again later."}, status_code=429)
+        sample = {"id": f"upload-{upload_id}:{slot}", "title": f"{QUESTION.get(slot, slot)} (uploaded packet)", "claim": claims[slot],
+                  "docs": docs, "mappings": mappings, "data": folder}
+        return StreamingResponse(stream(sample), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
+
     @app.post("/api/review")
     async def review(request: Request):
-        if not limit.allow(visitor_id(request.headers, request.client.host if request.client else None)):
-            return JSONResponse({"refusal": "Too many runs from here for now. Try again later."}, status_code=429)
-        return JSONResponse({"refusal": "Uploads are off: the system would have to guess which policy each document describes, and a wrong guess produces a confident wrong answer instead of saying so. "
-                                        "Run one of the examples instead."}, status_code=400)
+        # Kept as a refusal: the one-shot upload-and-run would have to guess which policy each document describes.
+        # The flow that does not guess is /api/upload, then confirm, then run.
+        return JSONResponse({"refusal": "A run cannot start from an upload alone: the system would have to guess which policy each document describes, "
+                                        "and a wrong guess produces a confident wrong answer instead of saying so. "
+                                        "Upload the files at /api/upload, confirm what each one is, then run a question; or run one of the examples."},
+                            status_code=400)
 
     @app.get("/api/review/{review_id}", response_class=HTMLResponse)
     def review_page(review_id: str):

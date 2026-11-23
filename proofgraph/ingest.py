@@ -143,6 +143,26 @@ def _pdf_text(path: Path) -> tuple[str, list[int], list[_Line]]:
     return "".join(parts), page_starts, lines
 
 
+def pdf_text_layer(path: Path, first_pages: int = 3) -> tuple[int, list[str], bool]:
+    """(page count, the first pages' text as the project's own column-aware lines, whether any page has a text layer).
+
+    A page with no extractable non-blank characters (a scan, an image-only page) has no text layer. Additive
+    helper for uploads; the extractor above is unchanged.
+    """
+    import pdfplumber
+
+    texts: list[str] = []
+    has_text = False
+    with pdfplumber.open(path) as pdf:
+        n = len(pdf.pages)
+        for i, page in enumerate(pdf.pages):
+            if any(c.get("text", "").strip() for c in page.chars):
+                has_text = True
+            if i < first_pages:
+                texts.append("\n".join(t for t, _, _ in _page_lines(page)))
+    return n, texts, has_text
+
+
 # Measured on HO 00 03 04 91: gaps between words are 0-7pt, column gutters 20pt+.
 _FULL_WIDTH_MAX_GAP = 12.0
 
