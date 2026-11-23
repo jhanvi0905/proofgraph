@@ -19,7 +19,7 @@ from proofgraph.trace import memory_trace
 
 PREDICATES = load_predicate_set(Path(__file__).resolve().parent.parent / "data" / "predicates.json")
 CLAIM = Claim(claim_id="c1", text="The primary corporate reimbursement retention under FD960228 is USD 1,000,000.",
-              slot="FD960228.corp_reimbursement.retention")
+              slot="FD960228.corp_reimbursement.retention", kind="amount", value="USD 1,000,000")  # D9: declared
 
 
 def _atom(**over) -> dict:

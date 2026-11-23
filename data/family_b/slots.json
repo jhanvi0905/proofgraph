@@ -16,6 +16,10 @@
     {
       "key": "SPECIMEN-HO3.silverware_theft.special_limit",
       "note": "Coverage C special limit, item 7"
+    },
+    {
+      "key": "SPECIMEN-HO3.jewelry_theft.loss_wording",
+      "note": "Coverage C special limit, item 5: the causes of loss the limit applies to (wording; D9)"
     }
   ]
 }

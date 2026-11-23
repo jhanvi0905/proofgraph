@@ -5,16 +5,17 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from proofgraph.arbiter import arbitrate
+from proofgraph.arbiter import arbitrate, arbitrate_wording
 from proofgraph.assertions import assert_one
 from proofgraph.model import embed
 from proofgraph.passes import attack, describe, support
 from proofgraph.retrieve import admit, retrieve
 from proofgraph.atomize import atomize
-from proofgraph.claims import load_claims
+from proofgraph.claims import load_claims, question_policies
 from proofgraph.checker import open_source
 from proofgraph.ingest import ingest
 from proofgraph.schema import DocumentMappingFile, RetrievalEval, Assertion, Claim, MappingFile, SourceManifest, TraceRecord, load_predicate_set
+from proofgraph.pipeline import verified_amends
 from proofgraph.trace import Trace
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -102,11 +103,36 @@ SLOT = "FD960228.corp_reimbursement.retention"
 
 
 def _verdict_line(v) -> str:
-    """supported says whether a rule decided it, and which instrument governs."""
-    if v.supported_reason is not None and v.supported_reason.value == "resolved_by_rule":
-        return f"supported (resolved_by_rule: {v.governing_rule.value}, governing instrument {v.governing_doc_id})"
+    """The verdict, its reason, and which instrument governs and by which rule (D9: also the claim's value)."""
     why = v.supported_reason or v.unresolved_reason or v.not_found_reason
-    return f"{v.verdict.value}{' (' + why.value + ')' if why else ''}"
+    out = f"{v.verdict.value}{' (' + why.value + ')' if why else ''}"
+    if v.governing_rule is not None:
+        out += f" [{v.governing_rule.value}: governing instrument {v.governing_doc_id}]"
+    if v.claim_comparison is not None:
+        out += f" claim {v.claim_value!r} vs governing {v.governing_value!r}"
+    return out
+
+
+def _print_d9(v) -> None:
+    """The D9 parts of a verdict: the missing-document check, and the claim against the governing value."""
+    for c in v.amends_checks:
+        print(f"  amends {c.outcome.upper():8} {c.reason} [{c.strength.value}]")
+    if not v.amends_checks:
+        print("  amends   no asserting document records what it amends")
+    cc = v.claim_comparison
+    if cc is not None:
+        state = "compared" if cc.compared else "NOT compared"
+        print(f"  claim    {state}: claim {v.claim_value!r} vs {cc.b} {v.governing_value!r}: {cc.reason.value} ({cc.detail})")
+    if v.unresolved_detail:
+        print(f"  why      {v.unresolved_detail[:220]}")
+
+
+def _gillette_question():
+    """Family A's packet: every instrument in the exhibit, their document mappings (amends verified), the policy set."""
+    label = next(s for s in _load_manifest().sources if s.source_id == "gillette_ex10e")
+    docs = tuple(i.doc_id for i in label.instruments)
+    mappings = DocumentMappingFile.model_validate_json((DATA / "document_mappings.json").read_text(encoding="utf-8"))
+    return docs, verified_amends(mappings, list(docs), DATA / "raw"), question_policies(SLOT, DATA / "slots.json")
 
 
 def _cmd_verdict(args: argparse.Namespace) -> None:
@@ -115,7 +141,8 @@ def _cmd_verdict(args: argparse.Namespace) -> None:
     for a in results:
         _print_assertion(a)
     valid = tuple(a for a in results if isinstance(a, Assertion))
-    v = arbitrate(SLOT, valid)
+    docs, checked, policies = _gillette_question()
+    v = arbitrate(_claim("retention"), valid, docs, checked, policies)
     trace.write(TraceRecord(
         stage="arbiter", packet_id=None, atom_id=SLOT, span_ids=(), model=None, prompt_hash=None,
         input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False, verdict=v.verdict,
@@ -133,6 +160,8 @@ def _cmd_verdict(args: argparse.Namespace) -> None:
     print("weakest route per assertion")
     for aid, r in zip(v.assertions, v.weakest_routes):
         print(f"  {r.strength.value.upper():8} {aid}: {r.mapping_id}")
+    print("D9 checks")
+    _print_d9(v)
     print(f"\nVERDICT  {_verdict_line(v)}   slot {v.slot}   unresolved pairs {v.unresolved_pairs}   governing {v.governing_assertion}")
 
 
@@ -261,8 +290,9 @@ def _cmd_derive(args: argparse.Namespace) -> None:
         basis = a.basis.value if a.basis else "not stated"
         routes = ", ".join(f"{r.mapping_id.split(':')[0]}={r.strength.value}" for r in a.routes)
         print(f"  {a.instrument.doc_id:20} value {a.value.text!r:18} currency {cur:10} basis {basis:11} routes {routes}")
-    v = arbitrate(claim.slot, valid)
-    hand = arbitrate(claim.slot, tuple(a for a in _load_assertions(Trace(None)) if isinstance(a, Assertion)))
+    docs, checked, policies = _gillette_question()
+    v = arbitrate(claim, valid, docs, checked, policies)
+    hand = arbitrate(claim, tuple(a for a in _load_assertions(Trace(None)) if isinstance(a, Assertion)), docs, checked, policies)
     trace.write(TraceRecord(
         stage="arbiter", packet_id="derived", atom_id=claim.slot, span_ids=(), model=None, prompt_hash=None,
         input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False, verdict=v.verdict,
@@ -272,6 +302,8 @@ def _cmd_derive(args: argparse.Namespace) -> None:
     print("\nrules")
     for r in v.rules:
         print(f"  {'FIRED' if r.fired else 'no   '} {r.name.value}: {r.reason[:150]}")
+    print("D9 checks")
+    _print_d9(v)
     print(f"\nVERDICT from the pipeline     {why(v)}   {len(v.assertions)} assertions, {v.unresolved_pairs} unresolved pairs, governing {v.governing_assertion}")
     print(f"VERDICT from hand labels     {why(hand)}   {len(hand.assertions)} assertions, {hand.unresolved_pairs} unresolved pairs")
     print("MOVED" if why(v) != why(hand) else "verdict unchanged", "(same verdict, different evidence)" if why(v) == why(hand) and len(v.assertions) != len(hand.assertions) else "")
@@ -283,13 +315,20 @@ def _cmd_familyb(args: argparse.Namespace) -> None:
     Orchestration only. The frozen passes take one source file, so admission, retrieval and the
     passes run once per source in the packet, and the arbiter sees the union of assertions.
     --dry-run stops before any model call and prints what each packet would admit.
+
+    D9: the packets in labels.json are scored twice, against their preregistered label and against
+    the D9 expectation in labels_d9.json; the new D9 packets (a wrong amount, the endorsement
+    without its base form, a wording claim) are scored against labels_d9.json only.
     """
     import json as _json
 
-    from proofgraph.assertions import assert_from_evidence
+    from proofgraph.assertions import assert_from_evidence, clause_from_evidence
 
     fb = DATA / "family_b"
     labels = _json.loads((fb / "labels.json").read_text(encoding="utf-8"))
+    d9 = _json.loads((fb / "labels_d9.json").read_text(encoding="utf-8"))
+    d9_expected = {p["packet_id"]: p["expected"] for p in d9["packets"]}
+    packets = [dict(p, prereg=True) for p in labels["packets"]] + [dict(p, prereg=False) for p in d9["packets"] if "claim_id" in p]
     claims = {c.claim_id: c for c in load_claims(fb / "claims.json", fb / "slots.json")}
     mappings = DocumentMappingFile.model_validate_json((fb / "document_mappings.json").read_text(encoding="utf-8"))
     manifest = _load_manifest()
@@ -298,9 +337,11 @@ def _cmd_familyb(args: argparse.Namespace) -> None:
     norm = lambda t: " ".join(t.split())
     rows = []
     ablations = []
-    for pk in labels["packets"]:
+    for pk in packets:
         claim = claims[pk["claim_id"]]
         policy = claim.slot.split(".", 1)[0]
+        policies = question_policies(claim.slot, fb / "slots.json")
+        checked = verified_amends(mappings, pk["instruments"], DATA / "raw")
         atom = None
         if not args.dry_run:
             res = atomize(claim, load_predicate_set(DATA / "predicates.json"), trace)
@@ -308,7 +349,7 @@ def _cmd_familyb(args: argparse.Namespace) -> None:
                 rows.append((pk, None, [], f"atomize failed: {[e.code.value for e in res.errors]}"))
                 continue
             atom = res.atoms[0]
-        evidence, assertions, notes = [], [], []
+        evidence, assertions, clauses, notes = [], [], [], []
         for doc in pk["instruments"]:
             label = by_doc[doc]
             ingested = ingest(label, DATA / "raw")
@@ -324,6 +365,9 @@ def _cmd_familyb(args: argparse.Namespace) -> None:
                     notes.append(f"{doc} {res.side.value} FAILED: {res.errors}")
                 for e in res.evidence:
                     evidence.append(e)
+                    if claim.kind == "wording":
+                        clauses.append(clause_from_evidence(e, admitted[0], trace))
+                        continue
                     a = assert_from_evidence(e, admitted[0], claim.slot, trace)
                     if isinstance(a, Assertion):
                         assertions.append(a)
@@ -332,15 +376,19 @@ def _cmd_familyb(args: argparse.Namespace) -> None:
         if args.dry_run:
             rows.append((pk, None, [], "; ".join(notes)))
             continue
-        v = arbitrate(claim.slot, tuple(assertions))
-        if args.ablate:
+        docs = tuple(pk["instruments"])
+        if claim.kind == "wording":
+            v = arbitrate_wording(claim, tuple(clauses), docs, checked, policies)
+        else:
+            v = arbitrate(claim, tuple(assertions), docs, checked, policies)
+        if args.ablate and claim.kind == "amount":
             # 1. naive build: values compared as strings, no precedence rules
             texts = {a.value.text for a in assertions}
             naive = "documents_disagree" if len(texts) > 1 else ("supported" if assertions else "not_found")
-            # 2. the frozen comparator, with precedence disabled: no instrument is in the rules' scope
+            # 2. the comparator, with precedence disabled: no instrument is in the rules' scope
             out_of_scope = tuple(a.model_copy(update={"instrument": a.instrument.model_copy(update={"policy_numbers": ()})})
                                  for a in assertions)
-            nr = arbitrate(claim.slot, out_of_scope)
+            nr = arbitrate(claim, out_of_scope, docs, checked, policies)
             nr_reason = nr.supported_reason or nr.unresolved_reason or nr.not_found_reason
             ablations.append((pk["packet_id"], naive, f"{nr.verdict.value} ({nr_reason.value if nr_reason else '-'})",
                               sorted(texts)))
@@ -350,26 +398,50 @@ def _cmd_familyb(args: argparse.Namespace) -> None:
         cited = [g for g in pk["gold"] if any(e.doc_id == g["doc_id"] and norm(g["line"]) in norm(e.citation.text) for e in evidence)]
         rows.append((pk, v, cited, "; ".join(notes)))
 
-    print(f"{'packet':24} {'expected':48} {'got':48} {'match':5} gold")
-    hits = 0
-    for pk, v, cited, note in rows:
-        ex = pk["expected"]
-        exp = f"{ex['verdict']} ({ex['reason']}{', ' + ex['rule'] + ' -> ' + ex['governing_doc_id'] if ex['rule'] else ''})"
-        if v is None:
-            print(f"{pk['packet_id']:24} {exp:48} {'(dry run)' if args.dry_run else 'FAILED':48} {'-':5} {note}")
-            continue
+    def fmt(ex):
+        return f"{ex['verdict']} ({ex['reason'] or '-'}{', ' + ex['rule'] + ' -> ' + ex['governing_doc_id'] if ex['rule'] else ''})"
+
+    def key(v):
         reason = v.supported_reason or v.unresolved_reason or v.not_found_reason
-        got = f"{v.verdict.value} ({reason.value if reason else '-'}{', ' + v.governing_rule.value + ' -> ' + str(v.governing_doc_id) if v.governing_rule else ''})"
-        ok = (v.verdict.value, reason.value if reason else None, v.governing_rule.value if v.governing_rule else None,
-              v.governing_doc_id) == (ex["verdict"], ex["reason"], ex["rule"], ex["governing_doc_id"])
-        hits += ok
-        print(f"{pk['packet_id']:24} {exp:48} {got:48} {'yes' if ok else 'NO':5} {len(cited)}/{len(pk['gold'])}  {note}")
+        return {"verdict": v.verdict.value, "reason": reason.value if reason else None,
+                "rule": v.governing_rule.value if v.governing_rule else None,
+                "governing_doc_id": v.governing_doc_id if v.governing_rule else None}
+
+    print(f"{'packet':28} {'preregistered label':42} {'expected under D9':48} {'got':48} {'pre':4} {'D9':4} gold")
+    hits_pre = hits_d9 = n_pre = 0
+    for pk, v, cited, note in rows:
+        exp_pre = fmt(pk["expected"]) if pk["prereg"] else "(new under D9)"
+        exp_d9 = d9_expected.get(pk["packet_id"])
+        if v is None:
+            print(f"{pk['packet_id']:28} {exp_pre:42} {fmt(exp_d9) if exp_d9 else '-':48} {'(dry run)' if args.dry_run else 'FAILED':48} {note}")
+            continue
+        got = key(v)
+        ok_pre = pk["prereg"] and got == pk["expected"]
+        ok_d9 = exp_d9 is not None and got == exp_d9
+        n_pre += pk["prereg"]
+        hits_pre += ok_pre
+        hits_d9 += ok_d9
+        print(f"{pk['packet_id']:28} {exp_pre:42} {fmt(exp_d9) if exp_d9 else '-':48} {fmt(got):48} "
+              f"{('yes' if ok_pre else 'NO') if pk['prereg'] else '-':4} {'yes' if ok_d9 else 'NO':4} {len(cited)}/{len(pk['gold'])}  {note}")
+        extra = []
+        if v.claim_comparison is not None:
+            cc = v.claim_comparison
+            extra.append(f"claim {v.claim_value!r} vs governing {v.governing_value!r}: {cc.reason.value}")
+        extra += [f"amends {c.outcome}: {c.reason}" for c in v.amends_checks]
+        if v.unresolved_detail:
+            extra.append(f"why: {v.unresolved_detail}")
+        if v.quoted is not None:
+            extra.append(f"quoted (not checked) {v.quoted.doc_id} p.{v.quoted.page}: {v.quoted.text!r}")
+        extra += [f"clash [judgment] {c.doc_id} p.{c.page}: {c.text!r} ({c.reading})" for c in v.clashes]
+        for line in extra:
+            print(f"{'':28} {line}")
     if not args.dry_run:
-        print(f"\nverdict matches label: {hits}/{len(rows)} packets")
+        print(f"\npreregistered label matched: {hits_pre}/{n_pre} packets (labels.json, scored as run at eeb9a2f; the rules moved at D9)")
+        print(f"D9 expectation matched:      {hits_d9}/{len(rows)} packets (labels_d9.json, not preregistered)")
     if ablations:
-        print(f"\n{'packet':24} {'naive (string compare, no rules)':34} {'frozen comparator, rules disabled':38} values")
+        print(f"\n{'packet':28} {'naive (string compare, no rules)':34} {'comparator, rules disabled':38} values")
         for pid, naive, nr, texts in ablations:
-            print(f"{pid:24} {naive:34} {nr:38} {texts}")
+            print(f"{pid:28} {naive:34} {nr:38} {texts}")
 
 
 def _cmd_fetch(args: argparse.Namespace) -> bool:

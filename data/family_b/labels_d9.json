@@ -1,0 +1,151 @@
+{
+  "note": "Expected verdicts under D9 (DECISIONS.md), written after the D9 rules were built and before the D9 runs below. NOT preregistered: unlike labels.json, these were written by the person who built the rules, so they test that the rules do what they say, not transfer. labels.json is untouched and still scores the recorded run. Entries without claim_id restate an existing labels.json packet under the D9 rules; entries with claim_id are new packets. A label's reason is the verdict's own reason (supported_reason, unresolved_reason or not_found_reason); rule and governing_doc_id are the precedence rule that named the governing document, if one did.",
+  "packets": [
+    {
+      "packet_id": "B-money-base",
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": null,
+        "governing_doc_id": null
+      },
+      "why": "Unchanged: one instrument, its value equals the claim's $200 (both USD, neither states a basis)."
+    },
+    {
+      "packet_id": "B-jewelry-base",
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": null,
+        "governing_doc_id": null
+      },
+      "why": "Unchanged: $1000 equals the claim's $1,000."
+    },
+    {
+      "packet_id": "B-firearms-base",
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": null,
+        "governing_doc_id": null
+      },
+      "why": "Unchanged: $2000 equals the claim's $2,000."
+    },
+    {
+      "packet_id": "B-silverware-base",
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": null,
+        "governing_doc_id": null
+      },
+      "why": "Unchanged: $2500 equals the claim's $2,500."
+    },
+    {
+      "packet_id": "B-money-endorsed",
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": null,
+        "governing_doc_id": null
+      },
+      "why": "Unchanged: HO 00 15 does not assert on money, so its amends route is never checked; no rule fires."
+    },
+    {
+      "packet_id": "B-jewelry-endorsed",
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": "endorsement_over_base",
+        "governing_doc_id": "ho_00_15"
+      },
+      "why": "Moves from resolved_by_rule. Under D9 '$1000' and '$1,000' are compared (both USD, neither states a basis) and equal, so the rule names HO 00 15 over agreeing values: no_conflict. HO 00 15 amends HO 00 03, which is in the packet. The governing $1,000 equals the claim's."
+    },
+    {
+      "packet_id": "B-firearms-endorsed",
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": "endorsement_over_base",
+        "governing_doc_id": "ho_00_15"
+      },
+      "why": "As jewelry: $2000 vs $2,000 compared and equal; HO 00 15 governs; equals the claim's $2,000."
+    },
+    {
+      "packet_id": "B-silverware-endorsed",
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": "endorsement_over_base",
+        "governing_doc_id": "ho_00_15"
+      },
+      "why": "As jewelry: $2500 vs $2,500 compared and equal; HO 00 15 governs; equals the claim's $2,500."
+    },
+    {
+      "packet_id": "B-jewelry-wrong-endorsed",
+      "claim_id": "fb_jewelry_wrong",
+      "instruments": [
+        "ho_00_03",
+        "ho_00_15"
+      ],
+      "expected": {
+        "verdict": "contradicted",
+        "reason": null,
+        "rule": "endorsement_over_base",
+        "governing_doc_id": "ho_00_15"
+      },
+      "gold": [
+        {
+          "doc_id": "ho_00_03",
+          "line": "5. $1000 for loss by theft of jewelry, watches, furs,"
+        },
+        {
+          "doc_id": "ho_00_15",
+          "line": "5. $1,000 for loss by theft, misplacing or losing of"
+        }
+      ],
+      "why": "The claim says $1,500 (a real-looking figure: later ISO editions use it). Both forms state $1,000; HO 00 15 governs; $1,000 differs from $1,500, both USD, neither states a basis: contradicted, both amounts shown."
+    },
+    {
+      "packet_id": "B-jewelry-endorsement-alone",
+      "claim_id": "fb_jewelry",
+      "instruments": [
+        "ho_00_15"
+      ],
+      "expected": {
+        "verdict": "unresolved",
+        "reason": "governing_instrument_absent",
+        "rule": null,
+        "governing_doc_id": null
+      },
+      "gold": [
+        {
+          "doc_id": "ho_00_15",
+          "line": "5. $1,000 for loss by theft, misplacing or losing of"
+        }
+      ],
+      "why": "A real packet missing its base document: HO 00 15 alone. It prints 'Form HO 00 03 Only'; HO 00 03 belongs to SPECIMEN-HO3, the question's policy, and is not in the packet. Refused before any precedence rule, naming both."
+    },
+    {
+      "packet_id": "B-jewelry-wording-endorsed",
+      "claim_id": "fb_jewelry_wording",
+      "instruments": [
+        "ho_00_03",
+        "ho_00_15"
+      ],
+      "expected": {
+        "verdict": "quoted",
+        "reason": null,
+        "rule": "endorsement_over_base",
+        "governing_doc_id": "ho_00_15"
+      },
+      "gold": [
+        {
+          "doc_id": "ho_00_15",
+          "line": "5. $1,000 for loss by theft, misplacing or losing of"
+        }
+      ],
+      "why": "A wording claim: no amount verdict. HO 00 15 item 5 ('theft, misplacing or losing') is quoted verbatim as the governing clause, not checked. HO 00 03's item 5 says 'theft' only; if the attack pass cites it, it is shown as a judgment clash, never as a verdict. (A first phrasing, 'theft, misplacing or losing', atomized into three atoms and the pipeline checks the first, theft; it was replaced by this one-atom claim before scoring.)"
+    }
+  ]
+}

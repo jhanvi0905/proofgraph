@@ -1,5 +1,5 @@
 {
-  "note": "Which policies each document describes, and how. The citation on each route is its scope: the narrowest range of the document that supports the attribution (a schedule row, a 'primary carrier' section, or the whole document when the whole document is the policy). Only passages inside a scope are admitted to the passes, decided in code. Hand-labelled from the filing. Documents not listed (coda_end12, both Chubb binders, ERMA) name no primary. Only identifications of FD960228 are recorded so far.",
+  "note": "Which policies each document describes, and how. The citation on each route is its scope: the narrowest range of the document that supports the attribution (a schedule row, a 'primary carrier' section, or the whole document when the whole document is the policy). Only passages inside a scope are admitted to the passes, decided in code. Hand-labelled from the filing. Documents not listed (coda_end12, both Chubb binders, ERMA) name no primary. Only identifications of FD960228 are recorded so far. D9: a document that prints what it amends carries an `amends` route, cited; only coda_end13 does here (it is attached to GS-212C, whose declarations it amends, and that policy's base wording is not in the packet, D5).",
   "documents": [
     {
       "doc_id": "london_fd960228",
@@ -62,7 +62,25 @@
             "text": "Primary      London    757/FD960228     6/1/96-99    $10M    NIL/NIL/1,000,000"
           }
         }
-      ]
+      ],
+      "amends": {
+        "instrument": "GS-212C",
+        "instrument_doc_id": null,
+        "policy": "GS-212C",
+        "method": "label",
+        "strength": "read",
+        "reasoning": null,
+        "citation": {
+          "source_file": "gillette_10k405_1996.txt",
+          "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 67618,
+            "end": 67670
+          },
+          "text": "ATTACHED TO AND FORMING PART OF POLICY NO.   GS-212C"
+        }
+      }
     },
     {
       "doc_id": "reliance_binder",

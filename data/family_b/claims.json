@@ -1,25 +1,46 @@
 {
-  "note": "Family B claims, written by the author before any family B run.",
+  "note": "Family B claims, written by the author before any family B run. D9 (post-freeze, written after the preregistered run): kind and value added to every claim; fb_jewelry_wrong (a wrong amount, so contradicted is reachable) and fb_jewelry_wording (a wording claim) added.",
   "claims": [
     {
       "claim_id": "fb_money",
       "text": "Under the specimen policy SPECIMEN-HO3, the special limit of liability on money is $200.",
-      "slot": "SPECIMEN-HO3.money.special_limit"
+      "slot": "SPECIMEN-HO3.money.special_limit",
+      "kind": "amount",
+      "value": "$200"
     },
     {
       "claim_id": "fb_jewelry",
       "text": "Under the specimen policy SPECIMEN-HO3, the special limit of liability for loss by theft of jewelry is $1,000.",
-      "slot": "SPECIMEN-HO3.jewelry_theft.special_limit"
+      "slot": "SPECIMEN-HO3.jewelry_theft.special_limit",
+      "kind": "amount",
+      "value": "$1,000"
     },
     {
       "claim_id": "fb_firearms",
       "text": "Under the specimen policy SPECIMEN-HO3, the special limit of liability for loss by theft of firearms is $2,000.",
-      "slot": "SPECIMEN-HO3.firearms_theft.special_limit"
+      "slot": "SPECIMEN-HO3.firearms_theft.special_limit",
+      "kind": "amount",
+      "value": "$2,000"
     },
     {
       "claim_id": "fb_silverware",
       "text": "Under the specimen policy SPECIMEN-HO3, the special limit of liability for loss by theft of silverware is $2,500.",
-      "slot": "SPECIMEN-HO3.silverware_theft.special_limit"
+      "slot": "SPECIMEN-HO3.silverware_theft.special_limit",
+      "kind": "amount",
+      "value": "$2,500"
+    },
+    {
+      "claim_id": "fb_jewelry_wrong",
+      "text": "Under the specimen policy SPECIMEN-HO3, the special limit of liability for loss by theft of jewelry is $1,500.",
+      "slot": "SPECIMEN-HO3.jewelry_theft.special_limit",
+      "kind": "amount",
+      "value": "$1,500"
+    },
+    {
+      "claim_id": "fb_jewelry_wording",
+      "text": "Under the specimen policy SPECIMEN-HO3, the special limit of liability on jewelry applies to loss by misplacing.",
+      "slot": "SPECIMEN-HO3.jewelry_theft.loss_wording",
+      "kind": "wording"
     }
   ]
 }

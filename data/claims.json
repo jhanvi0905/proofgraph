@@ -1,10 +1,12 @@
 {
-  "note": "Claims are written by the author, not generated. The slot is the author's canonical key from data/slots.json.",
+  "note": "Claims are written by the author, not generated. The slot is the author's canonical key from data/slots.json. D9: each claim declares its kind (amount or wording) and, for an amount, its value as written; neither is inferred.",
   "claims": [
     {
       "claim_id": "retention",
       "text": "The primary corporate reimbursement retention under FD960228 is USD 1,000,000.",
-      "slot": "FD960228.corp_reimbursement.retention"
+      "slot": "FD960228.corp_reimbursement.retention",
+      "kind": "amount",
+      "value": "USD 1,000,000"
     }
   ]
 }

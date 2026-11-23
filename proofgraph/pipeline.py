@@ -17,10 +17,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from proofgraph.arbiter import arbitrate
-from proofgraph.assertions import assert_from_evidence
+from proofgraph.arbiter import arbitrate, arbitrate_wording
+from proofgraph.assertions import assert_from_evidence, clause_from_evidence
 from proofgraph.atomize import atomize
-from proofgraph.checker import open_source
+from proofgraph.checker import open_source, verify_citation
 from proofgraph.ingest import ingest
 from proofgraph.model import embed
 from proofgraph.passes import attack, support
@@ -28,6 +28,8 @@ from proofgraph.retrieve import admit, retrieve
 from proofgraph.schema import (
     Assertion,
     Claim,
+    Clause,
+    DocumentMapping,
     DocumentMappingFile,
     Evidence,
     InvalidAssertion,
@@ -47,15 +49,40 @@ class PacketRun:
     evidence: list[Evidence] = field(default_factory=list)
     assertions: list[Assertion] = field(default_factory=list)
     invalid: list[InvalidAssertion] = field(default_factory=list)
+    clauses: list[Clause] = field(default_factory=list)  # wording claims (D9)
     verdict: SlotVerdict | None = None
     failure: str | None = None
 
 
+class AmendsCitationBroken(RuntimeError):
+    pass
+
+
+def verified_amends(mappings: DocumentMappingFile, doc_ids: list[str], raw: Path) -> tuple[DocumentMapping, ...]:
+    """The packet's document mappings, each amends citation checked by the one verifier (D9).
+
+    A broken amends citation stops the run: a missing-document check resting on a citation that
+    does not hold would pass silently, and that is the drop D6 forbids.
+    """
+    out = []
+    for m in mappings.documents:
+        if m.doc_id not in doc_ids:
+            continue
+        if m.amends is not None:
+            broken = verify_citation(m.amends.citation, open_source(raw / m.amends.citation.source_file))
+            if broken:
+                raise AmendsCitationBroken(f"{m.doc_id}: amends citation: {broken}")
+        out.append(m)
+    return tuple(out)
+
+
 def run_packet(packet_id: str, claim: Claim, doc_ids: list[str], mappings: DocumentMappingFile,
-               data: Path, trace: Trace) -> PacketRun:
+               data: Path, trace: Trace, policies: tuple[str, ...] | None = None) -> PacketRun:
+    """`policies`: the question's policy set (D9); None means the slot key's first segment."""
     manifest = SourceManifest.model_validate_json((data / "instruments.json").read_text(encoding="utf-8"))
     policy = claim.slot.split(".", 1)[0]
     run = PacketRun(claim=claim, atom_text=None)
+    checked = verified_amends(mappings, doc_ids, data / "raw")  # before any model call
 
     atoms = atomize(claim, load_predicate_set(data / "predicates.json"), trace)
     if not atoms.atoms:
@@ -77,10 +104,16 @@ def run_packet(packet_id: str, claim: Claim, doc_ids: list[str], mappings: Docum
         for side in (support, attack):
             for ev in side(atom, hits, admitted, routes, src, trace).evidence:
                 run.evidence.append(ev)
+                if claim.kind == "wording":
+                    run.clauses.append(clause_from_evidence(ev, by_doc[ev.doc_id], trace))
+                    continue
                 a = assert_from_evidence(ev, by_doc[ev.doc_id], claim.slot, trace)
                 (run.assertions if isinstance(a, Assertion) else run.invalid).append(a)
 
-    run.verdict = arbitrate(claim.slot, tuple(run.assertions))
+    if claim.kind == "wording":
+        run.verdict = arbitrate_wording(claim, tuple(run.clauses), tuple(doc_ids), checked, policies)
+    else:
+        run.verdict = arbitrate(claim, tuple(run.assertions), tuple(doc_ids), checked, policies)
     trace.write(TraceRecord(stage="arbiter", packet_id=packet_id, atom_id=claim.slot, span_ids=(), model=None,
                             prompt_hash=None, input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False,
                             verdict=run.verdict.verdict, rejects=(), repairs=0, detail=run.verdict.to_json()))

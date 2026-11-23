@@ -63,3 +63,24 @@ Without precedence, the frozen system stays `unresolved` on all three. In the co
 - **The hard part was labelled by hand.** Which policy each form describes (`SPECIMEN-HO3`, a specimen policy the packets assemble, since ISO forms carry no number) and each scope (the page-2 special-limits blocks) are labels. The run tests reading, pointing at values, comparison and precedence inside those scopes, not identification.
 - **The packets are easy.** One layout family, one page, and each amount on its own line. Eight packets demonstrate the pipeline end to end on documents its domain layer was not written against. They do not estimate an error rate.
 - **One change landed after the labels and before the run.** The dry run (no model calls) admitted nothing, because a PDF scope block had to sit inside one extracted chunk. Admission (`retrieve.py`, not frozen) was fixed at `eeb9a2f` to match a block across chunks. No model output existed when it was made.
+
+## Under D9 (added 2026-11-23; the tables above are as run and are not edited)
+
+[DECISIONS.md](../DECISIONS.md) D9 changed the domain layer after this run, with the user's approval: claims declare a kind and value, two amounts with no basis on either side and one currency are now comparable, the governing value is compared with the claim's, a packet missing the instrument an asserting document amends is refused, and wording claims are quoted rather than checked. The same recorded model responses replay under the new rules (`uv run pgrun familyb --ablate`, no key). `labels.json` is unchanged and still scored; the D9 expectations are in `data/family_b/labels_d9.json`, written by the person who built the rules, so they are **not** preregistered.
+
+| Packet | As run at `eeb9a2f` | Under D9 | Why it moved |
+|---|---|---|---|
+| B-money-base, B-jewelry-base, B-firearms-base, B-silverware-base, B-money-endorsed | supported (no_conflict) | supported (no_conflict) | unchanged; the claim's value is now compared and equal |
+| B-jewelry-endorsed | supported (resolved_by_rule, endorsement_over_base → ho_00_15) | supported (no_conflict, endorsement_over_base → ho_00_15) | `$1000` vs `$1,000` is now compared and equal, so the rule named the governing form over agreeing values: nothing was resolved |
+| B-firearms-endorsed | same as above | supported (no_conflict, endorsement_over_base → ho_00_15) | same |
+| B-silverware-endorsed | same as above | supported (no_conflict, endorsement_over_base → ho_00_15) | same |
+| B-jewelry-wrong-endorsed (new) | — | contradicted: claim $1,500, governing $1,000 (endorsement_over_base → ho_00_15) | the first `contradicted` on a real packet |
+| B-jewelry-endorsement-alone (new) | — | unresolved (governing_instrument_absent): ho_00_15 amends HO 00 03, which is not in the packet | the first missing-document refusal on a real packet |
+| B-jewelry-wording-endorsed (new) | — | quoted: HO 00 15 item 5, page 2, not checked; HO 00 03 item 5 shown as a judgment clash | a wording claim gets no amount verdict |
+
+Scores: the preregistered labels now match **5 of 8** (the three endorsed packets were labelled `resolved_by_rule`, which D9 says was a mislabel of agreement as decision); the D9 expectations match 11 of 11.
+
+What this changes in the readings above:
+- **"In three packets precedence succeeds" no longer holds under D9.** With the rules disabled, the three endorsed packets are now `supported (no_conflict)` rather than `unresolved (uncompared_agreement)`: once two amounts with no basis on either side count as comparable, the forms simply agree. Precedence still names HO 00 15 as governing, but no packet in family B has a rule settle a difference in value. That was already said under "What this does and does not show"; D9 makes the verdict reason say it too.
+- **The refusal and the contradiction paths have now run on real documents**, on two new packets assembled from the same two forms. They were added after seeing the system, so they show the rules do what they say; they are not a transfer result.
+- The new packets took 10 real model calls (13,901 input, 1,230 output tokens on Claude Opus 5.5; recorded under `data/recorded/model`). A first phrasing of the wording claim ("theft, misplacing or losing") split into three atoms, of which the pipeline checks the first (theft); it was replaced by a one-atom claim ("misplacing") before scoring, and its 5 calls (6,906 input, 747 output tokens) were discarded and not recorded.

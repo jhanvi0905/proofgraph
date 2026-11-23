@@ -1,5 +1,5 @@
 {
-  "note": "Family B document mappings (labels, written before any family B run). Scopes are page-2 special-limits blocks: each line occurs once on its page, top to bottom, in one column.",
+  "note": "Family B document mappings (labels, written before any family B run). Scopes are page-2 special-limits blocks: each line occurs once on its page, top to bottom, in one column. D9 (post-freeze): ho_00_15 carries an `amends` route to HO 00 03, cited to the words printed under its title.",
   "documents": [
     {
       "doc_id": "ho_00_03",
@@ -39,7 +39,24 @@
             "text": "5. $1,000 for loss by theft, misplacing or losing of\njewelry, watches, furs, precious and semi-\nprecious stones.\n6. $2,000 for loss by theft, misplacing or losing of\nfirearms.\n7. $2,500 for loss by theft, misplacing or losing of\nsilverware, silver-plated ware, goldware, gold-\nplated ware and pewterware. This includes\nflatware, hollowware, tea sets, trays and tro-\nphies made of or including silver, gold or pew-\nter."
           }
         }
-      ]
+      ],
+      "amends": {
+        "instrument": "HO 00 03",
+        "instrument_doc_id": "ho_00_03",
+        "policy": "SPECIMEN-HO3",
+        "method": "label",
+        "strength": "judgment",
+        "reasoning": "Page 1 prints 'THIS ENDORSEMENT CHANGES THE POLICY' and, under its title, 'Form HO 00 03 Only': that names the form it changes, in its own words. That HO 00 03 belongs to SPECIMEN-HO3 is the packet author's tie (ISO forms carry no policy number), as in the describes routes.",
+        "citation": {
+          "source_file": "ho_00_15_04_91.pdf",
+          "sha256_of_file": "35b0fea3608165104b34a43cd01af5051993264ed538066f5258282747b4ca4a",
+          "locator": {
+            "kind": "page_quote",
+            "page": 1
+          },
+          "text": "Form HO 00 03 Only"
+        }
+      }
     }
   ]
 }

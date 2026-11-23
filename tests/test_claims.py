@@ -33,7 +33,7 @@ def test_near_misses_raise_no_alias_no_fuzzy_match(candidate):
 def test_claim_with_unknown_slot_raises_and_writes_no_trace(tmp_path, monkeypatch):
     claims = tmp_path / "claims.json"
     claims.write_text(json.dumps({"note": "t", "claims": [
-        {"claim_id": "x", "text": "t", "slot": "FD960228.corporate_reimbursement.retention"}]}))
+        {"claim_id": "x", "text": "t", "slot": "FD960228.corporate_reimbursement.retention", "kind": "wording"}]}))
     trace = tmp_path / "trace.jsonl"
     from proofgraph import cli
 
@@ -47,3 +47,34 @@ def test_claim_with_unknown_slot_raises_and_writes_no_trace(tmp_path, monkeypatc
 
 def test_the_shipped_claims_all_resolve():
     load_claims(ROOT / "data" / "claims.json", ROOT / "data" / "slots.json")
+
+
+def test_kind_and_value_are_declared_never_inferred():
+    """D9: an amount claim must declare its value, a wording claim must not, and a value the number
+    rules cannot read fails at load time, before any model call."""
+    from proofgraph.schema import Claim
+
+    with pytest.raises(ValueError):
+        Claim(claim_id="a", text="t", slot=None, kind="amount")
+    with pytest.raises(ValueError):
+        Claim(claim_id="w", text="t", slot=None, kind="wording", value="$1")
+    with pytest.raises(Exception):
+        Claim.model_validate({"claim_id": "k", "text": "t", "slot": None})  # no kind: never guessed
+
+
+def test_an_unreadable_declared_value_fails_at_load(tmp_path):
+    (tmp_path / "claims.json").write_text(json.dumps({"note": "t", "claims": [
+        {"claim_id": "x", "text": "t", "slot": "FD960228.corp_reimbursement.retention", "kind": "amount",
+         "value": "one million"}]}))
+    with pytest.raises(ValueError, match="not an amount"):
+        load_claims(tmp_path / "claims.json", ROOT / "data" / "slots.json")
+
+
+def test_policy_set_defaults_to_the_first_segment_and_reads_the_registry(tmp_path):
+    from proofgraph.claims import question_policies
+
+    assert question_policies("FD960228.corp_reimbursement.retention", ROOT / "data" / "slots.json") == ("FD960228",)
+    reg = json.loads((ROOT / "data" / "slots.json").read_text())
+    reg["slots"][0]["policies"] = ["FD960228", "GS-212C"]
+    (tmp_path / "slots.json").write_text(json.dumps(reg))
+    assert question_policies("FD960228.corp_reimbursement.retention", tmp_path / "slots.json") == ("FD960228", "GS-212C")

@@ -20,7 +20,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import Literal
 
-SCHEMA_VERSION = "2.0.0"
+SCHEMA_VERSION = "2.1.0"  # D9
 
 
 class _Model(BaseModel):
@@ -35,29 +35,35 @@ class _Model(BaseModel):
 
 
 class Verdict(str, Enum):
-    SUPPORTED = "supported"
-    CONTRADICTED = "contradicted"
-    # Relabelled from documents_disagree (D7). Still four verdicts; the reason says which kind.
+    SUPPORTED = "supported"  # amount claims: the governing value equals the claim's value (D9)
+    CONTRADICTED = "contradicted"  # amount claims: the governing value differs from the claim's value (D9)
+    # Relabelled from documents_disagree (D7). The reason says which kind.
     UNRESOLVED = "unresolved"
     NOT_FOUND = "not_found"
+    # Wording claims only (D9). Not an answer: the governing clause is quoted verbatim and nothing
+    # was checked. Code never says a wording claim is right or wrong.
+    QUOTED = "quoted"
 
 
 class SupportedReason(str, Enum):
-    NO_CONFLICT = "no_conflict"  # nothing disagrees: one asserter, or all agree and were compared
-    RESOLVED_BY_RULE = "resolved_by_rule"  # asserters disagree (or could not be compared) and a precedence rule picked one
+    """How the governing value was chosen (D9: `governing_reason`, whatever the verdict)."""
+
+    NO_CONFLICT = "no_conflict"  # nothing disagrees: one asserter, all agree, or a rule named a document over equal values
+    RESOLVED_BY_RULE = "resolved_by_rule"  # some pair was compared and its numerals differ, and a precedence rule picked one
 
 
 class UnresolvedReason(str, Enum):
     DOCUMENTS_DISAGREE = "documents_disagree"  # numerals differ and no rule picks one
-    UNCOMPARED_AGREEMENT = "uncompared_agreement"  # numerals agree, but currency or basis blocked the comparison
+    # D9, renamed from uncompared_agreement: two amounts could not be compared, between two
+    # asserters or between the claim and the governing value. `unresolved_detail` names the mismatch.
+    AMOUNTS_NOT_COMPARABLE = "amounts_not_comparable"
+    # D9, moved from NotFoundReason: a document asserting on the question amends an instrument
+    # of the question's policies, and that instrument is not in the packet.
+    GOVERNING_INSTRUMENT_ABSENT = "governing_instrument_absent"
 
 
 class NotFoundReason(str, Enum):
-    # No instrument of the type the atom needs is in the packet. Mechanically
-    # checkable from the packet's instrument list.
-    GOVERNING_INSTRUMENT_ABSENT = "governing_instrument_absent"
-    # The right instruments are present but no span addresses the atom.
-    NO_ADDRESSING_SPAN = "no_addressing_span"
+    NO_ADDRESSING_SPAN = "no_addressing_span"  # no admitted passage addresses the question
 
 
 class RuleName(str, Enum):
@@ -69,6 +75,8 @@ class RuleName(str, Enum):
     # only way `unresolved` can be produced, never a fallback.
     UNRESOLVED_CONFLICT = "unresolved_conflict"
     UNTESTED_AGREEMENT = "untested_agreement"
+    AMENDED_INSTRUMENT_ABSENT = "amended_instrument_absent"  # D9: evaluated before the precedence rules
+    CLAIM_NOT_COMPARABLE = "claim_not_comparable"  # D9: the claim's value and the governing value cannot be compared
 
 
 # ---------------------------------------------------------------- documents
@@ -260,9 +268,28 @@ class DocumentRoute(_Model):
         return self
 
 
+class AmendsRoute(_Model):
+    """The instrument a document amends, as the document prints it (D9). Hand-labelled, cited, verified."""
+
+    instrument: str  # the amended instrument's id as printed, e.g. "HO 00 03", "GS-212C"
+    instrument_doc_id: str | None  # its doc_id in data/instruments.json; None when it is not catalogued
+    policy: str  # the policy the amended instrument belongs to
+    method: MappingMethod
+    strength: RouteStrength
+    reasoning: str | None  # required for judgment
+    citation: Citation  # the printed words that say what it amends; verified by checker.verify_citation
+
+    @model_validator(mode="after")
+    def _check(self) -> AmendsRoute:
+        if self.strength is RouteStrength.JUDGMENT and not self.reasoning:
+            raise ValueError(f"{self.instrument}: a judgment amends route must write out its reasoning")
+        return self
+
+
 class DocumentMapping(_Model):
     doc_id: str
     describes: tuple[DocumentRoute, ...]  # a schedule or a restating cover note describes several policies
+    amends: AmendsRoute | None = None  # D9: optional; only documents that print what they amend carry one
 
 
 class DocumentMappingFile(_Model):
@@ -522,6 +549,15 @@ class Claim(_Model):
     claim_id: str
     text: str  # written by the author, not generated
     slot: str | None  # canonical key from data/slots.json, typed by the author; None for non-`states` claims
+    # D9: declared by the author, never inferred at runtime.
+    kind: Literal["amount", "wording"]
+    value: str | None = None  # amount claims only: the amount as the author wrote it, e.g. "USD 1,000,000"
+
+    @model_validator(mode="after")
+    def _check(self) -> Claim:
+        if (self.kind == "amount") != (self.value is not None):
+            raise ValueError(f"{self.claim_id}: an amount claim declares its value, and a wording claim has none")
+        return self
 
 
 class ClaimFile(_Model):
@@ -532,6 +568,8 @@ class ClaimFile(_Model):
 class SlotEntry(_Model):
     key: str
     note: str
+    # D9: the question's policy set, for the missing-document check. None means the key's first segment.
+    policies: tuple[str, ...] | None = None
 
 
 class SlotRegistry(_Model):
@@ -624,30 +662,77 @@ class RuleEvaluation(_Model):
     governing_assertion: str | None
 
 
+class Side(str, Enum):
+    SUPPORT = "support"
+    ATTACK = "attack"
+
+
+class AmendsCheck(_Model):
+    """One asserting document's amends route, as the missing-document check saw it (D9). Never dropped."""
+
+    doc_id: str  # the asserting document
+    amends: str  # the amended instrument, as printed
+    amends_doc_id: str | None
+    amends_policy: str
+    outcome: Literal["present", "absent", "excluded"]  # excluded: the amended instrument is outside the question's policies
+    reason: str  # e.g. "coda_end13 amends GS-212C, outside this question's policies FD960228"
+    strength: RouteStrength  # of the amends route
+
+
+class Clause(_Model):
+    """Wording claims (D9): one quoted passage, tied to its instrument. Never parsed for an amount."""
+
+    clause_id: str
+    side: Side
+    instrument: InstrumentRef
+    citation: Citation  # built by code from the passage and verified; the text is verbatim
+    page: int
+    reading: str  # the model's one line
+    identification: RouteRef
+
+
+class QuotedClause(_Model):
+    clause_id: str
+    doc_id: str
+    page: int
+    text: str  # verbatim, the citation's text
+    reading: str
+    side: Side
+    strength: RouteStrength  # judgment for a clash: the passes' reading, never a code verdict
+    checked: Literal[False] = False  # always: quoted, not checked
+
+
 class SlotVerdict(_Model):
     schema_version: str = SCHEMA_VERSION
     slot: str
     verdict: Verdict
-    assertions: tuple[str, ...]
+    assertions: tuple[str, ...]  # assertion ids (amount) or clause ids (wording)
     in_scope: tuple[str, ...]  # asserters issued under the slot's policy (D3)
     pairs: tuple[Comparison, ...]
     rules: tuple[RuleEvaluation, ...]
     governing_assertion: str | None
-    supported_reason: SupportedReason | None
-    governing_doc_id: str | None  # the instrument whose value governs, when a rule picked one
-    governing_rule: RuleName | None
+    supported_reason: SupportedReason | None  # equals governing_reason when the verdict is supported
+    governing_doc_id: str | None  # the instrument whose value governs
+    governing_rule: RuleName | None  # the precedence rule that picked it, if one did
     unresolved_reason: UnresolvedReason | None
     not_found_reason: NotFoundReason | None
     unresolved_pairs: int  # counted in the eval (D6)
     weakest_routes: tuple[RouteRef, ...]  # per assertion, in `assertions` order: what each one rests on
+    # ---- D9
+    claim_kind: Literal["amount", "wording"] = "amount"
+    claim_value: str | None = None  # the author's declared value (amount claims)
+    policies: tuple[str, ...] = ()  # the question's policy set, used by the missing-document check
+    governing_reason: SupportedReason | None = None  # how the governing value was chosen, whatever the verdict
+    governing_value: str | None = None  # the value text the claim was compared with
+    claim_comparison: Comparison | None = None  # a="claim", b=the assertion compared with; None when no value governs
+    unresolved_detail: str | None = None  # names the mismatch or both documents, for every unresolved verdict
+    amends_checks: tuple[AmendsCheck, ...] = ()  # every asserting document's amends route: present, absent or excluded
+    quoted: QuotedClause | None = None  # wording claims: the governing clause, verbatim, not checked
+    clauses: tuple[QuotedClause, ...] = ()  # wording claims: every clause the passes quoted, governing or not
+    clashes: tuple[QuotedClause, ...] = ()  # wording claims: attack-pass clauses, judgment routes, never a verdict
 
 
 # ---------------------------------------------------------------- evidence and verdicts
-
-
-class Side(str, Enum):
-    SUPPORT = "support"
-    ATTACK = "attack"
 
 
 class ProposedEvidence(_Model):
@@ -686,6 +771,10 @@ class PassResult(_Model):
     repairs: int  # 0 or 1
 
 
+_REFUSALS = (RuleName.UNRESOLVED_CONFLICT, RuleName.UNTESTED_AGREEMENT, RuleName.AMENDED_INSTRUMENT_ABSENT,
+             RuleName.CLAIM_NOT_COMPARABLE)
+
+
 class Rule(_Model):
     name: RuleName
     governing_doc_id: str | None  # None only for unresolved_conflict
@@ -694,7 +783,7 @@ class Rule(_Model):
 
     @model_validator(mode="after")
     def _check(self) -> Rule:
-        is_conflict = self.name in (RuleName.UNRESOLVED_CONFLICT, RuleName.UNTESTED_AGREEMENT)
+        is_conflict = self.name in _REFUSALS
         if is_conflict != (self.governing_doc_id is None):
             raise ValueError("only unresolved_conflict has no governing document")
         return self
@@ -716,7 +805,7 @@ class Derivation(_Model):
     def _check(self) -> Derivation:
         if (self.verdict is Verdict.NOT_FOUND) != (self.not_found_reason is not None):
             raise ValueError("not_found_reason is set exactly when verdict is not_found")
-        names_conflict = any(r.name in (RuleName.UNRESOLVED_CONFLICT, RuleName.UNTESTED_AGREEMENT) for r in self.rules_fired)
+        names_conflict = any(r.name in _REFUSALS for r in self.rules_fired)
         if (self.verdict is Verdict.UNRESOLVED) != names_conflict:
             raise ValueError("unresolved appears exactly when a rule names why")
         return self

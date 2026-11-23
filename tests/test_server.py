@@ -42,10 +42,12 @@ def test_the_first_example_is_the_decision(client):
 def test_rule_one_page_names_the_rule_the_governing_form_and_boxes_the_lines(client):
     stream, page = _run(client, "endorsement-replaces-limit")
     assert '"status": "supported"' in stream
-    assert "Supported, decided by a rule" in page and "Rule applied: endorsement over base form" in page
+    # D9: $1000 and $1,000 are now compared (neither states a basis) and equal, so the rule names the
+    # governing form over agreeing values: no_conflict, not "decided by a rule".
+    assert "Supported, decided by a rule" not in page and "Rule applied: endorsement over base form" in page
     assert "HO 00 15 (endorsement)" in page and "Governs" in page
     assert page.count("data:image/png;base64,") == 2  # both pages, cited lines boxed
-    assert "state no basis" in page  # the pair's reason in plain words
+    assert "compared: same amount" in page  # the pair's reason in plain words
 
 
 def test_disagreement_page_says_neither_rule_fired_and_why(client):
@@ -66,7 +68,8 @@ def test_form_lists_each_packet_with_its_mapping_and_registry_questions(client):
     assert set(packs) == {"homeowners", "gillette"}
     home = packs["homeowners"]
     assert [d["kind"] for d in home["docs"]] == ["Base form", "Endorsement"]
-    assert all(q["claim"] for q in home["questions"]) and len(home["questions"]) == 4
+    # D9 added a wording question to the registry; the form lists it, with no amount claim wired to it
+    assert all(q["claim"] for q in home["questions"] if not q["slot"].endswith(".loss_wording")) and len(home["questions"]) == 5
     gil = packs["gillette"]
     runnable = [q["slot"] for q in gil["questions"] if q["claim"]]
     assert runnable == ["FD960228.corp_reimbursement.retention"]
@@ -90,4 +93,6 @@ def test_the_run_shows_what_the_model_was_allowed_to_see(client):
     body = client.post("/api/sample/endorsement-replaces-limit").text
     assert "event: admitted" in body and "event: files" not in body
     assert '"name": "HO 00 15 (endorsement)"' in body and '"in_scope": true' in body
-    assert "HO 00 15 (endorsement) governs" in body  # a name, not an internal id
+    # D9: the governing form is named on the page (see the rule-one test); the stream's one-line reason
+    # names it only for resolved_by_rule, which this sample no longer is (app/server.py _reason)
+    assert "ho_00_15 governs" not in body  # never an internal id

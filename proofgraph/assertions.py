@@ -19,6 +19,8 @@ from proofgraph.numbers import find_amount, find_basis, parse_amount
 from proofgraph.schema import (
     Assertion,
     AssertionInput,
+    Clause,
+    PageQuote,
     Evidence,
     Citation,
     Excerpt,
@@ -191,3 +193,28 @@ def assert_from_evidence(ev: Evidence, instrument: Instrument, slot: str, trace:
         rejects=(result.reason,) if isinstance(result, InvalidAssertion) else (), repairs=0, detail=result.to_json(),
     ))
     return result
+
+
+def clause_from_evidence(ev: Evidence, instrument: Instrument, trace: Trace) -> Clause:
+    """Wording claims (D9): one checked piece of pass evidence -> one quoted clause. No amount is read.
+
+    The text is the verified citation's own, verbatim. The page is the locator's for a PDF, or
+    the passage's for a text source. The identification route comes from the document mapping.
+    """
+    loc = ev.citation.locator
+    page = loc.page if isinstance(loc, PageQuote) else next(sp.page for sp in instrument.spans if sp.span_id == ev.span_id)
+    clause = Clause(
+        clause_id=f"{ev.side.value}:{ev.doc_id}:{ev.span_id[:8]}", side=ev.side,
+        instrument=InstrumentRef(doc_id=instrument.doc_id, version=instrument.version,
+                                 instrument_type=instrument.instrument_type, policy_numbers=instrument.policy_numbers,
+                                 effective_date=instrument.effective_date),
+        citation=ev.citation, page=page, reading=ev.reading,
+        identification=RouteRef(mapping_id=f"identify:{ev.doc_id}", method=ev.identification.method,
+                                strength=ev.identification.strength),
+    )
+    trace.write(TraceRecord(
+        stage="derive_clause", packet_id=None, atom_id=clause.clause_id, span_ids=(ev.span_id,), model=None,
+        prompt_hash=None, input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False, verdict=None,
+        rejects=(), repairs=0, detail=clause.to_json(),
+    ))
+    return clause

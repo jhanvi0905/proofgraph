@@ -97,31 +97,56 @@ def find_basis(text: str) -> tuple[Basis, int, int] | None:
 
 
 def compare(a: Assertion, b: Assertion) -> Comparison:
-    """The only place that decides whether two asserted quantities are comparable.
+    """The only place that decides whether two asserted quantities are comparable (D9, superseding D6's rule).
 
-    Comparable only when both state a currency, the currencies match, both state
-    a basis, and the bases match. Otherwise compared=False with the reason. No
-    equivalence between bases is assumed, and no currency is converted.
+    Comparable when the currencies match, or neither side states one, AND both state the
+    same basis, or neither states one (the question already fixes the quantity). One side
+    stating a currency or basis and the other not is a named mismatch, saying which side
+    lacked it; so are two different currencies or two different bases. No equivalence
+    between bases is assumed, and no currency is converted.
     """
-    ca, cb = a.amount.currency, b.amount.currency
-    ba, bb = a.basis, b.basis
-    value = compare_values(a.value.text, b.value.text)
+    return _compare(a.assertion_id, a.value.text, a.amount.currency, a.basis,
+                    b.assertion_id, b.value.text, b.amount.currency, b.basis)
+
+
+def compare_claim(claim_value: str, b: Assertion) -> Comparison:
+    """The claim's declared value against one assertion, by the same rule as compare(). a is "claim".
+
+    The claim's amount, currency and basis are read from its value as the author wrote it (the
+    first amount written in it, and the basis phrase anywhere in it), never filled in.
+    """
+    text = claim_amount_text(claim_value)
+    parsed = parse_amount(text)
+    found = find_basis(claim_value)
+    currency = None if isinstance(parsed, ParseFailure) else parsed.currency
+    return _compare("claim", text, currency, found[0] if found else None,
+                    b.assertion_id, b.value.text, b.amount.currency, b.basis)
+
+
+def claim_amount_text(claim_value: str) -> str:
+    """The amount inside a declared claim value ("USD 1,000,000 each claim" -> "USD 1,000,000")."""
+    span = find_amount(claim_value)
+    return claim_value[span[0]:span[1]] if span else claim_value.strip()
+
+
+def _compare(ia: str, ta: str, ca: Currency | None, ba: Basis | None,
+             ib: str, tb: str, cb: Currency | None, bb: Basis | None) -> Comparison:
+    value = compare_values(ta, tb)
 
     def out(compared: bool, reason: ComparisonReason, detail: str) -> Comparison:
-        return Comparison(a=a.assertion_id, b=b.assertion_id, compared=compared, reason=reason,
-                          detail=detail, value=value)
+        return Comparison(a=ia, b=ib, compared=compared, reason=reason, detail=detail, value=value)
 
     if value is ValueComparison.NOT_COMPARABLE:
-        return out(False, ComparisonReason.NO_NUMERAL, f"{a.value.text!r} vs {b.value.text!r}")
-    if ca is None or cb is None:
-        missing = [x.assertion_id for x, c in ((a, ca), (b, cb)) if c is None]
-        return out(False, ComparisonReason.CURRENCY_NOT_STATED, f"not stated by {', '.join(missing)}")
+        return out(False, ComparisonReason.NO_NUMERAL, f"{ta!r} vs {tb!r}")
+    if (ca is None) != (cb is None):
+        missing = ia if ca is None else ib
+        return out(False, ComparisonReason.CURRENCY_NOT_STATED, f"not stated by {missing}")
     if ca is not cb:
         return out(False, ComparisonReason.CURRENCY_MISMATCH, f"{ca.value} vs {cb.value}")
-    if ba is None or bb is None:
-        missing = [x.assertion_id for x, v in ((a, ba), (b, bb)) if v is None]
-        return out(False, ComparisonReason.BASIS_NOT_STATED, f"not stated by {', '.join(missing)}")
+    if (ba is None) != (bb is None):
+        missing = ia if ba is None else ib
+        return out(False, ComparisonReason.BASIS_NOT_STATED, f"not stated by {missing}")
     if ba is not bb:
         return out(False, ComparisonReason.BASIS_MISMATCH, f"{ba.value} vs {bb.value}")
     return out(True, ComparisonReason.DIFFERENT if value is ValueComparison.DIFFERENT else ComparisonReason.EQUAL,
-               f"{a.value.text!r} vs {b.value.text!r}")
+               f"{ta!r} vs {tb!r}")
