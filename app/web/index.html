@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="/web/tokens.css?v=3">
-<link rel="stylesheet" href="/web/app.css?v=20">
+<link rel="stylesheet" href="/web/app.css?v=21">
 <script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
@@ -22,7 +22,7 @@
       <div class="hero-in">
         <div class="hero-copy">
           <h1>A coverage check that shows its work.</h1>
-          <p class="lede">Give it a question, a claim somebody wrote (&ldquo;the jewelry theft limit is $1,000&rdquo;), and the documents that might answer it. It says whether the claim is right, which document decided it, which clause, and which page. When the documents cannot settle it, it says so instead of picking one.</p>
+          <p class="lede">Give it a claim (&ldquo;the jewelry theft limit is $1,000&rdquo;) and the policy documents. It says whether the claim is right, and shows the document, clause and page that decided it. If the documents can&rsquo;t settle it, it says why instead of guessing.</p>
           <div class="doors">
             <a class="door door-main" href="#check" data-door="worked">Run a worked packet</a>
             <a class="door" href="#check" data-door="upload">Upload your documents</a>
@@ -38,7 +38,7 @@
             <p class="r-q">Special limit on theft of jewelry &middot; ISO HO 00 03 with endorsement HO 00 15</p>
             <p class="r-claim">Claim: the special limit for theft of jewelry is <b>$1,000</b>.</p>
             <p class="r-ans green"><svg class="mark m-tick" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span class="st">The claim is right.</span></p>
-            <p class="r-why"><strong>HO 00 15 controls.</strong> It is an endorsement to HO 00 03, and an endorsement overrides the form it changes where they differ.</p>
+            <p class="r-why"><strong>HO 00 15 controls:</strong> an endorsement overrides the form it changes (HO 00 03).</p>
             <blockquote class="r-quote says"><span class="ref">HO 00 15, page 2</span>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</blockquote>
             <button type="button" class="r-run" data-sample="endorsement-replaces-limit">See the full evidence</button>
           </div>
@@ -46,7 +46,7 @@
             <p class="r-q">Special limit on theft of jewelry &middot; ISO HO 00 03 with endorsement HO 00 15</p>
             <p class="r-claim">Claim: the special limit for theft of jewelry is <b>$1,500</b>.</p>
             <p class="r-ans red"><svg class="mark m-circle" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg><span class="st">The claim is wrong.</span></p>
-            <p class="r-why"><strong>HO 00 15 controls, and it says $1,000.</strong> The claim says $1,500. Both amounts are shown, with the page.</p>
+            <p class="r-why"><strong>HO 00 15 controls, and it says $1,000.</strong> The claim says $1,500.</p>
             <blockquote class="r-quote says"><span class="ref">HO 00 15, page 2</span>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</blockquote>
             <button type="button" class="r-run" data-sample="claim-is-wrong">See the full evidence</button>
           </div>
@@ -60,47 +60,47 @@
           </div>
         </figure>
       </div>
-      <p class="wont"><strong>What it will not do:</strong> answer questions about policies it has not been set up for, process claims in bulk, answer a question outside its fixed list, or judge what wording means.</p>
+      <p class="wont"><strong>What it will not do:</strong> judge wording, answer questions off its fixed list, cover policies it isn&rsquo;t set up for, or run claims in bulk.</p>
     </div>
 
     <section class="band why-band" id="why">
-      <h2 class="big" data-rise>Most tools sell a better reader. A better reader still gives you an answer you cannot verify without re-reading. This sells an answer checkable in seconds, and a refusal when the documents cannot support one.</h2>
+      <h2 class="big" data-rise>Most tools sell a better reader, whose answers you still have to re-read to trust. This gives an answer you can check in seconds, or a refusal with its reason.</h2>
       <div class="for-two">
-        <div data-rise><h3>For the person answering</h3><p>The governing document, the clause and the page, in seconds, with a verdict on the amount or a named reason it cannot decide.</p></div>
-        <div data-rise><h3>For the person signing off</h3><p>Every answer carries its own evidence, so the file can be defended without re-reading it.</p></div>
+        <div data-rise><h3>For the person answering</h3><p>The controlling document, clause and page in seconds, with a verdict or a named reason.</p></div>
+        <div data-rise><h3>For the person signing off</h3><p>Every answer carries its evidence. The file can be defended without re-reading it.</p></div>
       </div>
     </section>
 
     <div class="rows">
     <section class="row" id="answers">
-      <header class="rail" data-rise><h2>Three answers, and no guessing</h2><p>A claim about an amount gets one of three answers. When two documents state the amount, they are compared, never blended, and only when both use the same currency and the same basis (per loss, per claim, or in total). When a rule decides which document controls, the rule is shown: an endorsement overrides the form it changes, and a later effective date overrides an earlier one.</p></header>
+      <header class="rail" data-rise><h2>Three answers, and no guessing</h2><p>Amounts are compared only on the same currency and basis (per loss, per claim, in total). Two rules decide which document controls, and the one used is shown: an endorsement overrides the form it changes; a later effective date overrides an earlier one.</p></header>
       <div class="body">
         <ul class="answers">
           <li data-rise><svg class="mark m-tick" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span><strong>The claim is right.</strong> The document that controls states the same amount.</span></li>
           <li data-rise><svg class="mark m-circle" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg><span><strong>The claim is wrong.</strong> The document that controls states a different amount. Both amounts are shown.</span></li>
           <li data-rise><svg class="mark m-clash" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/></svg><span><strong>This can&rsquo;t be settled from these documents,</strong> with one named reason:
-            <ul class="reasons"><li>two documents state different amounts, and no rule says which one controls;</li><li>the amounts cannot be compared, for example one is per loss and the other in total, and the difference is named;</li><li>a document needed to decide is missing, for example an endorsement is here but the form it changes is not;</li><li>none of the documents addresses the question.</li></ul></span></li>
+            <ul class="reasons"><li>documents disagree, and no rule picks one;</li><li>amounts can&rsquo;t be compared (say, per loss vs in total);</li><li>a needed document is missing (an endorsement without its form);</li><li>no document addresses the question.</li></ul></span></li>
         </ul>
-        <p class="three-note" data-rise>A wording claim (&ldquo;the endorsement covers misplacing or losing jewelry&rdquo;) is not judged. The controlling clause is quoted with its page and marked &ldquo;quoted, not checked&rdquo;, so a person reads it. Nothing is guessed.</p>
+        <p class="three-note" data-rise>Wording claims aren&rsquo;t judged: the controlling clause is quoted with its page, marked &ldquo;quoted, not checked&rdquo;.</p>
       </div>
     </section>
     <section class="row" id="checked">
-      <header class="rail" data-rise><h2>Every answer can be checked</h2><p>Each answer is built from quoted statements. Each one names its document, where in it (a page, or a position in a text filing) and the exact words, and how sure each step is: <strong>read</strong> straight off the page, <strong>derived</strong> by code from what was read, or <strong>judgment</strong>, from the model&rsquo;s reading or a person&rsquo;s identification. The weakest step is always named, so you know which part to check first.</p></header>
-      <div class="body steps-seq"><figure class="shot" data-rise><img class="frame-pic" src="/media/ho15-header.png" width="640" height="200" alt="The top of HO 00 15: This endorsement changes the policy. Special personal property coverage. Form HO 00 03 only."><figcaption><h3>A claim and its documents</h3><p>The claim states one amount, such as a retention (what the insured pays before cover starts) or a special limit. The documents are everything that could control it: the policy form, its endorsements, binders and schedules. Together they are called a packet.</p></figcaption></figure><figure class="shot" data-rise><img class="frame-pic" src="/media/ho03-limits.png" width="640" height="420" alt="HO 00 03, page 2, the special limits list, with item 5 boxed: $1000 for loss by theft of jewelry."><figcaption><h3>Each document is read where it applies</h3><p>The model sees only documents recorded as belonging to the claim&rsquo;s policy. It finds the amount and quotes it; code reads the number and checks that the quote is really on the page.</p></figcaption></figure><figure class="shot" data-rise><img class="frame-pic" src="/media/ho15-limits.png" width="640" height="420" alt="HO 00 15, page 2, deleting and replacing items 5 to 7, with item 5 boxed: $1,000 for loss by theft, misplacing or losing of jewelry."><figcaption><h3>A rule decides, or it refuses</h3><p>An endorsement overrides the form it changes; a later effective date overrides an earlier one. When no rule applies and the documents disagree, it does not pick one. Every amount is shown boxed on its page.</p></figcaption></figure></div>
+      <header class="rail" data-rise><h2>Every answer can be checked</h2><p>Every answer is built from quotes: document, page, exact words. Each step is marked <strong>read</strong> (off the page), <strong>derived</strong> (by code) or <strong>judgment</strong> (the model&rsquo;s or a person&rsquo;s call), so you know what to check first.</p></header>
+      <div class="body steps-seq"><figure class="shot" data-rise><img class="frame-pic" src="/media/ho15-header.png" width="640" height="200" alt="The top of HO 00 15: This endorsement changes the policy. Special personal property coverage. Form HO 00 03 only."><figcaption><h3>A claim and its documents</h3><p>One amount, such as a special limit or a retention (what the insured pays first). The packet: every document that could control it.</p></figcaption></figure><figure class="shot" data-rise><img class="frame-pic" src="/media/ho03-limits.png" width="640" height="420" alt="HO 00 03, page 2, the special limits list, with item 5 boxed: $1000 for loss by theft of jewelry."><figcaption><h3>Each document is read where it applies</h3><p>The model sees only documents for the claim&rsquo;s policy and quotes the amount. Code checks the quote is on the page.</p></figcaption></figure><figure class="shot" data-rise><img class="frame-pic" src="/media/ho15-limits.png" width="640" height="420" alt="HO 00 15, page 2, deleting and replacing items 5 to 7, with item 5 boxed: $1,000 for loss by theft, misplacing or losing of jewelry."><figcaption><h3>A rule decides, or it refuses</h3><p>A stated rule picks the controlling document. No rule applies? It doesn&rsquo;t pick. Every amount is boxed on its page.</p></figcaption></figure></div>
     </section>
     <section class="row" id="refuses">
-      <header class="rail" data-rise><h2>What it refuses</h2><p>Each refusal is shown as a result, with its reason. Saying it cannot answer, and why, is an answer.</p></header>
+      <header class="rail" data-rise><h2>What it refuses</h2><p>A refusal is a result, with its reason.</p></header>
       <div class="body" data-rise><ul class="ruled">
-        <li>A scanned document with no readable text. It does not read text from images.</li>
-        <li>A document it cannot identify from what is printed on it, when the person checking cannot say what it is either.</li>
-        <li>A question that is not on its fixed list.</li>
-        <li>An endorsement without the form it changes. An endorsement only rewrites parts of another document; if that document is missing, it cannot tell what the final terms are, so it says which document is missing.</li>
+        <li>A scan with no readable text.</li>
+        <li>A document neither the system nor the person checking can identify.</li>
+        <li>A question outside its fixed list.</li>
+        <li>An endorsement without the form it changes: the final terms can&rsquo;t be known, so it names the missing form.</li>
       </ul></div>
     </section>
     </div>
     <section class="band check row" id="check">
       <header class="rail" data-rise><h2>Check a claim</h2>
-      <p class="check-lede">Two ways in. A worked packet runs in seconds with nothing to type. Your own documents go through one extra step: the system proposes what each one is, and you confirm it before anything runs. Today this is a web app and a command-line tool; there is no public API yet.</p></header>
+      <p class="check-lede">Run a worked packet in seconds, or upload your own: it proposes what each document is, and you confirm before anything runs. Web app and command line today; no public API yet.</p></header>
       <div class="body doors-body">
       <div class="d-tabs" role="tablist" aria-label="Ways in">
         <button type="button" role="tab" id="tab-worked" aria-controls="start" aria-selected="true">Worked packets</button>
@@ -113,12 +113,12 @@
         </fieldset>
         <fieldset class="step3">
           <legend><span class="n">2</span>What each document is, and which policy it describes</legend>
-          <p class="c-note">Written by a person, not read by the model. Only text from documents that describe the question&rsquo;s policy reaches the model. Each document name opens its published original.</p>
+          <p class="c-note">Written by a person. Only the question&rsquo;s policy reaches the model. Click a name to open the original.</p>
           <div class="map-wrap"><table class="map"><thead><tr><th>Document</th><th>Kind</th><th>Policy it describes</th><th>How we know</th></tr></thead><tbody id="pmap"></tbody></table></div>
         </fieldset>
         <fieldset class="step3">
           <legend><span class="n">3</span>Question</legend>
-          <p class="c-note">Only questions on a fixed list can be decided. A new one is added by a person, never by the model.</p>
+          <p class="c-note">A fixed list. Only a person adds to it.</p>
           <div id="qs" class="choices"></div>
         </fieldset>
         <div class="field narrow" id="passcode-field" hidden>
@@ -131,13 +131,13 @@
       <form id="upload" class="start steps3" role="tabpanel" aria-labelledby="tab-upload" autocomplete="off" hidden>
         <fieldset class="step3">
           <legend><span class="n">1</span>Upload</legend>
-          <p class="c-note">PDFs of the policy form, its endorsements and declarations. A file with no readable text is refused with that reason.</p>
+          <p class="c-note">PDFs: policy form, endorsements, declarations. Scans without text are refused.</p>
           <label class="drop"><input type="file" id="files" accept="application/pdf" multiple><span id="files-label">Choose PDF files</span></label>
           <button class="btn inv" type="button" id="up-go">Read the documents</button>
         </fieldset>
         <fieldset class="step3" id="up-confirm" hidden>
           <legend><span class="n">2</span>Confirm what each document is</legend>
-          <p class="c-note">Proposed from the form number, edition and title printed on each document. Correct anything wrong. Nothing runs until you confirm, and your confirmation is recorded with the run.</p>
+          <p class="c-note">Proposed from the form number and title printed on each. Correct anything wrong. Your confirmation is recorded with the run.</p>
           <div class="map-wrap"><table class="map"><thead><tr><th>Document</th><th>Printed on it</th><th>Kind</th><th>Policy it describes</th><th>How we know</th></tr></thead><tbody id="up-rows"></tbody></table></div>
           <label class="field narrow"><span>Confirmed by</span><input id="up-who" type="text" autocomplete="name" required></label>
           <button class="btn inv" type="button" id="up-ok">Confirm</button>
@@ -154,10 +154,10 @@
     <section class="row faq" id="faq">
       <header class="rail" data-rise><h2>Questions</h2></header>
       <div class="body">
-      <details data-rise><summary>Is this another chatbot?</summary><p>No. It checks one claim, and every value it reports is a quote checked against the file. The model finds and quotes the text; code compares the numbers and applies the rules for which document controls.</p></details>
-      <details data-rise><summary>What if an answer is wrong?</summary><p>Every value is boxed on its page so you can check it in seconds. A quote that cannot be found exactly on its page is rejected and never decides an answer.</p></details>
-      <details data-rise><summary>Which documents work?</summary><p>Two sets so far: a 1996 directors and officers (D&amp;O) insurance program filed with the SEC, and standard ISO homeowners forms (PDF). You can upload your own PDFs: the system proposes what each document is from what is printed on it, and nothing runs until you confirm or correct what each document is. It answers only questions on its fixed list.</p></details>
-      <details data-rise><summary>Is this a coverage opinion?</summary><p>No. It compares the amounts the documents state with the amount in the claim, and shows which document controls by a stated rule. It is not a coverage determination and not legal advice.</p></details>
+      <details data-rise><summary>Is this another chatbot?</summary><p>No. It checks one claim. The model only quotes; code compares and applies the rules.</p></details>
+      <details data-rise><summary>What if an answer is wrong?</summary><p>Every value is boxed on its page. A quote not found exactly on its page is rejected.</p></details>
+      <details data-rise><summary>Which documents work?</summary><p>Tested on a 1996 D&amp;O program (SEC filing) and ISO homeowners forms. Your own PDFs work for questions on its list.</p></details>
+      <details data-rise><summary>Is this a coverage opinion?</summary><p>No. It compares stated amounts and names the controlling document by a stated rule. Not a coverage determination, not legal advice.</p></details>
       </div>
     </section>
 
@@ -191,7 +191,7 @@
       <header class="sec-head">
         <h2 id="read-title" tabindex="-1"><span class="num">1</span>What the model was allowed to see</h2>
         <button type="button" class="linkish sec-toggle" aria-expanded="true" aria-controls="sec-read-body">Hide details</button>
-        <p class="sec-lede">Decided by code before the model is called. The model sees text only from documents recorded as belonging to this question&rsquo;s policy, and only the part of each that applies.</p>
+        <p class="sec-lede">Set by code before the model runs: only this policy&rsquo;s documents, only the parts that apply.</p>
         <p class="sec-sum" id="read-sum"></p>
       </header>
       <div class="sec-body" id="sec-read-body">
@@ -202,7 +202,7 @@
       <header class="sec-head">
         <h2 id="parts-title" tabindex="-1"><span class="num">2</span>The claim, checked</h2>
         <button type="button" class="linkish sec-toggle" aria-expanded="true" aria-controls="sec-parts-body">Hide details</button>
-        <p class="sec-lede">The claim is checked twice: once looking for text that supports it, and separately looking for text against it. Each check sees only the claim and the allowed passages. The model finds and quotes; code reads the amounts, compares them and applies the rules.</p>
+        <p class="sec-lede">Two separate checks, one for and one against. The model quotes; code compares and applies the rules.</p>
         <p class="sec-sum" id="parts-sum"></p>
       </header>
       <div class="sec-body" id="sec-parts-body">

@@ -1,69 +1,51 @@
 # ProofGraph
 
-ProofGraph answers one question about a packet of documents: which document says what, and which one wins?
+**Which document says what, and which one wins?** ProofGraph answers that for one claim against a packet of insurance documents (a policy, its endorsements, its binders), and shows the page and the exact words behind the answer.
 
-Today that takes a person an afternoon. The policy, its endorsements and its binders are read in order, then someone makes a judgment call that nobody writes down. Do that across a book of policies and the record of what is currently true lives in someone's head.
+- **Today:** a person reads every document in order, then makes a judgment call nobody writes down.
+- **With ProofGraph:** an answer you can check in seconds, or a named reason it cannot answer.
+- **The line it never crosses:** the model finds and quotes. Code compares and applies the rules. A model never decides which document wins.
 
-Given a claim and a packet, ProofGraph returns the assertions behind the answer, each with its document, its place in it (a page, or character offsets in a text filing) and the exact quote. It records which pairs of documents conflict. It prints the rule that decided which document governs, or reports the answer unresolved with the reason. When nothing in the packet states a value for the claim, it answers not found.
+**Not:** a document store, a coverage opinion or legal advice. It answers only questions on a fixed list. Tested on two document sets: a 1996 D&O program filed with the SEC, and ISO homeowners forms.
 
-The model only finds and quotes. Code compares the quotes and applies the rules. A model never decides which document wins.
+## The answers
 
-What it does not do: it is not a repository, and it does not store or version your documents. It cannot answer a claim whose subject is not in its slot registry. Both limits are deliberate. It has been tested on insurance packets only: a 1996 D&O program filed with the SEC, and ISO homeowners forms.
+| Answer | When | Seen on real documents? |
+|---|---|---|
+| **supported** (right) | The controlling document states the claim's amount. | Yes: 8 family B packets. |
+| **contradicted** (wrong) | It states a different amount. Both are shown. | Yes: jewelry claim $1,500 vs HO 00 15's $1,000. |
+| **unresolved** (can't be settled), with one reason | `documents_disagree`: amounts differ, no rule picks one. | Yes: Gillette retention, $1,000,000 vs $500,000. |
+| | `amounts_not_comparable`: currency or basis differs or is missing; the mismatch is named. | In tests only. |
+| | `governing_instrument_absent`: an endorsement is here, the document it changes is not. | Yes: HO 00 15 without HO 00 03. |
+| **not found** | No document addresses the question. | In a unit test only. |
+| **quoted** | Wording claims. The controlling clause is quoted with its page, marked not checked. No verdict. | Yes: HO 00 15 item 5. |
 
-## What the model is allowed to see
+Two amounts are compared only when both state the same currency, and either the same basis or none at all ([D9](DECISIONS.md)).
 
-Every pass runs against a scoped view that is built before the model is called.
+**Two precedence rules, nothing else** ([D3](DECISIONS.md)). Each applies only between documents issued under the question's policy.
+1. **Endorsement over base form.** Fires in family B (HO 00 15 is printed "Form HO 00 03 Only"). Never in family A: its endorsements amend GS-212C, whose base wording is not in the packet ([D5](DECISIONS.md)).
+2. **Later effective date over earlier.** Compares effective dates, never coverage periods.
 
-- **Admission comes from the document mapping.** Text is admitted per (document × policy), not per document. The mapping clips to scope and tests containment, so a pass never sees a policy document that does not govern that claim. → `admit()` in [`proofgraph/retrieve.py`](proofgraph/retrieve.py), [`data/document_mappings.json`](data/document_mappings.json)
-- **Spans carry provenance.** Each span records where its text came from: file hash, offsets into the raw layer, expected text, extractor version. For PDFs the page and the quote are authoritative and offsets are absent. → `Span`, `SourceText` and `Citation` in [`proofgraph/schema.py`](proofgraph/schema.py)
-- **One claim proposition per pass.** The support pass and the attack pass each see one proposition, not the whole packet. → [`proofgraph/passes.py`](proofgraph/passes.py)
+No rule applies and the documents disagree? It refuses to pick.
 
-That is the whole of the context engineering in this system, and it is the difference between a route you can name and a route you cannot.
+## See it
 
-## Where the model stops
+![The Gillette retention claim, unresolved: three documents state 1,000,000 and a fourth states $500,000, neither rule applies, and each cited value is marked in the raw SEC filing](docs/media/documents-disagree.png)
 
-The model locates and quotes. For each passage it returns the passage id, the exact quote, the value copied out of that quote, and a one-line reading. Code checks the quote against the file, parses the quoted values, compares them, and applies the precedence rules. Every route the system reports carries a strength: read, derived or judgment, and a judgment route with no reasoning attached is rejected. → [`proofgraph/arbiter.py`](proofgraph/arbiter.py), [`proofgraph/numbers.py`](proofgraph/numbers.py), `MappingRecord` and `DocumentRoute` validation in [`proofgraph/schema.py`](proofgraph/schema.py)
-
-> **Read this first: who wrote what.** The claim being checked is written by the author and stored in `data/claims.json` ("The primary corporate reimbursement retention under FD960228 is USD 1,000,000."), together with its canonical slot key. The system does not choose its own question, and the model never names the slot. For the verdict shown by `pgrun verdict`, the three citations and the routes from them to the slot were also labelled by hand (`data/mappings.json`). `pgrun passes` runs the rest automatically: atomize, retrieve, then the support and attack passes. Which text the passes may read is decided in code, from hand-labelled document mappings (`data/document_mappings.json`). Each mapping cites its scope, the narrowest range that supports the attribution: a schedule row, a "primary carrier" section, or the whole document. Only text inside a scope is admitted, and each passage carries its identification and its strength. `pgrun derive` turns the passes' evidence into assertions and gives the verdict from the pipeline alone. In the published run that verdict is the same as the hand-labelled one, **unresolved (documents_disagree)**, but it rests on four assertions instead of three. Support found an asserter the hand labels missed (the FD960229 cover note restating the primary's retention), and attack found Reliance's $500,000, tagged as a judgment identification. Every derived assertion carries a judgment route, because which characters are the value is the model's reading.
-
-ProofGraph takes a packet of versioned insurance documents (a policy, its endorsements, its binders) and one atomic claim. For an amount claim it returns one of three answers: **supported** (the claim is right), **contradicted** (the claim is wrong, both amounts shown), or **unresolved** with a named reason (documents disagree and no rule picks one, the amounts cannot be compared, or the document that would govern is missing), with **not found** when no document addresses the question. A wording claim is **quoted**, never judged. It names the governing document and the precedence rule that made it govern, and it emits a derivation that a checker verifies against the exact characters of the documents. The model reads and proposes. Code decides precedence, does every comparison of numbers, and checks every citation.
-
-The hard case is two documents that disagree. Most document-AI work quietly assumes one canonical document. Here, an endorsement can replace a schedule, a binder can state a different retention than the policy, and a layer can attach mid-term. ProofGraph refuses to pick a winner unless a named rule picks it. A packet whose endorsement amends a document that is not in it is refused with that reason ([the verdicts](#the-verdicts-and-the-rules-that-produce-them)).
-
-The measure is reviewer trust: does the derivation let a reviewer check the answer without rereading the packet? Bucket accuracy is reported, with its denominator, but it is not the headline.
-
-## What this system demonstrates
-
-Each point is built, and each points at where to check it.
-
-- **Authority between documents, decided by rules rather than the model.** Which instrument governs is a precedence question: an endorsement over its base form, or a later effective date. Both rules are scoped to instruments issued under the policy in question, and where neither fires, the system refuses to pick a winner. Counterfactual tests show each rule flipping a verdict. → [`proofgraph/arbiter.py`](proofgraph/arbiter.py), `pgrun verdict`, [DECISIONS.md](DECISIONS.md) D3, D7
-- **Every answer is traceable to exact characters.** A citation is a file hash, a typed locator (raw-file offsets, or a page plus a quote that must occur exactly once), and the expected text. One verifier checks it against the source document, never against this project's own text conversion. → [`proofgraph/checker.py`](proofgraph/checker.py)
-- **Identification is part of the record.** Which policy each document describes is recorded with a route, a strength (read, derived or judgment) and a citation. Passages reach the model only from inside a scope mapped to the claim's policy (a schedule row, a section, or a whole document), decided in code, and every piece of evidence carries that strength, so a judgment identification never reads as a read one. → [`data/document_mappings.json`](data/document_mappings.json), `pgrun passes`
-- **A semantic model with a closed vocabulary.** The predicates are frozen as data, and slots are canonical keys in a registry. They resolve by exact match only (no aliases, no fuzzy matching), and the model never names one. → [`data/predicates.json`](data/predicates.json), [`data/slots.json`](data/slots.json), [`proofgraph/claims.py`](proofgraph/claims.py)
-- **Retrieval owned end to end, and measured.** BM25 plus local embeddings, fused by rank, scoped to admitted documents. Recall@10 is graded automatically on queries labelled before measuring, with design and independent queries reported apart. → [`proofgraph/retrieve.py`](proofgraph/retrieve.py), `pgrun recall`, [`data/retrieval_eval.json`](data/retrieval_eval.json)
-- **The model proposes; code decides.** Every model output is checked against the input it was given and the file it cites, and each guard has a counterfactual test showing what gets through without it. → [How the model is used, and how it is kept honest](#how-the-model-is-used-and-how-it-is-kept-honest)
-- **A harness you can replay.** One JSON line per stage: the served model, prompt hash, tokens, rejects and verdict. The published run replays from a clean clone with no API key. → `pgrun demo`, `runs/trace.jsonl`
-- **A held-out document family, with a frozen domain layer.** Family B (ISO homeowners forms, a different layout and line of business) is reserved for one run. The domain layer (arbiter, comparators, assertions, passes, predicates, slots and family A's labels) is frozen by hash before any family B label is written, and a test fails if any of it changes ([D8](DECISIONS.md)). Parsing may still change, because family B's PDF shaped the column parser twice, so the claim is narrower than "no code change", and testable. It ran once after the freeze: **8 of 8 packets matched labels committed before the run**, and `endorsement_over_base` picked a governing instrument for the first time on real documents, over amounts that agreed but could not be compared. Two of five predictions were wrong in the optimistic direction, and the report says so. → [`results/family_b.md`](results/family_b.md), [`PREREGISTRATION.md`](PREREGISTRATION.md), [`data/freeze.json`](data/freeze.json)
-
-## See it decide
-
-![The Gillette retention claim, unresolved: three documents state 1,000,000 and a fourth states $500,000 for the corporate-reimbursement retention, neither precedence rule fires, and each cited value is marked in the raw SEC filing](docs/media/documents-disagree.png)
-
-The family A example, from a public SEC filing (Gillette's 1996 10-K, exhibit 10.(E)). The claim is a corporate-reimbursement retention. Two Lloyd's cover notes and a Corporate Officers and Directors Assurance endorsement state 1,000,000; the Reliance binder states $500,000 each loss. Only one of those documents is issued under the policy in question, so neither precedence rule can rank them, and the verdict is *unresolved: the documents disagree*. Each cited value is marked at its character offsets in the raw filing, and the table lists every pair of documents with the reason it was or was not compared.
-
-The other example is the one where a rule decides. Both ISO forms state $1,000 as the special limit for theft of jewelry. HO 00 03 says "$1000 for loss by theft"; the endorsement HO 00 15 says "$1,000 for loss by theft, misplacing or losing". Neither line states a basis, so the two amounts cannot be compared directly. The rule *endorsement over base form* decides that HO 00 15 governs. A string comparison would have called the two documents in disagreement, and without the rule the answer stays unresolved ([results](results/family_b.md)). The ISO forms are copyrighted, so that page is not reproduced here. It renders live in the app from the PDFs that `pgrun fetch` downloads.
-
-To open it in a browser:
+- **Documents disagree (Gillette, public SEC filing).** Two Lloyd's cover notes and an endorsement state 1,000,000; the Reliance binder states $500,000 each loss. Only one is issued under the policy in question, so no rule can rank them: *unresolved*. Each value is marked in the raw filing.
+- **A rule decides (ISO forms).** HO 00 03 says "$1000", HO 00 15 says "$1,000". Code compares them as equal; the endorsement rule names HO 00 15 as controlling. A string comparison would have called them a disagreement. The ISO forms are copyrighted, so the page renders live in the app, not here.
 
 ```bash
 uv run uvicorn app.server:app --port 8765
 ```
 
-Then go to http://localhost:8765. The five worked examples (right, wrong, can't be settled, base form missing, wording quoted) replay from recorded model responses: no API key, no charge. Uploading your own PDFs needs `ANTHROPIC_API_KEY`: the model proposes what each file is from its printed form number, edition and title, and nothing runs until a person confirms or corrects every row. Which document describes which policy is decided by a person before the run and then frozen, because a mapping written after seeing the documents can be quietly shaped to agree with the answer. That is what stops the system grading its own homework. That is why an upload is never mapped by guesswork: the proposal is quoted from the page, checked against the file, and confirmed by a person, whose name and time are frozen with the run ([D10](DECISIONS.md)).
+Open http://localhost:8765.
+- **Five worked examples** (right, wrong, can't be settled, base form missing, wording quoted) replay recorded model responses: no key, no cost.
+- **Upload your own PDFs** with `ANTHROPIC_API_KEY` set. The model proposes what each file is from its printed form number, edition and title; code checks the quote is on the page; a person confirms every row. Name and time are frozen with the run ([D10](DECISIONS.md)).
 
 ## Run it
 
-From a clean clone. You need [uv](https://docs.astral.sh/uv/) and a network connection; no API key.
+You need [uv](https://docs.astral.sh/uv/) and a network connection. No API key.
 
 ```bash
 git clone https://github.com/jhanvi0905/proofgraph.git && cd proofgraph && git checkout x/proofgraph-v2-arbiter
@@ -77,100 +59,88 @@ uv sync
 SEC_USER_AGENT="Your Name you@example.com" uv run pgrun demo
 ```
 
-`pgrun demo` does four things:
-1. It fetches the source documents from their public URLs and refuses any whose sha256 differs from the pinned one. No source document is stored in this repository. SEC EDGAR asks automated clients for a contact, hence `SEC_USER_AGENT`.
-2. It prints the verdict on the retention slot.
-3. It prints retrieval recall@10 on the labelled queries.
-4. It replays the support and attack passes from the model responses recorded in `data/recorded/model`, so it gives the same output as the published trace without calling the API.
-5. It gives the verdict from the pipeline's own evidence, beside the hand-labelled one.
+`pgrun demo`:
+1. Fetches the source documents and refuses any whose sha256 differs. None is stored here. (SEC asks for a contact, hence `SEC_USER_AGENT`.)
+2. Prints the verdict on the retention question.
+3. Prints retrieval recall@10 on labelled queries.
+4. Replays the support and attack passes from `data/recorded/model`.
+5. Gives the pipeline's own verdict beside the hand-labelled one.
 
-Set `ANTHROPIC_API_KEY` to make new model calls instead.
+- `ANTHROPIC_API_KEY` makes new model calls instead.
+- First run downloads `all-MiniLM-L6-v2` (pinned, ~90 MB); `uv sync` installs PyTorch.
+- The ISO forms are copyrighted and not redistributed: `pgrun fetch` says where to save them and checks the hash.
 
-The first run downloads the embedding model (`all-MiniLM-L6-v2`, pinned revision, about 90 MB) from Hugging Face, and `uv sync` installs PyTorch. The ISO homeowners form (family B) is not needed for the demo. It is copyrighted, so it is not redistributed: `pgrun fetch` says where to save it and checks its hash.
+## Who decides what
 
-## The verdicts and the rules that produce them
+**A person writes:**
+- the claim and its value (`data/claims.json`);
+- which policy each document describes, with a cited scope and a strength (`data/document_mappings.json`). Fixed before the run, so it cannot be shaped to fit the answer.
 
-| Verdict | Produced when | Code produces it today? (2026-11-23, [D9](DECISIONS.md)) |
+**The model sees only:**
+- text from documents mapped to the claim's policy, inside each mapping's scope (`admit()` in [`retrieve.py`](proofgraph/retrieve.py));
+- one claim per pass (support or attack), never the whole packet ([`passes.py`](proofgraph/passes.py)).
+
+**The model returns:** a passage id, an exact quote, the value copied from it, a one-line reading.
+
+**Code does the rest:**
+
+| Step | Model | Code |
 |---|---|---|
-| supported | the governing value (picked by a precedence rule, or the sole or agreeing asserters) equals the claim's declared value. `governing_reason` says how it was picked: `no_conflict` (nothing differed; a rule may still name the governing document) or `resolved_by_rule` (two compared amounts differed and a named rule picked one). | **Yes, on real packets.** Family B: 8 packets `supported (no_conflict)`, three of them with `endorsement_over_base` naming `ho_00_15` over agreeing values. Under D9 no real packet is `resolved_by_rule`; a unit test covers it ([results](results/family_b.md)). |
-| contradicted | the governing value differs from the claim's declared value; both amounts are shown | **Yes, on one real packet.** B-jewelry-wrong-endorsed: claim $1,500, governing $1,000 (HO 00 15). |
-| unresolved | carries a reason. `documents_disagree`: numerals differ and no rule picks one. `amounts_not_comparable`: two amounts could not be compared, between asserters or between the claim and the governing value, and the mismatch is named. `governing_instrument_absent`: a document asserting on the question amends an instrument of the question's policies that is not in the packet. | **Yes, two of three on real packets.** `pgrun verdict` and `pgrun derive` give `documents_disagree` on `FD960228.corp_reimbursement.retention`; Endorsement 13 is recorded as excluded from the missing-document check (it amends GS-212C). B-jewelry-endorsement-alone gives `governing_instrument_absent`. `amounts_not_comparable` is produced in tests (without Reliance; the cover note alone against a claim that states no basis). |
-| not found | no admitted passage addresses the question (`no_addressing_span`) | **In a unit test only.** |
-| quoted | wording claims only: not an answer. The governing clause is quoted verbatim with document and page, marked not checked; attack-pass clauses are shown as judgment clashes. | **Yes, on one real packet.** B-jewelry-wording-endorsed quotes HO 00 15 item 5 and shows HO 00 03 item 5 as a clash. |
+| Atomise | splits the claim into a closed predicate set | validates every field; one repair, then fail |
+| Retrieve | — | BM25 + local embeddings, fused by rank; ten admitted passages |
+| Support / attack | picks a passage, quotes it | id must be one it was shown; quote must occur exactly once; citation verified against the file |
+| Numbers | — | parses to integer minor units; `NIL` is not comparable |
+| Verdict | — | the two rules; `unresolved` unless one picks a winner |
 
-There are two precedence rules, and each fires only between instruments issued under the policy the slot belongs to ([DECISIONS.md](DECISIONS.md) D3):
+Every route carries a strength: **read** off the page, **derived** by code, or **judgment**. A judgment with no reasoning is rejected.
 
-1. **Endorsement over base form.** It never fires in family A (the Gillette D&O packet). That packet's only endorsements, Nos. 12 and 13, amend GS-212C, whose base wording is not in the packet, and nothing in it amends any other policy (D5). In family B it fires on the packets that pair HO 00 03 with HO 00 15, a real ISO endorsement printed "Form HO 00 03 Only". The pairing under a specimen policy is a label, because ISO forms carry no policy number, and both forms state the same amounts, so the rule names the governing form without settling a disagreement in value.
-2. **Later effective date over earlier.** This compares instrument effective dates, never coverage periods: overlapping periods have no "later".
+- **Every citation is checkable.** File hash, a locator (raw-file offsets, or page + quote occurring exactly once), the expected text, the extractor version. One verifier checks it against the source file, never against our own text conversion ([`checker.py`](proofgraph/checker.py)).
+- **Closed vocabulary.** Predicates are frozen data; questions are keys in a registry, matched exactly (no aliases, no fuzzy matching). The model never names one ([`predicates.json`](data/predicates.json), [`slots.json`](data/slots.json)).
+- **The pipeline matches the hand labels, and found more.** `pgrun derive` reaches the same verdict (*unresolved, documents disagree*) from four assertions instead of three: support found the FD960229 cover note restating the retention, which the hand labels missed.
 
-When neither rule fires, the arbiter refuses to pick a winner. In family A, the primary corporate-reimbursement retention is stated as $1,000,000 each claim (FD960228 cover note; Item VII in Endorsement 13 gives the bare figure) and $500,000 each loss (Reliance binder). No instrument with authority over FD960228 resolves it, and the bases differ, so the pair is recorded as uncompared and the answer is **unresolved (documents_disagree)** (D6, D7). Run `uv run pgrun verdict` to see the three assertions, the three pairs (none comparable), both rules not firing, and the verdict. Pull the decision from the trace with:
+**The measure is reviewer trust:** can someone check the answer without rereading the packet? Accuracy is reported with its denominator, but it is not the headline.
 
-```bash
-grep '"stage": "arbiter"' runs/trace.jsonl | grep -o '"rejects": \[[^]]*\]\|"verdict": "[a-z_]*"'
-```
+## How it is kept honest
 
-## How the model is used, and how it is kept honest
+Each guard has a test; counterfactual tests show what gets through without it.
 
-### Who decides what
-
-The model reads and proposes. Code checks everything the model returns, and code decides.
-
-| Step | The model | Code |
+| The model might… | Guard | Test |
 |---|---|---|
-| Atomise | splits the claim into atoms in a closed predicate set | validates every field; rejects unresolved references, conjunctions, unparseable amounts; one repair, then fail |
-| Retrieve | nothing | BM25 plus local embeddings, fused by rank; picks the ten passages the model may see |
-| Support / attack | for each passage it picks: an id, a one-line reading, a verbatim quote | the id must be one it was shown; the quote must occur exactly once in that passage; code builds the citation from the passage's position and verifies it against the file |
-| Numbers | nothing | parses amounts to integer minor units; compares integers; `NIL` is not comparable |
-| Verdict | nothing | precedence rules scoped to the slot's policy; `unresolved` unless a rule picks a winner |
+| force "each claim" into a nearby allowed value (seen 1 of 2 runs) | bases kept as written; no equivalence without a cited span ([D6](DECISIONS.md)) | `test_numbers.py`, `test_arbiter.py` |
+| copy words from prompt examples (2 of 2 runs) | examples outside insurance; a test scans prompts for packet literals | `test_no_family_literals.py` |
+| cite a passage it wasn't shown | span ids are an enum; hard failure | `test_span_id_guard_counterfactual` |
+| paraphrase a quote | exact occurrence required; 17 of 17 live quotes located | `test_exactly_once_guard_counterfactual` |
+| let attack copy support | separate prompts; attack never sees support | `test_attack_is_blind_to_support` |
+| get arithmetic wrong | the model never compares numbers | `test_numbers.py` |
+| fill a field it can't source | unsourced fields are "not stated" ([D1](DECISIONS.md)) | `test_assertions.py` |
+| force a claim into a predicate | "no predicate fits" is an outcome | `test_no_fit_is_an_outcome_not_a_repair` |
+| pick a winner | no model in the arbiter | `test_later_effective_date_flips_the_verdict_when_reliance_is_in_scope` |
 
-### Failure modes, and what stops each one
+**Evaluation hygiene**
+- **Labels first.** Retrieval queries and gold quotes committed (`baf5c04`) before any measurement.
+- **Design vs independent queries reported apart.** Field labels helped an independent query (3/6 → 4/6); plural folding helped only design queries.
+- **No tuning to known answers.** A synonym list written after reading both families was deleted before commit.
+- **A frozen holdout.** The domain layer (arbiter, comparators, assertions, passes, predicates, slots, family A labels) is hashed before family B is labelled; `tests/test_freeze.py` fails on any change ([D8](DECISIONS.md)). Family B ran once: **8 of 8** matched preregistered labels; 2 of 5 predictions were wrong, optimistically. Under D9 those labels now match **5 of 8**: three were `resolved_by_rule` over equal amounts, which D9 calls a mislabel. Recorded tables unchanged ([results](results/family_b.md), [PREREGISTRATION.md](PREREGISTRATION.md)).
 
-Each row has a test, and the counterfactual tests show what gets through when the guard is removed.
-
-| Failure mode | Guard | Evidence |
-|---|---|---|
-| **Forces a phrase into the nearest allowed value.** Seen in 1 of 2 atomize runs: given "each claim" when that value was not allowed, it returned `any_one_claim`, treating two bases as one. | Bases are kept as written (`each_claim`, `each_loss`); on evidence, code reads the basis from the cited text, and no equivalence is allowed without a cited span ([D6](DECISIONS.md)). | `test_numbers.py`, `test_arbiter.py` |
-| **Copies vocabulary from prompt examples.** In 2 of 2 atomize runs the slot name followed the prompt's example. | Examples are outside insurance, so they teach the format, not the holdout's words. A test checks model-facing text for any packet's literals. | `test_no_family_literals.py` (shown to catch the old prompt) |
-| **Cites a passage it was not shown.** | Span ids are an enum in the output schema; an id outside the input is a hard failure, with no repair. | `test_span_id_guard_counterfactual`: without the guard, the citation passes the file verifier, because the passage is real |
-| **Paraphrases or invents a quote.** | The quote must occur exactly once in the passage; spacing may differ, characters may not. One repair, then the pass fails. | `test_exactly_once_guard_counterfactual`: without the rule, an ambiguous `$0` cites the wrong figure. Live runs: 17 of 17 quotes located, across five runs. |
-| **The attack pass anchors on the support pass.** | Separate prompts; attack never sees support's output. | `test_attack_is_blind_to_support` (a marker planted in support's reading is absent from attack's prompt) |
-| **Arithmetic or unit errors.** | The model never compares numbers. | `test_numbers.py`: `$10M` equals `USD 10,000,000`; `NIL` vs `$0` is not comparable |
-| **Fills a field it cannot source.** | A field with no source is "not stated", never filled ([D1](DECISIONS.md)). | Item VII's assertion has currency and basis `None` (`test_assertions.py`) |
-| **Forces a claim into the nearest predicate.** | "No predicate fits" is an outcome, not a repair target. | `test_no_fit_is_an_outcome_not_a_repair` |
-| **Picks a winner when documents disagree.** | No model in the arbiter. A precedence rule fires only between instruments issued under the slot's policy. | `test_later_effective_date_flips_the_verdict_when_reliance_is_in_scope`, plus the route-break tests |
-
-### Evaluation hygiene
-
-- **Labels before measuring.** Retrieval queries and their gold quotes were committed (`baf5c04`) before any change was measured against them.
-- **Design and independent queries reported apart.** Queries that exposed a miss are marked as not independent evidence for its fix. Field labels improved an independent query (3/6 → 4/6). Plural folding improved only the design queries, and is reported that way.
-- **No retrieval tuned to known answers.** A hand-written synonym list was deleted before commit: it was written after reading both document families, so it encoded known answers and holdout vocabulary.
-- **A holdout family, with a frozen domain layer.** Family B runs once. The domain layer is byte-identical from the freeze commit to the family B verdict commit (`tests/test_freeze.py`). Only parsing and retrieval mechanics may change.
-- **Counterfactuals for rules and guards.** Each precedence rule and each model guard has a test showing the outcome changes without it.
-
-### Reproducibility and cost
-
-- Current models reject `temperature`. The trace records the prompt template's hash and the model that actually served each call, and every response is cached on disk, so a rerun replays exactly.
-- Cost comes from the trace's token counts, not an estimate. The support and attack passes on the retention atom cost about $0.03 together.
+**Replay and cost**
+- One JSON line per stage: served model, prompt hash, tokens, rejects, verdict (`runs/trace.jsonl`).
+- Every response cached; a clean clone replays with no key.
+- Cost from real token counts: support + attack on the retention claim ≈ $0.03.
 
 ## Limitations
 
-| Limitation | What is true today | Where to check |
-|---|---|---|
-| **It tells you a claim is wrong only for amounts.** | Built at [D9](DECISIONS.md): the governing value is compared with the claim's declared value, and a different amount is `contradicted`. A wording claim is quoted, never judged right or wrong. | [`proofgraph/arbiter.py`](proofgraph/arbiter.py), [`proofgraph/numbers.py`](proofgraph/numbers.py) |
-| **It notices a missing document only through a hand-labelled `amends` route.** | Built at [D9](DECISIONS.md): when an asserting document's mapping records the instrument it amends, cited to the printed words, and that instrument belongs to the question's policies but is not in the packet, the verdict is `unresolved (governing_instrument_absent)`. A document with no `amends` route is not checked. In the Gillette packet, Endorsement 13 amends GS-212C, outside the question's policy FD960228, so it is recorded as excluded, not checked ([D5](DECISIONS.md)). | [`proofgraph/arbiter.py`](proofgraph/arbiter.py), [`data/document_mappings.json`](data/document_mappings.json) |
-| **The endorsement rule has fired only on an assembled packet.** | `endorsement_over_base` fired 3 of 3 on two real ISO forms paired under a specimen policy, since ISO forms carry no policy number. Both forms state the same amount, so under D9 the pair is compared and equal: the rule names the governing form, and no disagreement in value has yet been settled by a rule. | [`results/family_b.md`](results/family_b.md) |
-| **Small samples.** | 20 packets across two document families. This demonstrates the design; it does not estimate a rate. | [`PREREGISTRATION.md`](PREREGISTRATION.md) |
-| **Uploads answer only the questions on the list.** | The upload door proposes a mapping from printed form numbers and a person confirms it ([D10](DECISIONS.md)), but a run answers only questions in the registry for the confirmed policy. The proposer has been checked on the two ISO forms only. | [`app/upload.py`](app/upload.py), [`proofgraph/propose.py`](proofgraph/propose.py) |
+| Limit | Today |
+|---|---|
+| Right/wrong only for amounts | Wording is quoted, never judged. |
+| Missing-document check needs an `amends` route | Recorded by hand or read from an upload's printed line. Out-of-policy amendments (Gillette's Endorsement 13 → GS-212C) are listed as set aside, not checked. |
+| Endorsement rule only on an assembled packet | Fired 3 of 3 on two ISO forms paired under a specimen policy; both state the same amount, so no value dispute has yet been settled by a rule. |
+| Small sample | 20 packets (12 Gillette dev, 8 ISO holdout). Shows the design; not a rate. |
+| Uploads | Answer only questions on the list for the confirmed policy. Proposer checked on the two ISO forms only. No public API. |
 
-## Status
+## Repo map
 
-Rebuilding from scratch on this branch. What exists so far:
-
-- [`data/SOURCES.md`](data/SOURCES.md): the two document families, with everything recorded read from the files themselves.
-- [`data/predicates.json`](data/predicates.json): the closed predicate set, frozen as data.
-- [`DECISIONS.md`](DECISIONS.md): numbered design decisions; the arbiter cites them.
-- [`DEFERRED.md`](DEFERRED.md): what was found and deliberately left, with reasons.
-
-Dataset: 20 packets. 12 come from family A (Gillette 1996 D&O exhibit, the dev set), and 8 come from family B (ISO HO 00 03 04 91, a holdout run once, after the domain-layer freeze ([D8](DECISIONS.md))). n = 20 demonstrates the design. It does not estimate a rate.
-
-The earlier version (an evidence graph over ContractNLI contracts, with an accuracy headline) is in git history up to commit `14264f0`. Why it was retired is in the commit that removed it.
+- [`DECISIONS.md`](DECISIONS.md): numbered design decisions, cited by the code.
+- [`DEFERRED.md`](DEFERRED.md): found and deliberately left, with reasons.
+- [`data/SOURCES.md`](data/SOURCES.md): both document sets, read from the files.
+- [`results/family_b.md`](results/family_b.md): the holdout run.
+- Earlier version (ContractNLI evidence graph): git history up to `14264f0`.

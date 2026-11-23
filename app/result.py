@@ -69,7 +69,7 @@ def render(run: PacketRun, data: Path, title: str, question: str | None = None, 
   {_admitted(run, v, info)}
   {_rules(v, info, names)}
   <section aria-labelledby="ev"><h2 id="ev">What each document states, and where</h2>
-  <p class="why">The claim was checked twice, once for evidence that supports it and separately for evidence against it. Each check saw only the claim and the passages it was allowed to see. The model found and quoted; code read every amount and checked every quote against the file. Each step is <strong>read</strong> off the page, <strong>derived</strong> by code, or a <strong>judgment</strong> (the model&rsquo;s reading or a person&rsquo;s identification); a judgment step still rests on a quote checked against the file.</p>{rows}</section>
+  <p class="why">Two separate checks, for and against the claim. The model quoted; code read every amount and checked every quote against the file. Each step is <strong>read</strong> (off the page), <strong>derived</strong> (by code) or <strong>judgment</strong> (the model&rsquo;s or a person&rsquo;s call, still resting on a checked quote).</p>{rows}</section>
   {_pairs(v, names, {a.assertion_id: a for a in run.assertions}) if v.verdict.value != "quoted" else _clauses(v, info)}
 </details>"""
     body = f"""{head}
@@ -111,11 +111,11 @@ def _answer(run, v, names, info, data: Path) -> str:
         why = f'<p class="why-line">{lead}</p>{amounts}'
     elif verdict == "quoted":
         q = v.quoted
-        why = (f'<p class="why-line">A claim about wording is not judged. Here is the clause that controls, quoted with its page, for a person to read.'
+        why = (f'<p class="why-line">Wording isn&rsquo;t judged. Here is the controlling clause, with its page, for a person to read.'
                f'{" " + E(v.unresolved_detail) if v.unresolved_detail and not q else ""}</p>')
         if v.clashes:
-            why += ('<p class="why-line clash-note">The check for evidence against the claim found a clause that may read differently. That is the model&rsquo;s '
-                    'reading, a judgment, and it is shown in full below, never as a verdict.</p>')
+            why += ('<p class="why-line clash-note">The check against the claim found a clause that may read differently: the model&rsquo;s '
+                    'judgment, shown below, never a verdict.</p>')
     else:
         reason = v.unresolved_reason.value if v.unresolved_reason else "no_addressing_span"
         head = {"documents_disagree": "The documents state different amounts, and no rule says which one controls.",
@@ -165,7 +165,7 @@ def _clauses(v, info) -> str:
         f'{" &middot; found by the check against the claim" if c.side.value == "attack" else ""}'
         f'<blockquote class="says">{E(" ".join(c.text.split()))}</blockquote><p class="why">{E(c.reading)}</p></li>' for c in v.clauses)
     return f"""<section aria-labelledby="cl"><h2 id="cl">Every clause the checks quoted</h2>
-<p class="why">Shown as quoted. A clause found by the check against the claim is the model&rsquo;s reading, marked as a judgment, never a verdict.</p>
+<p class="why">Quoted as found. Clauses from the check against the claim are the model&rsquo;s judgment, never a verdict.</p>
 <ul class="clauses">{items}</ul></section>"""
 
 
@@ -175,17 +175,17 @@ def _absent_detail(v, info) -> str:
         return v.unresolved_detail or ""
     c = gone[0]
     return (f"{_doc_name(c.doc_id, info)} changes {c.amends}, and {c.amends} is not among these documents. "
-            f"Without it there is nothing to apply the changes to, so the final amount cannot be known. Add {c.amends} and run it again.")
+            f"Without it the final amount can&rsquo;t be known. Add {c.amends} and run again.")
 
 
 def _admitted(run, v, info) -> str:
     rows = "".join(f"<tr><td>{E(_doc_name(d, info))}</td><td class='num'>{n}</td></tr>" for d, n in run.documents)
     ex = [c for c in v.amends_checks if c.outcome == "excluded"]
     note = "".join(f"<li>{E(_doc_name(c.doc_id, info))} changes {E(c.amends)}{'' if c.amends == c.amends_policy else ', part of policy ' + E(c.amends_policy)}, "
-                   f"which is not among these documents. That is another policy, not this question&rsquo;s "
-                   f"({E(', '.join(v.policies))}), so its absence does not affect this answer. It is listed here rather than dropped.</li>" for c in ex)
+                   f"which isn&rsquo;t here. It belongs to another policy, not "
+                   f"{E(', '.join(v.policies))}, so it doesn&rsquo;t affect this answer. Listed, not dropped.</li>" for c in ex)
     return f"""<section aria-labelledby="ad"><h2 id="ad">What the model was allowed to see</h2>
-<p class="why">Decided by code before the model was called: only documents a person recorded as belonging to {E(', '.join(v.policies) or 'this policy')}, and only the part of each that applies.</p>
+<p class="why">Set by code before the model ran: only documents a person assigned to {E(', '.join(v.policies) or 'this policy')}, only the parts that apply.</p>
 <div class="tw"><table><thead><tr><th>Document</th><th>Passages it could see</th></tr></thead><tbody>{rows}</tbody></table></div>
 {f'<ul class="skipped">{note}</ul>' if note else ''}</section>"""
 
@@ -201,7 +201,7 @@ def _footer(run, info, rerun) -> str:
             files.append(f"<li>{E(_doc_name(d, info))}: <code>{E(label.file)}</code> sha256 <code>{E(label.sha256_of_file[:16])}…</code>, extractor <code>{E(label.extractor.value)}</code>.{src}</li>")
     again = f' <a href="{E(rerun)}" target="_top">Re-run this check</a>.' if rerun else ""
     return f"""<footer>
-  <p><strong>Who wrote what.</strong> A person wrote the claim, its question and which policy each document describes. The model read only the passages it was allowed to see, and quoted; code read every amount, compared, applied the rules and checked every quote against the file.</p>
+  <p><strong>Who wrote what.</strong> A person: the claim, and which policy each document belongs to. The model: quotes from the passages it was shown. Code: amounts, comparisons, rules, and checking every quote against the file.</p>
   <ul class="files">{''.join(files)}</ul>
   <p>Commit <code>{E(_COMMIT)}</code>.{again}</p>
 </footer>"""
@@ -237,12 +237,12 @@ def _rules(v, info, names) -> str:
     policy = v.slot.split(".", 1)[0]
     scope = sorted({names.get(a, a) for a in v.in_scope})
     if len(scope) < 2:
-        why = (f"The rules only rank documents issued under the policy in question ({policy}). "
+        why = (f"Rules only rank documents issued under {policy}. "
                f"{'Only ' + scope[0] + ' is' if scope else 'None of these documents is'} issued under it; "
-               "the others describe it from their own policies, so no rule can rank them.")
+               "the others come from other policies, so nothing to rank.")
     else:
-        why = (f"{' and '.join(scope)} are issued under {policy}, but none is an endorsement to another "
-               "and their effective dates do not put one after the other.")
+        why = (f"{' and '.join(scope)} are issued under {policy}, but none endorses another "
+               "and no effective date is later.")
     return f"""<section class="rule none" aria-labelledby="rl">
   <h2 id="rl">Neither rule applied</h2>
   <p class="why">{E(why)}</p>
