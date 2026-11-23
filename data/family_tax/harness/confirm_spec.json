@@ -1,0 +1,16 @@
+[
+ {"id": "T-SALT", "upload_id": "7ae086963c22", "rows": [
+   {"row_id": "4af64ff784ac", "kind": "policy_form", "policy": "IRC 164(b)(6)", "how": "judgment", "reason": "Title 26 section 164 as printed (header '§164', page 1); paragraph (b)(6) is on page 2.", "effective_date": ""},
+   {"row_id": "55032917596a", "kind": "endorsement", "policy": "IRC 164(b)(6)", "how": "judgment", "reason": "Sec. 70120 amends section 164(b)(6) and adds 164(b)(7), as printed on page 1.", "effective_date": "2024-12-31", "effective_reason": "Sec. 70120(c), page 2: 'shall apply to taxable years beginning after December 31, 2024.' The proposer quoted no effective-date line."}]},
+ {"id": "T-1099K", "upload_id": "f9dd0b20bdb1",
+  "typed": [{"row_id": "9db0f696ad0b", "kind": "endorsement", "policy": "IRC 6050W(e)", "how": "judgment", "reason": "Sec. 70432 amends section 6050W(e), as printed on page 1.", "quote": "SEC. 70432. REPEAL OF REVISION TO DE MINIMIS RULES FOR THIRD", "page": 1}],
+  "rows": [
+   {"row_id": "b8208bfe5fcc", "kind": "policy_form", "policy": "IRC 6050W(e)", "how": "judgment", "reason": "Title 26 section 6050W as printed (header '§6050W', page 1); subsection (e) is on pages 2-3.", "effective_date": ""},
+   {"row_id": "c5b2933aafe2", "kind": "correspondence", "policy": "IRC 6050W(e)", "how": "judgment", "reason": "IRS notice on section 6050W(e), title printed on page 1.", "effective_date": ""},
+   {"row_id": "9db0f696ad0b", "kind": "endorsement", "policy": "IRC 6050W(e)", "how": "judgment", "reason": "Sec. 70432 amends section 6050W(e), as printed on page 1.", "effective_date": ""}]},
+ {"id": "T-BONUS", "upload_id": "5c86f56cc81a",
+  "typed": [{"row_id": "d10772a4d3ca", "kind": "endorsement", "policy": "IRC 168(k)", "how": "judgment", "reason": "Sec. 70301 amends section 168(k), as printed on page 1.", "quote": "SEC. 70301. FULL EXPENSING FOR CERTAIN BUSINESS PROPERTY.", "page": 1}],
+  "rows": [
+   {"row_id": "cec9a79221bb", "kind": "policy_form", "policy": "IRC 168(k)", "how": "judgment", "reason": "Title 26 section 168 as printed (header '§168'); subsection (k)(6) on page 2.", "effective_date": ""},
+   {"row_id": "d10772a4d3ca", "kind": "endorsement", "policy": "IRC 168(k)", "how": "judgment", "reason": "Sec. 70301 amends section 168(k), as printed on page 1.", "effective_date": "2025-01-19", "effective_reason": "Sec. 70301(c)(1), page 3: 'shall apply to property acquired after January 19, 2025.' The proposer quoted nothing on this file."}]}
+]
