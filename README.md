@@ -6,7 +6,9 @@
 - **With ProofGraph:** an answer you can check in seconds, or a named reason it cannot answer.
 - **The line it never crosses:** the model finds and quotes. Code compares and applies the rules. A model never decides which document wins.
 
-**Not:** a document store, a coverage opinion or legal advice. It answers only questions on a fixed list. Tested on two document sets: a 1996 D&O program filed with the SEC, and ISO homeowners forms.
+**Not:** a document store, a coverage opinion or legal advice. Tested on two document sets: a 1996 D&O program filed with the SEC, and ISO homeowners forms.
+
+**Bring your own claim** ([D11](DECISIONS.md)). Type any amount or wording claim. Code reads it; the for and against reads find lines in every document of that policy; a person confirms which lines are about the claim (or sets one aside, with a reason, shown on the result); the unchanged decision tree runs. The eight hand-written questions are now the regression test: typed as plain text, all five amount claims give the same answers ([results](results/d11_regression.md)).
 
 ## The answers
 
@@ -135,7 +137,7 @@ Each guard has a test; counterfactual tests show what gets through without it.
 | Missing-document check needs an `amends` route | Recorded by hand or read from an upload's printed line. Out-of-policy amendments (Gillette's Endorsement 13 → GS-212C) are listed as set aside, not checked. |
 | Endorsement rule only on an assembled packet | Fired 3 of 3 on two ISO forms paired under a specimen policy; both state the same amount, so no value dispute has yet been settled by a rule. |
 | Small sample | 20 packets (12 Gillette dev, 8 ISO holdout). Shows the design; not a rate. |
-| Uploads | Answer only questions on the list for the confirmed policy. Proposer checked on the two ISO forms only. No public API. |
+| Typed claims | A person confirms every grouping; pre-fill from past confirmations and auto-accept are not built. Dates are refused (no comparator). Checked live on the worked packets and one upload of the ISO forms; no third packet yet. Proposer checked on the two ISO forms only. No public API. |
 
 ## Repo map
 

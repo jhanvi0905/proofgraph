@@ -1,3 +1,4 @@
+[hidden] { display: none !important; }
 /* Scale (1.25 ratio, 16px base): 13 / 16 / 20 / 25 / 31 / 39. */
 .shell { max-width: 80rem; margin: 0 auto; padding: 0 1rem 4rem; }
 .wordmark { font-weight: 700; font-size: var(--t-20); letter-spacing: .01em; color: inherit; text-decoration: none; }
@@ -307,3 +308,18 @@ html.running .steps-nav { visibility: hidden; }
 .result { margin-top: 1rem; }
 .why-band h2.big { margin: 0; }
 .map .src .nw { white-space: nowrap; }
+
+/* D11: type your own claim, then confirm the lines */
+.typed .field { display: grid; gap: .35rem; margin: .6rem 0; }
+.typed .field span { font-weight: 700; }
+.typed .field input[type=text], .typed select { width: 100%; padding: .55rem .65rem; border: 2px solid #fff; border-radius: 0; background: #fff; color: var(--ink); font: inherit; }
+.typed-out { display: grid; gap: .8rem; margin-top: 1rem; }
+.tc-read, .tc-match, .tc-none { margin: 0; }
+.tc-read .q-label { display: block; font-size: var(--t-13); opacity: .85; text-transform: uppercase; letter-spacing: .06em; }
+.tc-list { list-style: none; margin: .6rem 0; padding: 0; display: grid; gap: .8rem; }
+.tc-line { border-top: 1px solid rgba(255,255,255,.4); padding-top: .7rem; display: grid; gap: .45rem; }
+.tc-where { margin: 0; font-size: var(--t-13); }
+.tc-line .says { margin: 0; padding: .5rem .7rem; background: #fff; color: var(--ink); font-size: var(--t-13); line-height: 1.45; }
+.tc-pick { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; align-items: center; }
+.tc-pick label { display: inline-flex; gap: .35rem; align-items: center; }
+.tc-pick .tc-why { flex: 1 1 14rem; min-width: 0; padding: .45rem .6rem; border: 2px solid #fff; background: #fff; color: var(--ink); font: inherit; }

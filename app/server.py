@@ -9,6 +9,7 @@ would give a confident wrong answer instead of a refusal.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import os
 import uuid
@@ -23,9 +24,11 @@ from app.limit import LiveRunLimit, visitor_id
 from app.upload import Refusal, UploadStore
 from app.result import _absent_detail, _doc_name, crop_png, render
 from proofgraph.claims import load_claims
+from proofgraph.grouping import BASIS_PHRASE, REFUSAL_TEXT, decide_typed, gather_typed, read_claim
 from proofgraph.model import complete_json
+from proofgraph.numbers import find_basis
 from proofgraph.pipeline import PacketRun, run_packet
-from proofgraph.schema import DocumentMappingFile, SourceManifest
+from proofgraph.schema import Basis, DocumentMappingFile, SourceManifest
 from proofgraph.trace import Trace
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -293,6 +296,111 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
         sample = {"id": f"upload-{upload_id}:{slot}", "title": f"{QUESTION.get(slot, slot)} (uploaded packet)", "claim": claims[slot],
                   "docs": docs, "mappings": mappings, "data": folder}
         return StreamingResponse(stream(sample), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
+
+    # ---- D11: a typed claim, read by code, gathered, confirmed by a person, then decided.
+
+    gathered: OrderedDict[str, tuple] = OrderedDict()
+
+    def claim_packet(key: str):
+        """(docs, mappings, data folder, policies) for a worked packet id or "upload:<id>"."""
+        if key.startswith("upload:"):
+            uid = key.split(":", 1)[1]
+            if uploads.confirmed(uid) is None:
+                raise Refusal("No one has confirmed what each uploaded document is yet, so nothing ran.")
+            folder, docs, mappings = uploads.packet(uid)
+        else:
+            p = next((x for x in _packets() if x["id"] == key), None)
+            if p is None:
+                raise Refusal("That packet is not available.", status=404)
+            folder, docs, mappings = DATA, p["docs"], p["mappings"]
+        policies = tuple(sorted({r.policy for m in mappings.documents if m.doc_id in docs for r in m.describes}))
+        return docs, mappings, folder, policies
+
+    def read_view(r):
+        return {"kind": r.kind, "written": r.written, "value": r.value, "currency": r.currency,
+                "basis": BASIS_PHRASE.get(r.basis) if r.basis else None, "policy_matches": list(r.policy_matches),
+                "refusal": REFUSAL_TEXT[r.refusal] if r.refusal else None}
+
+    @app.post("/api/claim/read")
+    def claim_read(body: dict):
+        """What code read from the claim, and the policies it can be checked against. No model call."""
+        try:
+            _, _, _, policies = claim_packet(str(body.get("packet", "")))
+        except Refusal as exc:
+            return refuse(exc)
+        return {**read_view(read_claim(str(body.get("text", "")), policies)), "policies": list(policies)}
+
+    @app.post("/api/claim/gather")
+    def claim_gather(body: dict, request: Request):
+        """The for and against reads on the claim's own text. Returns candidate lines for a person to confirm."""
+        try:
+            docs, mappings, folder, policies = claim_packet(str(body.get("packet", "")))
+        except Refusal as exc:
+            return refuse(exc)
+        r = read_claim(str(body.get("text", "")), policies)
+        if r.refusal:
+            return JSONResponse({"refusal": REFUSAL_TEXT[r.refusal]}, status_code=400)
+        policy = str(body.get("policy", ""))
+        if policy not in policies:
+            return JSONResponse({"refusal": REFUSAL_TEXT["policy_not_in_packet"]}, status_code=400)
+        source = "matched_in_claim" if policy in r.policy_matches and body.get("policy_source") == "matched_in_claim" else "chosen"
+        if not limit.allow(who(request)):
+            return JSONResponse({"refusal": "Too many runs from here for now. Try again later."}, status_code=429)
+        try:
+            g = gather_typed(r, policy, "typed", docs, mappings, folder, Trace(None))
+        except Exception as exc:  # a live read needs the model; say so instead of guessing
+            if not os.environ.get("ANTHROPIC_API_KEY"):
+                return JSONResponse({"refusal": "This claim hasn't been checked before, and this server is not set up to call the model."}, status_code=400)
+            return JSONResponse({"refusal": f"The reads stopped: {type(exc).__name__}. Nothing was decided."}, status_code=500)
+        if g.run.failure:
+            return JSONResponse({"refusal": "The claim couldn't be turned into one checkable statement, so nothing was read."}, status_code=400)
+        gid = uuid.uuid4().hex[:12]
+        gathered[gid] = (g, folder, source)
+        while len(gathered) > KEEP:
+            gathered.popitem(last=False)
+        info, named = maps(folder) if folder != DATA else (info_main, named_main)
+        lines = []
+        for c in g.candidates:
+            b = find_basis(c.quote) if g.read.kind == "amount" else None
+            lines.append({"line_id": c.line_id, "doc": _doc_name(c.doc_id, named), "page": c.page,
+                          "where": f"page {c.page}" if c.page else f"characters {c.start:,}\u2013{c.end:,}",
+                          "quote": c.quote, "value": c.value, "side": "against" if c.side == "attack" else "for",
+                          "basis": BASIS_PHRASE.get(b[0]) if b else None})
+        basis_in_lines = sorted({x["basis"] for x in lines if x["basis"]})
+        return {"gather_id": gid, "read": read_view(g.read), "policy": policy, "policy_source": source, "lines": lines,
+                "nothing_found": [_doc_name(d, named) for d in g.nothing_found],
+                "ask_basis": g.read.kind == "amount" and not g.read.basis and bool(basis_in_lines),
+                "basis_options": [{"id": k.value, "label": v} for k, v in BASIS_PHRASE.items()], "basis_in_lines": basis_in_lines}
+
+    @app.post("/api/claim/{gather_id}/decide")
+    def claim_decide(gather_id: str, body: dict):
+        """The person's grouping becomes the question; the unchanged decision tree runs on it."""
+        if gather_id not in gathered:
+            return JSONResponse({"refusal": "That check has expired. Read the claim again."}, status_code=404)
+        g, folder, source = gathered[gather_id]
+        by = " ".join(str(body.get("confirmed_by", "")).split())
+        if not by:
+            return JSONResponse({"refusal": "Enter your name: who is confirming which lines are about the claim."}, status_code=400)
+        basis = body.get("basis")
+        try:
+            basis_set = Basis(basis) if basis else None
+        except ValueError:
+            return JSONResponse({"refusal": "That basis is not one the comparator knows."}, status_code=400)
+        d = decide_typed(g, set(body.get("confirmed", [])), {str(k): str(v) for k, v in (body.get("dropped") or {}).items()},
+                         confirmed_by=by, policy_source=source, basis_set=basis_set)
+        if d.refusal:
+            return JSONResponse({"refusal": REFUSAL_TEXT[d.refusal]}, status_code=400)
+        gathered.pop(gather_id, None)
+        info, named = maps(folder) if folder != DATA else (info_main, named_main)
+        d.record["confirmed_on"] = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        d.record["dropped"] = [{**x, "doc": _doc_name(x["doc_id"], named)} for x in d.record["dropped"]]
+        d.record["nothing_found"] = [_doc_name(x, named) for x in d.record["nothing_found"]]
+        rid = uuid.uuid4().hex[:12]
+        reviews[rid] = render(d.run, folder, "ProofGraph: a typed claim", question=f"A typed claim on policy {d.record['policy']}", record=d.record)
+        while len(reviews) > KEEP:
+            reviews.popitem(last=False)
+        status = STATUS.get(d.run.verdict.verdict.value, "error")
+        return {"review_id": rid, "status": status, "reason": _reason(d.run, named)}
 
     @app.post("/api/review")
     async def review(request: Request):

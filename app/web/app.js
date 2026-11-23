@@ -125,7 +125,7 @@
     if (runner) { runner.abort(); runner = null; }
     $("review").removeAttribute("src"); $("opening").hidden = true; state.reviewId = null; $("after").hidden = true;
     bar.hidden = true; document.documentElement.classList.remove("running"); $("entrance").hidden = false; $("live").hidden = true; $("result").hidden = true;
-    go.disabled = false; go.textContent = "Decide this"; window.scrollTo(0, 0);
+    go.disabled = false; go.textContent = "Check this claim"; window.scrollTo(0, 0);
     if (text) { problem.textContent = text; problem.hidden = false; say(text); problem.scrollIntoView({ block: "center" }); }
   }
   function reset(claim) {
@@ -232,7 +232,7 @@
       }
       return pump();
     }).catch(function (e) { if (e && e.name === "AbortError") return; note("failed", "The connection dropped. Nothing after this point was read.", "error"); })
-      .then(function () { go.disabled = false; go.textContent = "Decide this"; });
+      .then(function () { go.disabled = false; go.textContent = "Check this claim"; });
   }
 
   // The three-step form: packet, the person-written mapping, and a question from the registry.
@@ -331,7 +331,7 @@
         var qs = [], seen = {}; packs.forEach(function (p) { p.questions.forEach(function (q) { if (pol[q.slot.split(".")[0]] && !seen[q.slot]) { seen[q.slot] = 1; qs.push(q); } }); });
         $("up-qs").innerHTML = qs.length ? qs.map(function (q, i) { return choice("upslot", q.slot, q.label, q.claim ? "Claim: " + q.claim : "No claim written for this question yet.", q.slot, i === 0, !q.claim); }).join("")
           : '<p class="c-note">No question on the list is about the policies you confirmed (' + esc(Object.keys(pol).join(", ") || "none") + '). That is a refusal, not an error: the list is fixed, and nothing runs outside it.</p>';
-        $("up-run").hidden = !qs.length; $("up-question").hidden = false; $("up-confirm").querySelector("#up-ok").disabled = true;
+        $("up-run").hidden = !qs.length; $("up-question").hidden = false; $("utc").hidden = false; $("up-confirm").querySelector("#up-ok").disabled = true;
         if (qs.length) { up.slot = qs[0].slot; up.claim = qs[0].claim || ""; }
       });
   });
@@ -411,4 +411,94 @@
       frame.style.height = e.data.height + "px"; buildSub(trip.sections); spy(); return;
     }
   });
+
+  // D11: type a claim. Code reads it, the reads find lines, a person confirms which are about it, then it is decided.
+  function typed(pre, packetKey) {
+    var out = $(pre + "-out"), problem = $(pre + "-problem"), state = {};
+    function post(url, body) {
+      return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(function (r) { return r.json().then(function (j) { return [r.ok, j]; }); });
+    }
+    function fail(t) { problem.textContent = t; problem.hidden = false; }
+    function readBlock(r) {
+      var bits = r.kind === "amount"
+        ? "An amount. You wrote <b>" + esc(r.written) + "</b>; code read <b>" + esc(r.value) + "</b>. Basis: " + esc(r.basis || "not stated") + "."
+        : "A claim about wording. It will be quoted with its page, not judged.";
+      return '<p class="tc-read"><span class="q-label">Code read</span> ' + bits + "</p>";
+    }
+    $(pre + "-read").addEventListener("click", function () {
+      problem.hidden = true; out.hidden = true;
+      var text = $(pre + "-text").value, key = packetKey();
+      if (!key) return fail("Choose the documents first.");
+      post("/api/claim/read", { packet: key, text: text }).then(function (x) {
+        var ok = x[0], r = x[1];
+        if (!ok || r.refusal) return fail(r.refusal || "The claim could not be read.");
+        state = { text: text, key: key, read: r };
+        var m = r.policy_matches[0];
+        var opts = r.policies.map(function (p) { return '<option value="' + esc(p) + '"' + (p === m ? " selected" : "") + ">" + esc(p) + "</option>"; }).join("");
+        var note = m ? '<p class="tc-match">Found <b>' + esc(m) + "</b> in your claim. It is selected below; change it if that is wrong.</p>"
+                     : '<p class="tc-match">No policy number found in your claim. Choose the policy it is about.</p>';
+        out.innerHTML = readBlock(r) + note +
+          '<label class="field narrow"><span>Policy</span><select id="' + pre + '-policy">' + (m ? "" : '<option value="">Choose…</option>') + opts + "</select></label>" +
+          '<button type="button" class="btn inv" id="' + pre + '-find">Find the lines</button><div id="' + pre + '-lines"></div>';
+        out.hidden = false;
+        $(pre + "-find").addEventListener("click", find);
+      });
+    });
+    function find() {
+      problem.hidden = true;
+      var pol = $(pre + "-policy").value; if (!pol) return fail("Choose the policy the claim is about.");
+      var btn = $(pre + "-find"); btn.disabled = true; btn.textContent = "Reading the documents…";
+      var src = state.read.policy_matches.indexOf(pol) >= 0 ? "matched_in_claim" : "chosen";
+      post("/api/claim/gather", { packet: state.key, text: state.text, policy: pol, policy_source: src }).then(function (x) {
+        btn.disabled = false; btn.textContent = "Find the lines";
+        var ok = x[0], g = x[1];
+        if (!ok || g.refusal) return fail(g.refusal || "The documents could not be read.");
+        state.gid = g.gather_id;
+        var rows = g.lines.map(function (l, i) {
+          return '<li class="tc-line"><p class="tc-where"><b>' + esc(l.doc) + "</b>, " + esc(l.where) + ' &middot; found by the check ' + esc(l.side) +
+            (l.value ? ' &middot; states <b>' + esc(l.value) + "</b>" + (l.basis ? " " + esc(l.basis) : "") : "") + "</p>" +
+            '<blockquote class="says">' + esc(l.quote) + "</blockquote>" +
+            '<div class="tc-pick" role="radiogroup" aria-label="Is this line about the claim?">' +
+            '<label><input type="radio" name="' + pre + "-l" + i + '" value="in" data-line="' + esc(l.line_id) + '"> About the claim</label>' +
+            '<label><input type="radio" name="' + pre + "-l" + i + '" value="out" data-line="' + esc(l.line_id) + '"> Set aside</label>' +
+            '<input type="text" class="tc-why" data-line="' + esc(l.line_id) + '" placeholder="Why it is set aside" aria-label="Why it is set aside" hidden></div></li>';
+        }).join("");
+        var none = g.nothing_found.length ? '<p class="tc-none">Nothing found in: ' + g.nothing_found.map(esc).join(", ") + ".</p>" : "";
+        var basis = g.ask_basis ? '<label class="field narrow"><span>The lines state a basis (' + g.basis_in_lines.map(esc).join(", ") +
+          '); your claim does not. Set the claim&rsquo;s basis, or leave it unstated. Recorded as set here, not written by you.</span><select id="' + pre + '-basis"><option value="">Leave unstated</option>' +
+          g.basis_options.map(function (b) { return '<option value="' + esc(b.id) + '">' + esc(b.label) + "</option>"; }).join("") + "</select></label>" : "";
+        $(pre + "-lines").innerHTML = '<p class="c-note">Confirm each line, or set it aside with a reason. Nothing is compared until you do.</p>' +
+          '<ol class="tc-list">' + rows + "</ol>" + none + basis +
+          '<label class="field narrow"><span>Confirmed by</span><input id="' + pre + '-who" type="text" autocomplete="name"></label>' +
+          '<button type="button" class="btn inv" id="' + pre + '-decide">Check this claim</button>';
+        $(pre + "-lines").addEventListener("change", function (e) {
+          if (e.target.type !== "radio") return;
+          var why = $(pre + "-lines").querySelector('.tc-why[data-line="' + e.target.dataset.line + '"]');
+          if (why) why.hidden = e.target.value !== "out";
+        });
+        $(pre + "-decide").addEventListener("click", decide);
+      });
+    }
+    function decide() {
+      problem.hidden = true;
+      var confirmed = [], dropped = {}, missing = 0;
+      Array.prototype.forEach.call($(pre + "-lines").querySelectorAll(".tc-line"), function (li) {
+        var c = li.querySelector("input[type=radio]:checked");
+        if (!c) { missing++; return; }
+        if (c.value === "in") confirmed.push(c.dataset.line);
+        else dropped[c.dataset.line] = li.querySelector(".tc-why").value;
+      });
+      if (missing) return fail("Confirm or set aside every line first (" + missing + " left).");
+      var b = $(pre + "-basis");
+      post("/api/claim/" + state.gid + "/decide", { confirmed: confirmed, dropped: dropped, confirmed_by: $(pre + "-who").value, basis: b ? b.value : "" })
+        .then(function (x) {
+          var ok = x[0], d = x[1];
+          if (!ok || d.refusal) return fail(d.refusal || "The check could not run.");
+          current = null; reset(state.text); on.done({ review_id: d.review_id, status: d.status });
+        });
+    }
+  }
+  typed("tc", function () { return pick.packet; });
+  typed("utc", function () { return up && up.id ? "upload:" + up.id : null; });
 })();

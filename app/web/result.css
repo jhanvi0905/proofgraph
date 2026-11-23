@@ -94,3 +94,11 @@ footer a { color: var(--stamp); font-weight: 700; }
 .clauses blockquote { margin: .5rem 0 .3rem; padding: .8rem 1rem; background: var(--paper); color: #0E1A2B; max-width: 62ch; line-height: 1.55; }
 .not-opinion { margin-top: 1rem !important; font-size: var(--t-13); color: var(--grey); }
 dt small { font-size: var(--t-13); }
+
+/* D11: how a typed claim's question was set */
+.how-set { margin-top: 1.5rem; padding: 1rem 1.1rem; border: 1px solid var(--cyan); }
+.how-set h2 { font-size: var(--t-16); margin: 0 0 .4rem; }
+.how-set p { margin: 0 0 .5rem; }
+.how-set ul { margin: .4rem 0 0; padding-left: 1.1rem; display: grid; gap: .5rem; }
+.how-set blockquote { margin: .3rem 0 0; }
+.record { font-size: var(--t-13); }

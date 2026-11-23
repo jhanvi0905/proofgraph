@@ -190,7 +190,12 @@ def decide_typed(g: Gathered, confirmed: set[str], dropped: dict[str, str], *, c
         return Decided(g.run, record, "no_line_confirmed")
 
     chosen = [c for c in g.candidates if c.line_id in confirmed]
-    label = min((c.quote for c in chosen), key=len)
+    # The label comes from the printed wording: prefer a line from a document issued under the policy itself,
+    # then the shortest. Amounts are stripped from the key.
+    items = {x.clause_id if g.read.kind == "wording" else x.assertion_id: x
+             for x in (g.run.clauses if g.read.kind == "wording" else g.run.assertions)}
+    own = [c for c in chosen if g.policy in items[c.line_id].instrument.policy_numbers]
+    label = min((c.quote for c in (own or chosen)), key=len)
     final = f"{g.policy}.{_slug(re.sub(_AMOUNT_RE, ' ', label))}"
     record["question"] = final
     record["label_from"] = label

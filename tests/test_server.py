@@ -119,3 +119,44 @@ def test_the_run_shows_what_the_model_was_allowed_to_see(client):
     # D9: the governing form is named on the page (see the rule-one test); the stream's one-line reason
     # names it only for resolved_by_rule, which this sample no longer is (app/server.py _reason)
     assert "ho_00_15 controls" not in body  # never an internal id
+
+
+# ---- D11: a typed claim through the routes (replays the responses recorded on the regression run)
+
+JEWELRY = "Under the specimen policy SPECIMEN-HO3, the special limit of liability for loss by theft of jewelry is $1,000."
+RETENTION = "The primary corporate reimbursement retention under FD960228 is USD 1,000,000."
+
+
+def test_reading_a_claim_shows_the_policy_match_and_does_not_apply_it(client):
+    r = client.post("/api/claim/read", json={"packet": "gillette", "text": RETENTION}).json()
+    assert r["kind"] == "amount" and r["value"] == "USD 1,000,000" and r["policy_matches"] == ["FD960228"]
+    assert r["policies"] == ["FD960228"]  # the choices come from the packet's confirmed assignments
+    bad = client.post("/api/claim/read", json={"packet": "gillette", "text": "limit $1 and deductible $2"}).json()
+    assert "more than one amount" in bad["refusal"]
+
+
+def test_a_typed_claim_is_confirmed_then_decided_and_the_result_says_how(client):
+    g = client.post("/api/claim/gather", json={"packet": "homeowners", "text": JEWELRY, "policy": "SPECIMEN-HO3",
+                                               "policy_source": "matched_in_claim"}).json()
+    assert len(g["lines"]) == 2 and not g["ask_basis"]
+    ids = [x["line_id"] for x in g["lines"]]
+    assert client.post(f"/api/claim/{g['gather_id']}/decide", json={"confirmed": ids[:1], "confirmed_by": "t"}).status_code == 400
+    d = client.post(f"/api/claim/{g['gather_id']}/decide", json={"confirmed": ids, "confirmed_by": "Test Person"}).json()
+    assert d["status"] == "supported"
+    page = client.get(f"/api/review/{d['review_id']}").text
+    assert "How this question was set" in page and "confirmed by a person" in page and "Test Person" in page
+    assert "found in the claim" in page and "Basis: written in the claim" not in page and "No line was set aside" in page
+
+
+def test_a_basis_set_at_confirmation_is_shown_as_set_there(client):
+    g = client.post("/api/claim/gather", json={"packet": "gillette", "text": RETENTION, "policy": "FD960228",
+                                               "policy_source": "matched_in_claim"}).json()
+    assert g["ask_basis"] and "each claim" in g["basis_in_lines"] and g["nothing_found"]
+    ids = [x["line_id"] for x in g["lines"]]
+    reliance = next(x["line_id"] for x in g["lines"] if x["doc"].startswith("Reliance"))
+    keep = [i for i in ids if i != reliance]
+    d = client.post(f"/api/claim/{g['gather_id']}/decide", json={"confirmed": keep, "dropped": {reliance: "different policy's binder"},
+                                                                 "confirmed_by": "T", "basis": "each_claim"}).json()
+    page = client.get(f"/api/review/{d['review_id']}").text
+    assert "set at confirmation, not written by the claimant" in page
+    assert "set aside by a person" in page and "different policy" in page and "nothing found" in page

@@ -41,7 +41,8 @@ RULE_WORDS = {
 STRENGTH = {"read": "read in the document", "derived": "derived mechanically", "judgment": "a judgment"}
 
 
-def render(run: PacketRun, data: Path, title: str, question: str | None = None, rerun: str | None = None) -> str:
+def render(run: PacketRun, data: Path, title: str, question: str | None = None, rerun: str | None = None,
+           record: dict | None = None) -> str:
     """One screen, read like a report: question, claim, answer, why. The chain sits collapsed below it."""
     manifest = SourceManifest.model_validate_json((data / "instruments.json").read_text(encoding="utf-8"))
     info = {i.doc_id: (s, i) for s in manifest.sources for i in s.instruments}
@@ -54,8 +55,9 @@ def render(run: PacketRun, data: Path, title: str, question: str | None = None, 
     names.update({c.clause_id: _doc_name(c.doc_id, info) for c in v.clauses})  # wording claims rank clauses, not amounts
 
     claim = E(run.claim.text)
-    if v.claim_value and E(v.claim_value) in claim:
-        claim = claim.replace(E(v.claim_value), f"<b>{E(v.claim_value)}</b>", 1)
+    shown = (record or {}).get("amount_as_written") or v.claim_value  # a typed claim bolds what was typed
+    if shown and E(shown) in claim:
+        claim = claim.replace(E(shown), f"<b>{E(shown)}</b>", 1)
     head = f"""<header class="q">
   <p class="q-label">Question</p>
   <h1>{E(question or run.claim.slot)}</h1>
@@ -74,8 +76,9 @@ def render(run: PacketRun, data: Path, title: str, question: str | None = None, 
 </details>"""
     body = f"""{head}
 {_answer(run, v, names, info, data)}
+{_how_set(record) if record else ""}
 {chain}
-{_footer(run, info, rerun)}"""
+{_footer(run, info, rerun, record)}"""
     return _page(title, body)
 
 
@@ -123,7 +126,9 @@ def _answer(run, v, names, info, data: Path) -> str:
                 "governing_instrument_absent": "A document needed to decide this is missing.",
                 "no_addressing_span": "None of these documents addresses this question."}[reason]
         detail = (_absent_detail(v, info) if reason == "governing_instrument_absent"
-                  else "" if reason == "documents_disagree" else _human(v.unresolved_detail or "", names))
+                  else "" if reason == "documents_disagree"
+                  else _not_comparable(v, run.assertions, names) if reason == "amounts_not_comparable"
+                  else _human(v.unresolved_detail or "", names))
         states = "".join(f"<li><strong>{E(names[a.assertion_id])}</strong> states <span class='num'>{E(a.value.text)}</span></li>"
                          for a in run.assertions)
         why = f'<p class="why-line"><strong>{E(head)}</strong> {E(detail)}</p>' + (f'<ul class="states">{states}</ul>' if states else "")
@@ -169,6 +174,24 @@ def _clauses(v, info) -> str:
 <ul class="clauses">{items}</ul></section>"""
 
 
+def _not_comparable(v, assertions, names) -> str:
+    """One plain sentence: which document leaves out the currency or the basis, or whose bases differ."""
+    by = {a.assertion_id: a for a in assertions}
+    involved = {x for p in v.pairs if not p.compared and p.value.value == "equal" for x in (p.a, p.b) if x in by}
+    if not involved:  # the claim against the governing value
+        return _human(v.unresolved_detail or "", names)
+    who = lambda pred: sorted({names[i] for i in involved if pred(by[i])})
+    parts = []
+    if no_cur := who(lambda a: a.amount.currency is None):
+        parts.append(f"{' and '.join(no_cur)} {'states' if len(no_cur) == 1 else 'state'} no currency")
+    if no_basis := who(lambda a: a.basis is None):
+        parts.append(f"{' and '.join(no_basis)} {'states' if len(no_basis) == 1 else 'state'} no basis")
+    bases = sorted({a.basis.value.replace('_', ' ') for i in involved if (a := by[i]).basis})
+    if len(bases) > 1:
+        parts.append(f"the bases differ ({' vs '.join(bases)})")
+    return "They agree on the digits, but " + "; ".join(parts) + "." if parts else _human(v.unresolved_detail or "", names)
+
+
 def _absent_detail(v, info) -> str:
     gone = [c for c in v.amends_checks if c.outcome == "absent"]
     if not gone:
@@ -190,7 +213,7 @@ def _admitted(run, v, info) -> str:
 {f'<ul class="skipped">{note}</ul>' if note else ''}</section>"""
 
 
-def _footer(run, info, rerun) -> str:
+def _footer(run, info, rerun, record=None) -> str:
     docs = [d for d, _ in run.documents] or [a.instrument.doc_id for a in run.assertions]
     files = []
     for d in dict.fromkeys(docs):
@@ -203,8 +226,39 @@ def _footer(run, info, rerun) -> str:
     return f"""<footer>
   <p><strong>Who wrote what.</strong> A person: the claim, and which policy each document belongs to. The model: quotes from the passages it was shown. Code: amounts, comparisons, rules, and checking every quote against the file.</p>
   <ul class="files">{''.join(files)}</ul>
+  {_record_line(record) if record else ""}
   <p>Commit <code>{E(_COMMIT)}</code>.{again}</p>
 </footer>"""
+
+
+GROUPING = {"person": "confirmed by a person", "prefilled_from_mapping": "pre-filled from a mapping row"}
+BASIS_SOURCE = {"claimant": "written in the claim", "set_at_confirmation": "set at confirmation, not written by the claimant",
+                "not_stated": "not stated"}
+
+
+def _record_line(r: dict) -> str:
+    """D11: how this question was set, recorded on every typed-claim run."""
+    mode = GROUPING.get(r["grouping_mode"], r["grouping_mode"]) + (f" (row {r['mapping_row']})" if r.get("mapping_row") else "")
+    pol = (f"found in the claim (&ldquo;{E(r['policy'])}&rdquo;), shown and accepted" if r["policy_source"] == "matched_in_claim"
+           else "chosen by the person")
+    return (f'<p class="record"><strong>How this question was set.</strong> Grouping: {E(mode)}, by {E(r["confirmed_by"])}'
+            f'{", " + E(r["confirmed_on"]) if r.get("confirmed_on") else ""}. Policy {E(r["policy"])}: {pol}. '
+            f'Basis: {E(BASIS_SOURCE.get(r["basis_source"], r["basis_source"]))}. Question key <code>{E(r["question"])}</code>, from the printed line &ldquo;{E(r["label_from"])}&rdquo;.</p>')
+
+
+def _how_set(r: dict) -> str:
+    """Under the answer: what code read from the claim, the lines a person set aside, documents with nothing found."""
+    read = (f'You wrote <b>{E(r["amount_as_written"])}</b>; code read <b>{E(r["claim_value_compared"])}</b>.'
+            if r.get("amount_as_written") else "A claim about wording: nothing to read as an amount.")
+    basis = " The basis was set at confirmation, not written by the claimant." if r["basis_source"] == "set_at_confirmation" else ""
+    dropped = "".join(f'<li><strong>{E(x["doc"])}</strong>: set aside by a person, because &ldquo;{E(x["reason"])}&rdquo;'
+                      f'<blockquote class="says">{E(" ".join(x["text"].split()))}</blockquote></li>' for x in r["dropped"])
+    nothing = "".join(f"<li>{E(x)}: nothing found</li>" for x in r["nothing_found"])
+    return f"""<section class="how-set" aria-labelledby="hs"><h2 id="hs">How this question was set</h2>
+<p>{read}{basis} {E(GROUPING.get(r["grouping_mode"], r["grouping_mode"])).capitalize()}: {E(r["confirmed_by"])}.</p>
+{f'<ul class="set-aside">{dropped}</ul>' if dropped else '<p class="why">No line was set aside.</p>'}
+{f'<ul class="nothing">{nothing}</ul>' if nothing else ''}
+</section>"""
 
 
 def _commit() -> str:
