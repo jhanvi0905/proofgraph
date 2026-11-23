@@ -81,6 +81,23 @@ _BASIS_LEXICON = [  # (pattern, basis); matched inside one citation only
 ]
 
 
+_SCALE_WORD = r"(?:m|mm|million|k|thousand|b|billion)"
+_NUMBER = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
+# D12 item 1: every amount written in a verified quote. An amount needs a currency marker, digit grouping, or a
+# scale word, so a list number ("8."), a day count ("60 days") or a form date ("07/20") is not one.
+_AMOUNTS_RE = re.compile(
+    rf"(?:US\$|USD\s*|\$)\s?{_NUMBER}(?:\s?{_SCALE_WORD}\b)?"
+    rf"|(?<![\w.,])\d{{1,3}}(?:,\d{{3}})+(?:\.\d+)?(?:\s?{_SCALE_WORD}\b)?"
+    rf"|(?<![\w.,])\d+(?:\.\d+)?\s?(?:million|thousand|billion)\b",
+    re.I,
+)
+
+
+def find_amounts(text: str) -> list[tuple[int, int]]:
+    """Offsets of every amount written in `text` (with its currency marker and scale word), in order."""
+    return [(m.start(), m.end()) for m in _AMOUNTS_RE.finditer(text)]
+
+
 def find_amount(text: str) -> tuple[int, int] | None:
     """Offsets of the first amount written in `text` (with its currency marker), or None."""
     m = _AMOUNT_IN_TEXT_RE.search(text)

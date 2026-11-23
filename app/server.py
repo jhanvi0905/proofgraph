@@ -365,6 +365,7 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
             lines.append({"line_id": c.line_id, "doc": _doc_name(c.doc_id, named), "page": c.page,
                           "where": f"page {c.page}" if c.page else f"characters {c.start:,}\u2013{c.end:,}",
                           "quote": c.quote, "value": c.value, "side": "against" if c.side == "attack" else "for",
+                          "no_value": ("states several amounts; the reads did not say which is the claim's" if c.no_value else None),
                           "basis": BASIS_PHRASE.get(b[0]) if b else None})
         basis_in_lines = sorted({x["basis"] for x in lines if x["basis"]})
         return {"gather_id": gid, "read": read_view(g.read), "policy": policy, "policy_source": source, "lines": lines,

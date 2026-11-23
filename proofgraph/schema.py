@@ -237,6 +237,8 @@ class MappingMethod(str, Enum):
     LABEL = "label"  # the span names the slot part in its own words
     CROSS_REFERENCE = "cross_reference"  # identified through another document's span
     JUDGMENT = "judgment"  # rests on reasoning or wording not in the packet; `reasoning` says what
+    # D12 item 1: the verified quote states exactly one amount, and code reads it. Derived, never judgment.
+    ONLY_AMOUNT = "only_amount_in_quote"
 
 
 class RouteStrength(str, Enum):
@@ -784,6 +786,8 @@ class Evidence(_Model):
     quote: Excerpt  # offsets relative to the span's text
     citation: Citation  # built by code from the span and the quote, never by the model
     value: Excerpt | None  # the model's pointer to the value, located by code inside citation.text; None if it gave none
+    # D12 item 1: a pointer that does not lie inside the verified quote is discarded, never snapped; its text is kept here
+    pointer_discarded: str | None = None
 
 
 class PassResult(_Model):

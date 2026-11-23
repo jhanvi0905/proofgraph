@@ -457,7 +457,8 @@
         state.gid = g.gather_id;
         var rows = g.lines.map(function (l, i) {
           return '<li class="tc-line"><p class="tc-where"><b>' + esc(l.doc) + "</b>, " + esc(l.where) + ' &middot; found by the check ' + esc(l.side) +
-            (l.value ? ' &middot; states <b>' + esc(l.value) + "</b>" + (l.basis ? " " + esc(l.basis) : "") : "") + "</p>" +
+            (l.value ? ' &middot; states <b>' + esc(l.value) + "</b>" + (l.basis ? " " + esc(l.basis) : "") : "") +
+            (l.no_value ? ' &middot; ' + esc(l.no_value) : "") + "</p>" +
             '<blockquote class="says">' + esc(l.quote) + "</blockquote>" +
             '<div class="tc-pick" role="radiogroup" aria-label="Is this line about the claim?">' +
             '<label><input type="radio" name="' + pre + "-l" + i + '" value="in" data-line="' + esc(l.line_id) + '"> About the claim</label>' +

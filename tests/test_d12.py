@@ -188,3 +188,89 @@ def test_raw_text_citations_keep_file_offsets():
     c = Citation.model_validate({"source_file": "x.txt", "sha256_of_file": "0" * 64,
                                  "locator": {"kind": "raw_offsets", "start": 10, "end": 13}, "text": "abc"})
     assert isinstance(c.locator, RawOffsets) and not hasattr(c.locator, "region")
+
+
+# ---------------------------------------------------------------- item 1: the value comes from the verified quote
+
+
+def _evidence_on(path: Path, page: int, text: str, pointer: str | None, region: BBox | None = None):
+    from proofgraph.schema import DocumentRoute, Evidence, Excerpt, MappingMethod, RouteStrength, Side
+
+    cit = _cite(path, page, text, region=region)
+    value = None
+    if pointer:
+        i = text.index(pointer)
+        value = Excerpt(start=i, end=i + len(pointer), text=pointer)
+    route = DocumentRoute(policy="P1", strength=RouteStrength.READ, method=MappingMethod.LABEL, reasoning=None, citation=cit)
+    return Evidence(side=Side.SUPPORT, span_id="0" * 16, doc_id="doc", identification=route, reading="r",
+                    quote=Excerpt(start=0, end=len(text), text=text), citation=cit, value=value)
+
+
+def _inst():
+    from proofgraph.schema import Instrument
+
+    import json
+
+    return Instrument.model_validate_json(json.dumps({
+        "doc_id": "doc", "version": "1", "instrument_type": "policy_form", "issuer": "x", "policy_numbers": ["P1"],
+        "effective_date": None, "source_id": "s", "source_start": 0, "source_end": 1, "first_page": 1, "last_page": 2,
+        "file_start": None, "file_end": None, "spans": [], "definitions": []}))
+
+
+def test_the_one_amount_in_a_verified_quote_is_read_by_code_without_a_pointer(chubb_like):
+    """Family C C2: the right line, no pointer. Before D12 the line was discarded ("the pass gave no value")."""
+    from proofgraph.assertions import assert_from_evidence
+    from proofgraph.trace import Trace
+
+    a = assert_from_evidence(_evidence_on(chubb_like, 1, ITEM8, None), _inst(), "P1.x", Trace(None))
+    assert a.value.text == "$5,000" and a.routes[1].strength.value == "derived"
+
+
+def test_a_pointer_that_disagrees_with_the_one_amount_is_value_ambiguous(chubb_like):
+    from proofgraph.assertions import assert_from_evidence
+    from proofgraph.schema import InvalidAssertion
+    from proofgraph.trace import Trace
+
+    out = assert_from_evidence(_evidence_on(chubb_like, 1, ITEM8, "8."), _inst(), "P1.x", Trace(None))
+    assert isinstance(out, InvalidAssertion) and out.reason.startswith("value_ambiguous")
+
+
+def _gathered(candidates):
+    from proofgraph.grouping import Gathered, read_claim
+    from proofgraph.pipeline import PacketRun
+    from proofgraph.schema import Claim
+
+    r = read_claim("The limit is $5,000.", ("P1",))
+    run = PacketRun(claim=Claim(claim_id="c", text=r.text, slot="P1.typed", kind="amount", value=r.value), atom_text=None)
+    return Gathered(read=r, policy="P1", temp_slot="P1.typed", doc_ids=["doc"], run=run, checked=(), candidates=candidates)
+
+
+def test_a_confirmed_line_with_several_amounts_and_no_pointer_is_unresolved_value_ambiguous():
+    from proofgraph.grouping import REFUSAL_TEXT, Candidate, decide_typed
+
+    c = Candidate("support:doc:00000000", "doc", "support", 1, None, None, "$10M NIL/NIL/1,000,000", None,
+                  "value_ambiguous: the verified quote states 2 amounts")
+    d = decide_typed(_gathered([c]), {c.line_id}, {}, confirmed_by="t", policy_source="chosen")
+    assert d.refusal == "value_ambiguous" and "Unresolved" in REFUSAL_TEXT["value_ambiguous"]
+    assert d.record["value_ambiguous"][0]["text"] == "$10M NIL/NIL/1,000,000"
+
+
+def test_gather_shows_a_value_ambiguous_line_to_the_person(monkeypatch, chubb_like):
+    """Never silently dropped: the line reaches the confirmation screen, marked with why no value was read."""
+    import proofgraph.grouping as grouping
+    from proofgraph.pipeline import PacketRun
+    from proofgraph.schema import InvalidAssertion
+
+    two = "pays $5,000 or $10,000 per coverage period"
+    ev = _evidence_on(chubb_like, 1, ITEM8, None).model_copy(update={"citation": _cite(chubb_like, 1, ITEM8)})
+    ev = ev.model_copy(update={"citation": ev.citation.model_copy(update={"text": two})})
+
+    def fake_gather(packet_id, claim, doc_ids, mappings, data, trace):
+        run = PacketRun(claim=claim, atom_text="x", documents=[("doc", 3)], evidence=[ev],
+                        invalid=[InvalidAssertion(mapping_id="support:doc:00000000", reason="value_ambiguous: 2 amounts")])
+        return run, ()
+
+    monkeypatch.setattr(grouping, "gather", fake_gather)
+    g = grouping.gather_typed(grouping.read_claim("The limit is $5,000.", ("P1",)), "P1", "t", ["doc"], None, Path("."), None)
+    assert [(c.quote, c.value, c.no_value) for c in g.candidates] == [(two, None, "value_ambiguous: 2 amounts")]
+    assert g.nothing_found == []

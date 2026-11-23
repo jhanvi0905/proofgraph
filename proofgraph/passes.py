@@ -11,6 +11,8 @@ quote of the characters that bear on the atom. Code checks:
 - the quote must occur exactly once in the span (whitespace runs may differ, the
   characters may not). Then code builds the citation from the span's position,
   never from the model, and the one verifier checks it against the file.
+- the value pointer is kept only if it occurs exactly once inside the verified
+  citation; otherwise it is discarded and recorded, never snapped (D12 item 1).
 A failed check gets one repair retry that carries the errors, then the pass fails.
 """
 
@@ -190,15 +192,16 @@ def _check(side, proposal, allowed, spans, insts, ident, src) -> tuple[list[Evid
         if broken:
             errors.append(f"span {p.span_id}: {broken}")
             continue
-        value = None
+        value, discarded = None, None
         if p.value.strip():
             vfound = locate(p.value, citation.text)
-            if vfound is None:
-                errors.append(f"span {p.span_id}: value {p.value!r} does not occur exactly once in the cited text")
-                continue
-            value = Excerpt(start=vfound[0], end=vfound[1], text=citation.text[vfound[0]:vfound[1]])
+            if vfound is None:  # D12 item 1: outside the verified quote (or repeated in it): discarded, never snapped
+                discarded = p.value
+            else:
+                value = Excerpt(start=vfound[0], end=vfound[1], text=citation.text[vfound[0]:vfound[1]])
         kept.append(Evidence(side=side, span_id=sp.span_id, doc_id=sp.doc_id, identification=ident[sp.doc_id], reading=p.reading,
-                             quote=Excerpt(start=start, end=end, text=sp.text[start:end]), citation=citation, value=value))
+                             quote=Excerpt(start=start, end=end, text=sp.text[start:end]), citation=citation, value=value,
+                             pointer_discarded=discarded))
     return kept, errors, False
 
 

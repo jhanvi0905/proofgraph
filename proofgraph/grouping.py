@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Literal
 
 from proofgraph.arbiter import arbitrate, arbitrate_wording
+from proofgraph.assertions import VALUE_AMBIGUOUS
 from proofgraph.numbers import find_basis, parse_amount
 from proofgraph.pipeline import PacketRun, gather
 from proofgraph.schema import Amount, Basis, Claim, DocumentMappingFile, ParseFailure, PageQuote
@@ -43,7 +44,8 @@ BASIS_PHRASE = {Basis.EACH_CLAIM: "each claim", Basis.ANY_ONE_CLAIM: "any one cl
                 Basis.EACH_OCCURRENCE: "each occurrence", Basis.PER_PERSON: "per person", Basis.AGGREGATE: "in the aggregate"}
 
 Refusal = Literal["empty_claim", "more_than_one_value", "dates_not_supported", "value_unparseable",
-                  "no_candidate_line", "no_line_confirmed", "confirmation_incomplete", "policy_not_in_packet"]
+                  "no_candidate_line", "no_line_confirmed", "confirmation_incomplete", "policy_not_in_packet",
+                  "value_ambiguous"]
 
 REFUSAL_TEXT = {
     "empty_claim": "Type a claim to check.",
@@ -54,6 +56,8 @@ REFUSAL_TEXT = {
     "no_line_confirmed": "No line was confirmed as being about the claim, so there is nothing to compare.",
     "confirmation_incomplete": "Every line must be confirmed or set aside with a reason before the check runs.",
     "policy_not_in_packet": "That policy is not one the documents were assigned to.",
+    "value_ambiguous": ("Unresolved: a line you confirmed states more than one amount, and the reads did not say which one "
+                        "is the claim's, so nothing was compared. Set that line aside if it is not about the claim."),
 }
 
 
@@ -116,6 +120,7 @@ class Candidate:
     end: int | None
     quote: str
     value: str | None
+    no_value: str | None = None  # D12 item 1: why no value was read (value_ambiguous), shown to the person
 
 
 @dataclass
@@ -156,6 +161,15 @@ def gather_typed(read: ReadClaim, policy: str, packet_id: str, doc_ids: list[str
         g.candidates.append(Candidate(lid, it.instrument.doc_id, it.side.value if hasattr(it, "side") else
                                       ("attack" if lid.startswith("attack:") else "support"),
                                       page, start, end, " ".join(it.citation.text.split()), value))
+    if read.kind == "amount":  # D12 item 1: a line whose value is ambiguous is shown, never silently dropped
+        evidence = {f"{e.side.value}:{e.doc_id}:{e.span_id[:8]}": e for e in run.evidence}
+        for inv in run.invalid:
+            ev = evidence.get(inv.mapping_id)
+            if ev is None or not inv.reason.startswith(VALUE_AMBIGUOUS):
+                continue
+            page, start, end = _loc(ev.citation)
+            g.candidates.append(Candidate(inv.mapping_id, ev.doc_id, ev.side.value, page, start, end,
+                                          " ".join(ev.citation.text.split()), None, inv.reason))
     found = {c.doc_id for c in g.candidates}
     g.nothing_found = [d for d, _ in run.documents if d not in found]
     return g
@@ -190,6 +204,10 @@ def decide_typed(g: Gathered, confirmed: set[str], dropped: dict[str, str], *, c
         return Decided(g.run, record, "no_line_confirmed")
 
     chosen = [c for c in g.candidates if c.line_id in confirmed]
+    if any(c.no_value for c in chosen):
+        record["value_ambiguous"] = [{"line_id": c.line_id, "doc_id": c.doc_id, "text": c.quote, "reason": c.no_value}
+                                     for c in chosen if c.no_value]
+        return Decided(g.run, record, "value_ambiguous")
     # The label comes from the printed wording: prefer a line from a document issued under the policy itself,
     # then the shortest. Amounts are stripped from the key.
     items = {x.clause_id if g.read.kind == "wording" else x.assertion_id: x

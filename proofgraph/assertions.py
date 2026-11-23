@@ -15,7 +15,7 @@ so they are never located again.
 from __future__ import annotations
 
 from proofgraph.checker import CitationHashMismatch, Source, verify_citation  # noqa: F401  (re-exported)
-from proofgraph.numbers import find_amount, find_basis, parse_amount
+from proofgraph.numbers import find_amount, find_amounts, find_basis, parse_amount
 from proofgraph.schema import (
     Assertion,
     AssertionInput,
@@ -152,10 +152,17 @@ def assert_from_evidence(ev: Evidence, instrument: Instrument, slot: str, trace:
     """One checked piece of pass evidence -> one assertion on the claim's slot.
 
     It has two routes. The identification route comes from the document mapping, decided in
-    code, with that mapping's strength. The reading route is the model's pointer to which
-    characters are the value (in Item VII's row, that the retention is the third figure). It is
-    always judgment: the model read it, the document did not say so. Amount and currency
-    are parsed by code from the value's characters, and the basis from inside the citation (D1).
+    code, with that mapping's strength. The reading route says which characters are the value
+    (D12 item 1), always inside the verified citation:
+    - the citation states one amount: code reads it (derived). A pointer elsewhere in the
+      citation disagrees with code, so the line is value_ambiguous;
+    - several amounts: the model's pointer, if it lies inside the citation (judgment: the model
+      read it, the document did not say so; in Item VII's row, that the retention is the third
+      figure). No pointer: value_ambiguous;
+    - none: value_not_in_verified_span.
+    A pointer outside the citation was discarded by the pass; it is never snapped to a nearby amount.
+    Amount and currency are parsed by code from the value's characters, and the basis from inside
+    the citation (D1).
     """
     aid = f"{ev.side.value}:{ev.doc_id}:{ev.span_id[:8]}"
 
@@ -165,34 +172,61 @@ def assert_from_evidence(ev: Evidence, instrument: Instrument, slot: str, trace:
     result: Assertion | InvalidAssertion
     if ev.doc_id != instrument.doc_id:
         result = bad(f"evidence from {ev.doc_id}, instrument {instrument.doc_id}")
-    elif ev.value is None:
-        result = bad("the pass gave no value")
     else:
-        amount = parse_amount(ev.value.text)
-        if isinstance(amount, ParseFailure):
-            result = bad(f"value {ev.value.text!r}: {amount.reason}")
-        else:
-            b = find_basis(ev.citation.text)
-            routes = (
-                RouteRef(mapping_id=f"identify:{ev.doc_id}", method=ev.identification.method,
-                         strength=ev.identification.strength),
-                RouteRef(mapping_id=f"reading:{ev.span_id}", method=MappingMethod.JUDGMENT, strength=RouteStrength.JUDGMENT),
-            )
-            result = Assertion(
-                assertion_id=aid, slot=slot,
-                instrument=InstrumentRef(doc_id=instrument.doc_id, version=instrument.version,
-                                         instrument_type=instrument.instrument_type,
-                                         policy_numbers=instrument.policy_numbers, effective_date=instrument.effective_date),
-                citation=ev.citation, value=ev.value, amount=amount,
-                basis=b[0] if b else None, basis_phrase=_excerpt(ev.citation, b[1], b[2]) if b else None,
-                routes=routes, weakest=max((r.strength for r in routes), key=_ORDER.index),
-            )
+        result = _read_value(ev, bad)
+        if not isinstance(result, InvalidAssertion):
+            value, reading = result
+            amount = parse_amount(value.text)
+            if isinstance(amount, ParseFailure):
+                result = bad(f"value {value.text!r}: {amount.reason}")
+            else:
+                b = find_basis(ev.citation.text)
+                routes = (
+                    RouteRef(mapping_id=f"identify:{ev.doc_id}", method=ev.identification.method,
+                             strength=ev.identification.strength),
+                    reading,
+                )
+                result = Assertion(
+                    assertion_id=aid, slot=slot,
+                    instrument=InstrumentRef(doc_id=instrument.doc_id, version=instrument.version,
+                                             instrument_type=instrument.instrument_type,
+                                             policy_numbers=instrument.policy_numbers, effective_date=instrument.effective_date),
+                    citation=ev.citation, value=value, amount=amount,
+                    basis=b[0] if b else None, basis_phrase=_excerpt(ev.citation, b[1], b[2]) if b else None,
+                    routes=routes, weakest=max((r.strength for r in routes), key=_ORDER.index),
+                )
     trace.write(TraceRecord(
         stage="derive_assertion", packet_id=None, atom_id=aid, span_ids=(ev.span_id,), model=None, prompt_hash=None,
         input_tokens=0, output_tokens=0, latency_ms=0, cache_hit=False, verdict=None,
         rejects=(result.reason,) if isinstance(result, InvalidAssertion) else (), repairs=0, detail=result.to_json(),
     ))
     return result
+
+
+VALUE_AMBIGUOUS = "value_ambiguous"
+VALUE_NOT_IN_VERIFIED_SPAN = "value_not_in_verified_span"
+
+
+def _read_value(ev: Evidence, bad) -> tuple[Excerpt, RouteRef] | InvalidAssertion:
+    """Which characters of the verified citation are the value (D12 item 1). Never outside the citation."""
+    text = ev.citation.text
+    amounts = find_amounts(text)
+    ptr = ev.value
+    outside = f"; the reads' pointer {ev.pointer_discarded!r} was not inside the quote and was discarded" \
+        if ev.pointer_discarded else ""
+    if len(amounts) == 1:
+        s, e = amounts[0]
+        if ptr is not None and (ptr.end <= s or e <= ptr.start):
+            return bad(f"{VALUE_AMBIGUOUS}: the verified quote states one amount, {text[s:e]!r}, "
+                       f"but the reads pointed at {ptr.text!r}")
+        return _excerpt(ev.citation, s, e), RouteRef(mapping_id=f"reading:{ev.span_id}", method=MappingMethod.ONLY_AMOUNT,
+                                                     strength=RouteStrength.DERIVED)
+    if len(amounts) > 1:
+        if ptr is None:
+            return bad(f"{VALUE_AMBIGUOUS}: the verified quote states {len(amounts)} amounts "
+                       f"({', '.join(repr(text[s:e]) for s, e in amounts)}) and the reads did not say which{outside}")
+        return ptr, RouteRef(mapping_id=f"reading:{ev.span_id}", method=MappingMethod.JUDGMENT, strength=RouteStrength.JUDGMENT)
+    return bad(f"{VALUE_NOT_IN_VERIFIED_SPAN}: the verified quote states no amount{outside}")
 
 
 def clause_from_evidence(ev: Evidence, instrument: Instrument, trace: Trace) -> Clause:

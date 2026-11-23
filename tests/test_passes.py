@@ -277,17 +277,46 @@ def test_reliance_becomes_usd_500000_each_loss_on_a_judgment_identification(env)
     assert a.routes[0].strength.value == "judgment"
 
 
-def test_a_value_not_in_the_cited_text_is_rejected(env):
+def test_a_value_pointer_outside_the_cited_text_is_discarded_never_snapped(env):
+    """D12 item 1. Before: the pass failed on the bad pointer. Now the pointer is discarded and recorded, the
+    quote is kept, and code reads the one amount the verified quote states."""
+    from proofgraph.assertions import assert_from_evidence
+
     (insts, routes), r, src, spans = env
     sp = _span_with(env, "Corporate Reimbursement")
     bad = {"evidence": [{"span_id": sp.span_id, "reading": "r", "quote": "$500,000", "value": "$5,000,000"}]}
     res = attack(ATOM, r, insts, routes, src, memory_trace(), _fake(bad, bad))
-    assert res.failed and "value" in res.errors[0]
+    assert not res.failed and res.evidence[0].value is None and res.evidence[0].pointer_discarded == "$5,000,000"
+    inst = next(i for i in insts if i.doc_id == sp.doc_id)
+    a = assert_from_evidence(res.evidence[0], inst, ATOM.slot, memory_trace())
+    assert a.value.text == "$500,000" and a.routes[1].method.value == "only_amount_in_quote"
 
 
-def test_evidence_without_a_value_does_not_become_an_assertion(env):
+def test_evidence_without_a_pointer_reads_the_one_amount_in_the_quote(env):
+    """D12 item 1, Family C claim C2. Before: no pointer meant "the pass gave no value" and the line was dropped."""
+    from proofgraph.assertions import assert_from_evidence
+
+    ev, inst = _evidence(env, "Corporate Reimbursement", "$500,000", "")
+    a = assert_from_evidence(ev, inst, ATOM.slot, memory_trace())
+    assert a.value.text == "$500,000" and a.amount.minor_units == 50_000_000
+    assert (a.routes[1].method.value, a.routes[1].strength.value) == ("only_amount_in_quote", "derived")
+
+
+def test_several_amounts_and_no_pointer_is_value_ambiguous(env):
     from proofgraph.assertions import assert_from_evidence
     from proofgraph.schema import InvalidAssertion
 
-    ev, inst = _evidence(env, "Corporate Reimbursement", "$500,000", "")
-    assert isinstance(assert_from_evidence(ev, inst, ATOM.slot, memory_trace()), InvalidAssertion)
+    ev, inst = _evidence(env, "757/FD960228", "Primary      London    757/FD960228     6/1/96-99    $10M    NIL/NIL/1,000,000",
+                         "", side="support")
+    out = assert_from_evidence(ev, inst, ATOM.slot, memory_trace())
+    assert isinstance(out, InvalidAssertion) and out.reason.startswith("value_ambiguous")
+    assert "'$10M'" in out.reason and "'1,000,000'" in out.reason
+
+
+def test_a_quote_with_no_amount_is_value_not_in_verified_span(env):
+    from proofgraph.assertions import assert_from_evidence
+    from proofgraph.schema import InvalidAssertion
+
+    ev, inst = _evidence(env, "Corporate Reimbursement", "Corporate Reimbursement, each loss", "")
+    out = assert_from_evidence(ev, inst, ATOM.slot, memory_trace())
+    assert isinstance(out, InvalidAssertion) and out.reason.startswith("value_not_in_verified_span")
