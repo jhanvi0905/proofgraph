@@ -9,6 +9,10 @@ Three steps, each a plain function:
 - `decide_typed`: a person's confirmation (every line confirmed or dropped with a reason) becomes
   the question; the confirmed lines are re-keyed to it and `arbitrate` / `arbitrate_wording` run.
 
+D13 item 2: a line whose verified quote states several amounts, with no valid pointer, lists the amounts code
+found in that quote; the person may pick one at confirmation. Code never matches the claim's words to a figure;
+with no pick the line stays value_ambiguous.
+
 The arbiter, comparators, assertions, checker, passes and atomize are not touched (freeze).
 """
 
@@ -21,10 +25,11 @@ from pathlib import Path
 from typing import Literal
 
 from proofgraph.arbiter import arbitrate, arbitrate_wording
-from proofgraph.assertions import VALUE_AMBIGUOUS
-from proofgraph.numbers import BASIS_PHRASE, CLAIM_CURRENCY_TOKEN, find_basis, parse_amount
+from proofgraph.assertions import VALUE_AMBIGUOUS, assert_from_evidence
+from proofgraph.numbers import BASIS_PHRASE, CLAIM_CURRENCY_TOKEN, find_amounts, find_basis, parse_amount
 from proofgraph.pipeline import PacketRun, gather
-from proofgraph.schema import DOLLARS_COUNTRY_NOT_PRINTED, MINOR_UNITS, Amount, Basis, Claim, DocumentMappingFile, ParseFailure, PageQuote
+from proofgraph.schema import (DOLLARS_COUNTRY_NOT_PRINTED, MINOR_UNITS, Amount, Assertion, Basis, Claim, DocumentMappingFile,
+                               Excerpt, MappingMethod, ParseFailure, PageQuote, RouteRef, RouteStrength)
 from proofgraph.trace import Trace
 
 _SCALE = r"(?:m|mm|million|k|thousand|b|billion)\b"
@@ -43,7 +48,7 @@ _DATE_RE = re.compile(
 
 Refusal = Literal["empty_claim", "more_than_one_value", "dates_not_supported", "value_unparseable",
                   "no_candidate_line", "no_line_confirmed", "confirmation_incomplete", "policy_not_in_packet",
-                  "value_ambiguous", "unknown_currency", "currency_not_known"]
+                  "value_ambiguous", "unknown_currency", "currency_not_known", "figure_not_read"]
 
 REFUSAL_TEXT = {
     "empty_claim": "Type a claim to check.",
@@ -58,7 +63,9 @@ REFUSAL_TEXT = {
                          "listed with them), so it can't be compared."),
     "currency_not_known": "That currency is not an ISO 4217 code in the currency table.",
     "value_ambiguous": ("Unresolved: a line you confirmed states more than one amount, and the reads did not say which one "
-                        "is the claim's, so nothing was compared. Set that line aside if it is not about the claim."),
+                        "is the claim's, so nothing was compared. Pick the figure the claim means, or set that line aside "
+                        "if it is not about the claim."),
+    "figure_not_read": "The figure picked in a line could not be read as an amount, so nothing was compared.",
 }
 
 
@@ -130,6 +137,8 @@ class Candidate:
     quote: str
     value: str | None
     no_value: str | None = None  # D12 item 1: why no value was read (value_ambiguous), shown to the person
+    # D13 item 2: the amounts code found in the verified quote, in order, when it states several and no pointer is valid
+    figures: tuple[str, ...] = ()
 
 
 @dataclass
@@ -177,8 +186,10 @@ def gather_typed(read: ReadClaim, policy: str, packet_id: str, doc_ids: list[str
             if ev is None or not inv.reason.startswith(VALUE_AMBIGUOUS):
                 continue
             page, start, end = _loc(ev.citation)
+            amounts = find_amounts(ev.citation.text)
+            figures = tuple(ev.citation.text[a:b] for a, b in amounts) if len(amounts) > 1 else ()
             g.candidates.append(Candidate(inv.mapping_id, ev.doc_id, ev.side.value, page, start, end,
-                                          " ".join(ev.citation.text.split()), None, inv.reason))
+                                          " ".join(ev.citation.text.split()), None, inv.reason, figures))
     found = {c.doc_id for c in g.candidates}
     g.nothing_found = [d for d, _ in run.documents if d not in found]
     return g
@@ -193,11 +204,15 @@ class Decided:
 
 def decide_typed(g: Gathered, confirmed: set[str], dropped: dict[str, str], *, confirmed_by: str,
                  policy_source: str, basis_set: Basis | None = None, grouping_mode: str = "person",
-                 mapping_row: str | None = None, currency_set: str | None = None) -> Decided:
+                 mapping_row: str | None = None, currency_set: str | None = None,
+                 figures_set: dict[str, int] | None = None) -> Decided:
     """A person's grouping becomes the question; the unchanged decision tree runs on it.
 
     D12 item 5: a claim written with "$" (dollars, the country not printed) may have its currency set here
     by the person, as its basis may (D11). Only the claim's: a document's printed currency is never filled in.
+
+    D13 item 2: `figures_set` maps a value_ambiguous line to the index of the figure the person picked among the
+    amounts code found in its verified quote. Only lines that list figures take a pick; any other pick is ignored.
     """
     ids = {c.line_id for c in g.candidates}
     dollars = g.read.currency == DOLLARS_COUNTRY_NOT_PRINTED
@@ -213,6 +228,7 @@ def decide_typed(g: Gathered, confirmed: set[str], dropped: dict[str, str], *, c
         "currency_source": ("not_stated" if g.read.currency is None else "set_at_confirmation" if dollars and currency_set
                             else "dollars_country_not_printed" if dollars else "claimant"),
         "currency_set": currency_set if dollars else None,
+        "value_source": "verified_quote", "value_set": [],
         "dropped": [{"line_id": k, "reason": v, "text": next(c.quote for c in g.candidates if c.line_id == k),
                      "doc_id": next(c.doc_id for c in g.candidates if c.line_id == k)} for k, v in dropped.items() if k in ids],
         "nothing_found": list(g.nothing_found),
@@ -225,14 +241,31 @@ def decide_typed(g: Gathered, confirmed: set[str], dropped: dict[str, str], *, c
         return Decided(g.run, record, "no_line_confirmed")
 
     chosen = [c for c in g.candidates if c.line_id in confirmed]
-    if any(c.no_value for c in chosen):
+    picks = {c.line_id: (figures_set or {})[c.line_id] for c in chosen if c.no_value and c.figures
+             and isinstance((figures_set or {}).get(c.line_id), int) and 0 <= (figures_set or {})[c.line_id] < len(c.figures)}
+    if any(c.no_value and c.line_id not in picks for c in chosen):
         record["value_ambiguous"] = [{"line_id": c.line_id, "doc_id": c.doc_id, "text": c.quote, "reason": c.no_value}
-                                     for c in chosen if c.no_value]
+                                     for c in chosen if c.no_value and c.line_id not in picks]
         return Decided(g.run, record, "value_ambiguous")
     # The label comes from the printed wording: prefer a line from a document issued under the policy itself,
     # then the shortest. Amounts are stripped from the key.
     items = {x.clause_id if g.read.kind == "wording" else x.assertion_id: x
              for x in (g.run.clauses if g.read.kind == "wording" else g.run.assertions)}
+    picked: list[Assertion] = []
+    if picks:
+        evidence = {f"{e.side.value}:{e.doc_id}:{e.span_id[:8]}": e for e in g.run.evidence}
+        for c in chosen:
+            if c.line_id not in picks:
+                continue
+            a = _picked_assertion(evidence.get(c.line_id), g.run.instruments.get(c.doc_id), picks[c.line_id], g.temp_slot)
+            if a is None:
+                record["figure_not_read"] = {"line_id": c.line_id, "text": c.quote, "figure": c.figures[picks[c.line_id]]}
+                return Decided(g.run, record, "figure_not_read")
+            picked.append(a)
+            items[c.line_id] = a
+            record["value_set"].append({"line_id": c.line_id, "doc_id": c.doc_id, "line": c.quote,
+                                        "figure": a.value.text, "index": picks[c.line_id], "figures": list(c.figures)})
+        record["value_source"] = "set_at_confirmation"
     own = [c for c in chosen if g.policy in items[c.line_id].instrument.policy_numbers]
     label = min((c.quote for c in (own or chosen)), key=len)
     final = f"{g.policy}.{_slug(re.sub(_AMOUNT_RE, ' ', label))}"
@@ -252,6 +285,28 @@ def decide_typed(g: Gathered, confirmed: set[str], dropped: dict[str, str], *, c
         run.clauses = [c for c in run.clauses if c.clause_id in confirmed]
         run.verdict = arbitrate_wording(claim, tuple(run.clauses), tuple(g.doc_ids), g.checked, (g.policy,))
     else:
-        run.assertions = [a.model_copy(update={"slot": final}) for a in run.assertions if a.assertion_id in confirmed]
+        run.assertions = [a.model_copy(update={"slot": final}) for a in [*run.assertions, *picked] if a.assertion_id in confirmed]
+        run.invalid = [x for x in run.invalid if x.mapping_id not in picks]
         run.verdict = arbitrate(claim, tuple(run.assertions), tuple(g.doc_ids), g.checked, (g.policy,))
     return Decided(run, record)
+
+
+def _picked_assertion(ev, instrument, index: int, slot: str) -> Assertion | None:
+    """D13 item 2: the assertion for a figure a person picked in a verified quote, or None if it cannot be read.
+
+    The figure is the index-th amount code found in the quote, so it lies inside the verified text by
+    construction; it goes through the same assertion step as a pointer would, and its reading route is
+    recorded as set at confirmation, a judgment.
+    """
+    if ev is None or instrument is None:
+        return None
+    amounts = find_amounts(ev.citation.text)
+    if not 0 <= index < len(amounts) or len(amounts) < 2:
+        return None
+    s, e = amounts[index]
+    pointed = ev.model_copy(update={"value": Excerpt(start=s, end=e, text=ev.citation.text[s:e])})
+    a = assert_from_evidence(pointed, instrument, slot, Trace(None))
+    if not isinstance(a, Assertion):
+        return None
+    reading = RouteRef(mapping_id=f"set_at_confirmation:{ev.span_id}", method=MappingMethod.JUDGMENT, strength=RouteStrength.JUDGMENT)
+    return a.model_copy(update={"routes": (a.routes[0], reading), "weakest": RouteStrength.JUDGMENT})

@@ -464,6 +464,10 @@
             (l.value ? ' &middot; states <b>' + esc(l.value) + "</b>" + (l.basis ? " " + esc(l.basis) : "") : "") +
             (l.no_value ? ' &middot; ' + esc(l.no_value) : "") + "</p>" +
             '<blockquote class="says">' + esc(l.quote) + "</blockquote>" +
+            // D13: several amounts and no pointer: the person may pick the figure the claim means; none picked, it stays unresolved
+            (l.figures && l.figures.length ? '<label class="field narrow tc-figure"><span>Which figure is the claim&rsquo;s? Recorded as set here, not read by code.</span>' +
+              '<select data-figure="' + esc(l.line_id) + '"><option value="">Leave unpicked (not compared)</option>' +
+              l.figures.map(function (f, k) { return '<option value="' + k + '">' + esc(f) + "</option>"; }).join("") + "</select></label>" : "") +
             '<div class="tc-pick" role="radiogroup" aria-label="Is this line about the claim?">' +
             '<label><input type="radio" name="' + pre + "-l" + i + '" value="in" data-line="' + esc(l.line_id) + '"> About the claim</label>' +
             '<label><input type="radio" name="' + pre + "-l" + i + '" value="out" data-line="' + esc(l.line_id) + '"> Set aside</label>' +
@@ -498,9 +502,12 @@
         else dropped[c.dataset.line] = li.querySelector(".tc-why").value;
       });
       if (missing) return fail("Confirm or set aside every line first (" + missing + " left).");
-      var b = $(pre + "-basis"), cu = $(pre + "-currency");
+      var b = $(pre + "-basis"), cu = $(pre + "-currency"), figures = {};
+      Array.prototype.forEach.call($(pre + "-lines").querySelectorAll("select[data-figure]"), function (s) {
+        if (s.value !== "" && confirmed.indexOf(s.dataset.figure) >= 0) figures[s.dataset.figure] = parseInt(s.value, 10);
+      });
       post("/api/claim/" + state.gid + "/decide", { confirmed: confirmed, dropped: dropped, confirmed_by: $(pre + "-who").value, basis: b ? b.value : "",
-        currency: cu ? cu.value : "" })
+        currency: cu ? cu.value : "", figures: figures })
         .then(function (x) {
           var ok = x[0], d = x[1];
           if (!ok || d.refusal) return fail(d.refusal || "The check could not run.");

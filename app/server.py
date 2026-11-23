@@ -370,6 +370,7 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
                           "where": f"page {c.page}" if c.page else f"characters {c.start:,}\u2013{c.end:,}",
                           "quote": c.quote, "value": c.value, "side": "against" if c.side == "attack" else "for",
                           "no_value": ("states several amounts; the reads did not say which is the claim's" if c.no_value else None),
+                          "figures": list(c.figures),  # D13: the amounts code found in the quote, for the person to pick from
                           "basis": BASIS_PHRASE.get(b[0]) if b else None})
         basis_in_lines = sorted({x["basis"] for x in lines if x["basis"]})
         named = set()  # D12: named currencies the lines print, for a "$" claim's currency to be set at confirmation
@@ -402,8 +403,12 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
         currency = str(body.get("currency") or "").strip().upper() or None
         if currency is not None and currency not in MINOR_UNITS:
             return JSONResponse({"refusal": REFUSAL_TEXT["currency_not_known"]}, status_code=400)
+        figures = body.get("figures") or {}  # D13: line id -> index of the figure the person picked in that line
+        if not isinstance(figures, dict) or not all(isinstance(v, int) and not isinstance(v, bool) for v in figures.values()):
+            return JSONResponse({"refusal": "A picked figure is named by its position in the line's list."}, status_code=400)
         d = decide_typed(g, set(body.get("confirmed", [])), {str(k): str(v) for k, v in (body.get("dropped") or {}).items()},
-                         confirmed_by=by, policy_source=source, basis_set=basis_set, currency_set=currency)
+                         confirmed_by=by, policy_source=source, basis_set=basis_set, currency_set=currency,
+                         figures_set={str(k): v for k, v in figures.items()})
         if d.refusal:
             return JSONResponse({"refusal": REFUSAL_TEXT[d.refusal]}, status_code=400)
         gathered.pop(gather_id, None)

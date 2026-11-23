@@ -248,6 +248,7 @@ def _footer(run, info, rerun, record=None) -> str:
 
 
 GROUPING = {"person": "confirmed by a person", "prefilled_from_mapping": "pre-filled from a mapping row"}
+VALUE_SOURCE = {"verified_quote": "read from the verified line", "set_at_confirmation": "picked at confirmation by a person, not read by code"}
 BASIS_SOURCE = {"claimant": "written in the claim", "set_at_confirmation": "set at confirmation, not written by the claimant",
                 "not_stated": "not stated"}
 
@@ -261,7 +262,9 @@ def _record_line(r: dict) -> str:
             f'{", " + E(r["confirmed_on"]) if r.get("confirmed_on") else ""}. Policy {E(r["policy"])}: {pol}. '
             f'Basis: {E(BASIS_SOURCE.get(r["basis_source"], r["basis_source"]))}. '
             f'Currency: {E(CURRENCY_SOURCE.get(r.get("currency_source", "claimant"), r.get("currency_source", "")))}'
-            f'{" (" + E(r["currency_set"]) + ")" if r.get("currency_set") else ""}. Question key <code>{E(r["question"])}</code>, from the printed line &ldquo;{E(r["label_from"])}&rdquo;.</p>')
+            f'{" (" + E(r["currency_set"]) + ")" if r.get("currency_set") else ""}. '
+            f'Figure: {E(VALUE_SOURCE.get(r.get("value_source", "verified_quote"), r.get("value_source", "")))}'
+            f'{"".join(" (" + E(x["figure"]) + " in &ldquo;" + E(x["line"]) + "&rdquo;)" for x in r.get("value_set", []))}. Question key <code>{E(r["question"])}</code>, from the printed line &ldquo;{E(r["label_from"])}&rdquo;.</p>')
 
 
 def _how_set(r: dict) -> str:
@@ -271,6 +274,8 @@ def _how_set(r: dict) -> str:
     basis = " The basis was set at confirmation, not written by the claimant." if r["basis_source"] == "set_at_confirmation" else ""
     if r.get("currency_source") == "set_at_confirmation":
         basis += f" The currency ({r['currency_set']}) was set at confirmation: the claim wrote \"$\", which names no country."
+    for x in r.get("value_set", []):
+        basis += f" The figure {E(x['figure'])} was picked at confirmation: the line states several amounts ({E(', '.join(x['figures']))})."
     dropped = "".join(f'<li><strong>{E(x["doc"])}</strong>: set aside by a person, because &ldquo;{E(x["reason"])}&rdquo;'
                       f'<blockquote class="says">{E(" ".join(x["text"].split()))}</blockquote></li>' for x in r["dropped"])
     nothing = "".join(f"<li>{E(x)}: nothing found</li>" for x in r["nothing_found"])

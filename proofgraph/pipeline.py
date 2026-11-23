@@ -50,6 +50,7 @@ class PacketRun:
     assertions: list[Assertion] = field(default_factory=list)
     invalid: list[InvalidAssertion] = field(default_factory=list)
     clauses: list[Clause] = field(default_factory=list)  # wording claims (D9)
+    instruments: dict = field(default_factory=dict)  # doc_id -> admitted Instrument (D13: a figure picked at confirmation)
     verdict: SlotVerdict | None = None
     failure: str | None = None
 
@@ -103,6 +104,7 @@ def gather(packet_id: str, claim: Claim, doc_ids: list[str], mappings: DocumentM
             continue
         hits = retrieve(atom, admitted, trace, embed=embed)
         by_doc = {i.doc_id: i for i in admitted}
+        run.instruments.update(by_doc)
         for side in (support, attack):
             for ev in side(atom, hits, admitted, routes, src, trace).evidence:
                 run.evidence.append(ev)

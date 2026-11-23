@@ -1,4 +1,4 @@
-"""D13: effective dates are read from the page.
+"""D13: effective dates are read from the page; a person picks the figure in a multi-amount line.
 
 Each test names the old behaviour it rules out. PDFs are written by tests/pdfgen.py at test time; the proposer
 is a fake model, so no key and no recording is needed.
@@ -180,3 +180,148 @@ def test_a_corrected_or_cleared_printed_date_is_recorded_as_the_person_s(tmp_pat
     assert c.post(f"/api/upload/{v['upload_id']}/confirm", json=_body(v, effective_date="")).status_code == 200
     inst, rec = _label(tmp_path, v)
     assert inst.effective_date is None and rec["effective_source"] == "cleared_at_confirmation"
+
+
+# ---------------------------------------------------------------- item 2: a person picks the figure
+
+TWO = "fees up to USD 5,000 or USD 10,000 per coverage period"
+ONE = "fees up to USD 5,000 per coverage period"
+
+
+@pytest.fixture()
+def lines_pdf(tmp_path) -> Path:
+    return write_pdf(tmp_path / "lines.pdf", [[(42.5, 100, TWO), (42.5, 130, ONE)]])
+
+
+def _evidence(path: Path, text: str, pointer: str | None = None):
+    from proofgraph.checker import open_source
+    from proofgraph.schema import Citation, DocumentRoute, Evidence, Excerpt, MappingMethod, RouteStrength, Side
+
+    cit = Citation.model_validate({"source_file": path.name, "sha256_of_file": open_source(path).sha256,
+                                   "locator": {"kind": "page_quote", "page": 1}, "text": text})
+    value = None
+    if pointer:
+        i = text.index(pointer)
+        value = Excerpt(start=i, end=i + len(pointer), text=pointer)
+    route = DocumentRoute(policy="P1", strength=RouteStrength.READ, method=MappingMethod.LABEL, reasoning=None, citation=cit)
+    span = ("a" if text == TWO else "b") * 16
+    return Evidence(side=Side.SUPPORT, span_id=span, doc_id="doc", identification=route, reading="r",
+                    quote=Excerpt(start=0, end=len(text), text=text), citation=cit, value=value)
+
+
+def _inst():
+    from proofgraph.schema import Instrument
+
+    return Instrument.model_validate_json(json.dumps({
+        "doc_id": "doc", "version": "1", "instrument_type": "policy_form", "issuer": "x", "policy_numbers": ["P1"],
+        "effective_date": None, "source_id": "s", "source_start": 0, "source_end": 1, "first_page": 1, "last_page": 1,
+        "file_start": None, "file_end": None, "spans": [], "definitions": []}))
+
+
+def _gathered(monkeypatch, path: Path, text: str, claim="Under P1, fees are covered up to USD 5,000 per coverage period.",
+              pointer: str | None = None):
+    """gather_typed over a fake gather: the line goes through the real assertion step, so a quote with several
+    amounts and no pointer comes back value_ambiguous exactly as a live read would."""
+    import proofgraph.grouping as grouping
+    from proofgraph.assertions import assert_from_evidence
+    from proofgraph.pipeline import PacketRun
+    from proofgraph.trace import Trace
+
+    ev = _evidence(path, text, pointer)
+
+    def fake_gather(packet_id, c, doc_ids, mappings, data, trace):
+        run = PacketRun(claim=c, atom_text="x", documents=[("doc", 1)], evidence=[ev], instruments={"doc": _inst()})
+        a = assert_from_evidence(ev, _inst(), c.slot, Trace(None))
+        (run.assertions if hasattr(a, "amount") else run.invalid).append(a)
+        return run, ()
+
+    monkeypatch.setattr(grouping, "gather", fake_gather)
+    return grouping.gather_typed(grouping.read_claim(claim, ("P1",)), "P1", "t", ["doc"], None, path.parent, None)
+
+
+def test_gather_lists_the_amounts_code_found_in_a_multi_amount_line(monkeypatch, lines_pdf):
+    g = _gathered(monkeypatch, lines_pdf, TWO)
+    [c] = g.candidates
+    assert c.value is None and c.no_value.startswith("value_ambiguous")
+    assert c.figures == ("USD 5,000", "USD 10,000")  # found by code in the verified quote, in order
+
+
+def test_without_a_pick_the_line_still_refuses_value_ambiguous(monkeypatch, lines_pdf):
+    """Counterfactual: nothing is compared until a person picks; code never matches the claim's "5,000" to a figure."""
+    from proofgraph.grouping import decide_typed
+
+    g = _gathered(monkeypatch, lines_pdf, TWO)
+    c = g.candidates[0]
+    d = decide_typed(g, {c.line_id}, {}, confirmed_by="t", policy_source="chosen")
+    assert d.refusal == "value_ambiguous" and d.run.verdict is None
+    for bad in ({c.line_id: 2}, {c.line_id: -1}, {"other": 0}):  # outside the list, or a line that is not this one
+        assert decide_typed(_gathered(monkeypatch, lines_pdf, TWO), {c.line_id}, {}, confirmed_by="t", policy_source="chosen",
+                            figures_set=bad).refusal == "value_ambiguous"
+
+
+def test_the_figure_picked_at_confirmation_is_compared_and_recorded(monkeypatch, lines_pdf):
+    from app.result import _how_set, _record_line
+    from proofgraph.grouping import decide_typed
+
+    for index, answer in ((0, "supported"), (1, "contradicted")):
+        g = _gathered(monkeypatch, lines_pdf, TWO)
+        c = g.candidates[0]
+        d = decide_typed(g, {c.line_id}, {}, confirmed_by="t", policy_source="chosen", figures_set={c.line_id: index})
+        assert d.refusal is None and d.run.verdict.verdict.value == answer
+        [a] = d.run.assertions
+        assert a.value.text == c.figures[index] and a.slot == d.record["question"]
+        assert a.routes[1].mapping_id.startswith("set_at_confirmation:") and a.routes[1].strength.value == "judgment"
+        assert d.run.invalid == []
+        assert d.record["value_source"] == "set_at_confirmation"
+        assert d.record["value_set"] == [{"line_id": c.line_id, "doc_id": "doc", "line": TWO, "figure": c.figures[index],
+                                          "index": index, "figures": ["USD 5,000", "USD 10,000"]}]
+    rec = {**d.record, "confirmed_on": None, "dropped": [], "nothing_found": []}
+    assert "Figure: picked at confirmation by a person, not read by code (USD 10,000 in" in _record_line(rec)
+    assert "The figure USD 10,000 was picked at confirmation" in _how_set(rec)
+
+
+def test_a_one_amount_line_whose_pointer_disagrees_is_not_offered_a_pick(monkeypatch, lines_pdf):
+    """D13 covers several amounts with no valid pointer. One amount and a disagreeing pointer stays value_ambiguous."""
+    from proofgraph.grouping import decide_typed
+
+    g = _gathered(monkeypatch, lines_pdf, ONE, pointer="fees")
+    c = g.candidates[0]
+    assert c.no_value.startswith("value_ambiguous") and c.figures == ()
+    assert decide_typed(g, {c.line_id}, {}, confirmed_by="t", policy_source="chosen",
+                        figures_set={c.line_id: 0}).refusal == "value_ambiguous"
+
+
+def test_a_line_code_reads_records_its_value_as_read_from_the_verified_quote(monkeypatch, lines_pdf):
+    from proofgraph.grouping import decide_typed
+
+    g = _gathered(monkeypatch, lines_pdf, ONE)
+    c = g.candidates[0]
+    d = decide_typed(g, {c.line_id}, {}, confirmed_by="t", policy_source="chosen", figures_set={c.line_id: 0})
+    assert d.run.verdict.verdict.value == "supported"
+    assert (d.record["value_source"], d.record["value_set"]) == ("verified_quote", [])  # the pick is ignored: nothing to pick
+
+
+def test_the_decide_endpoint_takes_a_pick_by_position_only(monkeypatch, lines_pdf):
+    from fastapi.testclient import TestClient
+
+    import app.server as server
+    from app.limit import LiveRunLimit
+
+    g = _gathered(monkeypatch, lines_pdf, TWO)
+    seen = {}
+    monkeypatch.setattr(server, "gather_typed", lambda *a, **k: g)
+
+    def fake_decide(gg, confirmed, dropped, **kw):
+        seen.update(kw)
+        from proofgraph.grouping import Decided
+        return Decided(gg.run, {}, "value_ambiguous")
+
+    monkeypatch.setattr(server, "decide_typed", fake_decide)
+    c = TestClient(server.create_app(limit=LiveRunLimit(runs=5)))
+    text = "Under FD960228, fees are covered up to USD 5,000 per coverage period."
+    out = c.post("/api/claim/gather", json={"packet": "gillette", "text": text, "policy": "FD960228"}).json()
+    assert out["lines"][0]["figures"] == ["USD 5,000", "USD 10,000"]
+    url = f"/api/claim/{out['gather_id']}/decide"
+    assert c.post(url, json={"confirmed": [], "confirmed_by": "t", "figures": {"x": "USD 5,000"}}).status_code == 400
+    r = c.post(url, json={"confirmed": [g.candidates[0].line_id], "confirmed_by": "t", "figures": {g.candidates[0].line_id: 1}})
+    assert seen["figures_set"] == {g.candidates[0].line_id: 1} and "Pick the figure" in r.json()["refusal"]
