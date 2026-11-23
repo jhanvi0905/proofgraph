@@ -257,7 +257,7 @@ def _record_line(r: dict) -> str:
     """D11: how this question was set, recorded on every typed-claim run."""
     mode = GROUPING.get(r["grouping_mode"], r["grouping_mode"]) + (f" (row {r['mapping_row']})" if r.get("mapping_row") else "")
     pol = (f"found in the claim (&ldquo;{E(r['policy'])}&rdquo;), shown and accepted" if r["policy_source"] == "matched_in_claim"
-           else "chosen by the person")
+           else "the only one in these documents" if r["policy_source"] == "only_in_packet" else "chosen by the person")
     return (f'<p class="record"><strong>How this question was set.</strong> Grouping: {E(mode)}, by {E(r["confirmed_by"])}'
             f'{", " + E(r["confirmed_on"]) if r.get("confirmed_on") else ""}. Policy {E(r["policy"])}: {pol}. '
             f'Basis: {E(BASIS_SOURCE.get(r["basis_source"], r["basis_source"]))}. '

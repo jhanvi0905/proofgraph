@@ -347,7 +347,8 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
         policy = str(body.get("policy", ""))
         if policy not in policies:
             return JSONResponse({"refusal": REFUSAL_TEXT["policy_not_in_packet"]}, status_code=400)
-        source = "matched_in_claim" if policy in r.policy_matches and body.get("policy_source") == "matched_in_claim" else "chosen"
+        source = ("matched_in_claim" if policy in r.policy_matches and body.get("policy_source") == "matched_in_claim"
+                  else "only_in_packet" if len(policies) == 1 else "chosen")
         if not limit.allow(who(request)):
             return JSONResponse({"refusal": "Too many runs from here for now. Try again later."}, status_code=429)
         try:

@@ -272,7 +272,7 @@
   }
   fetch("/api/packets").then(function (r) { return r.json(); }).then(function (list) {
     packs = list; if (!list.length) return;
-    $("pk").innerHTML = list.map(function (p, i) { return choice("packet", p.id, p.title, p.docs.length + " documents", null, i === 0, false); }).join("");
+    $("pk").innerHTML = list.map(function (p, i) { return choice("packet", p.id, p.title, p.docs.length + (p.docs.length === 1 ? " document" : " documents"), null, i === 0, false); }).join("");
     showPacket(list[0].id);
   }).catch(function () {});
   $("pk").addEventListener("change", function (e) { if (e.target.name === "packet") showPacket(e.target.value); });
@@ -430,6 +430,9 @@
         : "A claim about wording. It will be quoted with its page, not judged.";
       return '<p class="tc-read"><span class="q-label">Code read</span> ' + bits + "</p>";
     }
+    function who() { try { return localStorage.getItem("pg-who") || ""; } catch (e) { return ""; } }
+    function remember(v) { try { localStorage.setItem("pg-who", v); } catch (e) {} }
+    // One click: code reads the claim, the policy is settled without a question when it can be, and the reads run.
     $(pre + "-read").addEventListener("click", function () {
       problem.hidden = true; out.hidden = true;
       var text = $(pre + "-text").value, key = packetKey();
@@ -438,29 +441,32 @@
         var ok = x[0], r = x[1];
         if (!ok || r.refusal) return fail(r.refusal || "The claim could not be read.");
         state = { text: text, key: key, read: r };
-        var m = r.policy_matches[0];
-        var opts = r.policies.map(function (p) { return '<option value="' + esc(p) + '"' + (p === m ? " selected" : "") + ">" + esc(p) + "</option>"; }).join("");
-        var note = m ? '<p class="tc-match">Found <b>' + esc(m) + "</b> in your claim. It is selected below; change it if that is wrong.</p>"
-                     : '<p class="tc-match">No policy number found in your claim. Choose the policy it is about.</p>';
-        out.innerHTML = readBlock(r) + note +
-          '<label class="field narrow"><span>Policy</span><select id="' + pre + '-policy">' + (m ? "" : '<option value="">Choose…</option>') + opts + "</select></label>" +
-          '<button type="button" class="btn inv" id="' + pre + '-find">Find the lines</button><div id="' + pre + '-lines"></div>';
+        var m = r.policy_matches[0], only = r.policies.length === 1 ? r.policies[0] : null;
+        out.innerHTML = readBlock(r) + '<div id="' + pre + '-scope"></div><div id="' + pre + '-lines"></div>';
         out.hidden = false;
-        $(pre + "-find").addEventListener("click", find);
+        if (m || only) return find(m || only, m ? "matched_in_claim" : "only_in_packet");
+        $(pre + "-scope").innerHTML = '<p class="tc-match">These documents cover more than one policy, and your claim names none. Which one is it about?</p>' +
+          '<div class="tc-row"><select id="' + pre + '-policy" aria-label="Policy"><option value="">Choose…</option>' +
+          r.policies.map(function (p) { return '<option value="' + esc(p) + '">' + esc(p) + "</option>"; }).join("") +
+          '</select><button type="button" class="btn inv" id="' + pre + '-find">Find the lines</button></div>';
+        $(pre + "-find").addEventListener("click", function () {
+          var pol = $(pre + "-policy").value; if (!pol) return fail("Choose the policy the claim is about.");
+          find(pol, "chosen");
+        });
       });
     });
-    function find() {
+    function find(pol, src) {
       problem.hidden = true;
-      var pol = $(pre + "-policy").value; if (!pol) return fail("Choose the policy the claim is about.");
-      var btn = $(pre + "-find"); btn.disabled = true; btn.textContent = "Reading the documents…";
-      var src = state.read.policy_matches.indexOf(pol) >= 0 ? "matched_in_claim" : "chosen";
+      var go = $(pre + "-read"); go.disabled = true; go.textContent = "Reading the documents…";
+      var why = { matched_in_claim: "named in your claim", only_in_packet: "the only one in these documents", chosen: "chosen by you" }[src];
+      $(pre + "-scope").innerHTML = '<p class="tc-match">Checking against <b>' + esc(pol) + "</b>, " + why + ".</p>";
       post("/api/claim/gather", { packet: state.key, text: state.text, policy: pol, policy_source: src }).then(function (x) {
-        btn.disabled = false; btn.textContent = "Find the lines";
+        go.disabled = false; go.textContent = "Find the lines";
         var ok = x[0], g = x[1];
         if (!ok || g.refusal) return fail(g.refusal || "The documents could not be read.");
         state.gid = g.gather_id;
         var rows = g.lines.map(function (l, i) {
-          return '<li class="tc-line"><p class="tc-where"><b>' + esc(l.doc) + "</b>, " + esc(l.where) + ' &middot; found by the check ' + esc(l.side) +
+          return '<li class="tc-line"><p class="tc-where"><b>' + esc(l.doc) + "</b>, " + esc(l.where) + ' &middot; ' + (l.side === "against" ? "may count against the claim" : "may support the claim") +
             (l.value ? ' &middot; states <b>' + esc(l.value) + "</b>" + (l.basis ? " " + esc(l.basis) : "") : "") +
             (l.no_value ? ' &middot; ' + esc(l.no_value) : "") + "</p>" +
             '<blockquote class="says">' + esc(l.quote) + "</blockquote>" +
@@ -468,10 +474,8 @@
             (l.figures && l.figures.length ? '<label class="field narrow tc-figure"><span>Which figure is the claim&rsquo;s? Recorded as set here, not read by code.</span>' +
               '<select data-figure="' + esc(l.line_id) + '"><option value="">Leave unpicked (not compared)</option>' +
               l.figures.map(function (f, k) { return '<option value="' + k + '">' + esc(f) + "</option>"; }).join("") + "</select></label>" : "") +
-            '<div class="tc-pick" role="radiogroup" aria-label="Is this line about the claim?">' +
-            '<label><input type="radio" name="' + pre + "-l" + i + '" value="in" data-line="' + esc(l.line_id) + '"> About the claim</label>' +
-            '<label><input type="radio" name="' + pre + "-l" + i + '" value="out" data-line="' + esc(l.line_id) + '"> Set aside</label>' +
-            '<input type="text" class="tc-why" data-line="' + esc(l.line_id) + '" placeholder="Why it is set aside" aria-label="Why it is set aside" hidden></div></li>';
+            '<div class="tc-pick"><label><input type="checkbox" checked data-line="' + esc(l.line_id) + '"> About the claim</label>' +
+            '<input type="text" class="tc-why" data-line="' + esc(l.line_id) + '" placeholder="Why it is set aside" aria-label="Why this line is set aside" hidden></div></li>';
         }).join("");
         var none = g.nothing_found.length ? '<p class="tc-none">Nothing found in: ' + g.nothing_found.map(esc).join(", ") + ".</p>" : "";
         var basis = g.ask_basis ? '<label class="field narrow"><span>The lines state a basis (' + g.basis_in_lines.map(esc).join(", ") +
@@ -480,14 +484,14 @@
         var currency = g.ask_currency ? '<label class="field narrow"><span>Your claim writes &ldquo;$&rdquo;, which names no country; the lines name ' +
           g.currency_in_lines.map(esc).join(", ") + '. Set the claim&rsquo;s currency, or leave it as written (then it is not compared). Recorded as set here, not written by you.</span><select id="' + pre + '-currency"><option value="">Leave as written</option>' +
           g.currency_in_lines.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + "</option>"; }).join("") + "</select></label>" : "";
-        $(pre + "-lines").innerHTML = '<p class="c-note">Confirm each line, or set it aside with a reason. Nothing is compared until you do.</p>' +
+        $(pre + "-lines").innerHTML = '<p class="c-note">The lines it found. Untick any that is not about your claim and say why; nothing is compared until you check.</p>' +
           '<ol class="tc-list">' + rows + "</ol>" + none + basis + currency +
-          '<label class="field narrow"><span>Confirmed by</span><input id="' + pre + '-who" type="text" autocomplete="name"></label>' +
-          '<button type="button" class="btn inv" id="' + pre + '-decide">Check this claim</button>';
+          '<div class="tc-row"><label class="field narrow"><span>Your name</span><input id="' + pre + '-who" type="text" autocomplete="name" value="' + esc(who()) + '"></label>' +
+          '<button type="button" class="btn inv" id="' + pre + '-decide">Check this claim</button></div>';
         $(pre + "-lines").addEventListener("change", function (e) {
-          if (e.target.type !== "radio") return;
+          if (e.target.type !== "checkbox") return;
           var why = $(pre + "-lines").querySelector('.tc-why[data-line="' + e.target.dataset.line + '"]');
-          if (why) why.hidden = e.target.value !== "out";
+          if (why) { why.hidden = e.target.checked; if (!e.target.checked) why.focus(); }
         });
         $(pre + "-decide").addEventListener("click", decide);
       });
@@ -496,12 +500,16 @@
       problem.hidden = true;
       var confirmed = [], dropped = {}, missing = 0;
       Array.prototype.forEach.call($(pre + "-lines").querySelectorAll(".tc-line"), function (li) {
-        var c = li.querySelector("input[type=radio]:checked");
-        if (!c) { missing++; return; }
-        if (c.value === "in") confirmed.push(c.dataset.line);
-        else dropped[c.dataset.line] = li.querySelector(".tc-why").value;
+        var c = li.querySelector("input[type=checkbox]");
+        if (c.checked) { confirmed.push(c.dataset.line); return; }
+        var r = li.querySelector(".tc-why").value.trim();
+        if (!r) missing++;
+        dropped[c.dataset.line] = r;
       });
-      if (missing) return fail("Confirm or set aside every line first (" + missing + " left).");
+      if (missing) return fail("Say why each unticked line is set aside (" + missing + " without a reason).");
+      var name = $(pre + "-who").value.trim();
+      if (!name) { $(pre + "-who").focus(); return fail("Add your name: the check records who confirmed the lines."); }
+      remember(name);
       var b = $(pre + "-basis"), cu = $(pre + "-currency"), figures = {};
       Array.prototype.forEach.call($(pre + "-lines").querySelectorAll("select[data-figure]"), function (s) {
         if (s.value !== "" && confirmed.indexOf(s.dataset.figure) >= 0) figures[s.dataset.figure] = parseInt(s.value, 10);

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="/web/tokens.css?v=3">
-<link rel="stylesheet" href="/web/app.css?v=24">
+<link rel="stylesheet" href="/web/app.css?v=28">
 <script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
@@ -64,7 +64,11 @@
     </div>
 
     <section class="band why-band" id="why">
-      <h2 class="big" data-rise>Most tools sell a better reader, whose answers you still have to re-read to trust. This gives an answer you can check in seconds, or a refusal with its reason.</h2>
+      <h2 class="sr">Why it is different</h2>
+      <div class="versus" data-rise>
+        <p class="vs-them">Most document AI sells a better reader. You still re-read the documents to trust its answer.</p>
+        <p class="vs-us">ProofGraph gives an answer you can check in seconds, or a refusal with its reason.</p>
+      </div>
       <div class="for-two">
         <div data-rise><h3>For the person answering</h3><p>The controlling document, clause and page in seconds, with a verdict or a named reason.</p></div>
         <div data-rise><h3>For the person signing off</h3><p>Every answer carries its evidence. The file can be defended without re-reading it.</p></div>
@@ -108,34 +112,33 @@
       </div>
       <form id="start" class="start steps3" role="tabpanel" aria-labelledby="tab-worked" autocomplete="off">
         <fieldset class="step3">
-          <legend><span class="n">1</span>Packet</legend>
+          <legend><span class="n">1</span>Pick the documents</legend>
           <div id="pk" class="choices"></div>
-        </fieldset>
-        <fieldset class="step3">
-          <legend><span class="n">2</span>What each document is, and which policy it describes</legend>
+          <details class="map-fold"><summary>What each document is, and which policy it belongs to</summary>
           <p class="c-note">Written by a person. Only the question&rsquo;s policy reaches the model. Click a name to open the original.</p>
           <div class="map-wrap"><table class="map"><thead><tr><th>Document</th><th>Kind</th><th>Policy it describes</th><th>How we know</th></tr></thead><tbody id="pmap"></tbody></table></div>
+          </details>
         </fieldset>
-        <fieldset class="step3">
-          <legend><span class="n">3</span>Question</legend>
-          <p class="c-note">Worked questions, kept as the regression test. Or type your own claim below.</p>
+        <fieldset class="step3 typed" id="tc">
+          <legend><span class="n">2</span>Type your claim</legend>
+          <p class="c-note">Any amount or wording claim about these documents. You see every line it finds before anything is compared.</p>
+          <label class="field"><span>Claim</span><textarea id="tc-text" rows="2" placeholder="The special limit for theft of jewelry is $1,000"></textarea></label>
+          <button type="button" class="btn inv" id="tc-read">Find the lines</button>
+          <div id="tc-out" class="typed-out" hidden></div>
+          <p id="tc-problem" class="problem" role="alert" hidden></p>
+        </fieldset>
+        <details class="step3 worked-qs">
+          <summary>Or try a pre-written question</summary>
+          <p class="c-note">The worked questions, kept as the regression test.</p>
           <div id="qs" class="choices"></div>
-        </fieldset>
         <div class="field narrow" id="passcode-field" hidden>
           <label for="passcode">Passcode, needed to run a check</label>
           <input id="passcode" name="passcode" type="password" autocomplete="current-password">
         </div>
         <button class="btn inv" type="submit" id="go">Check this claim</button>
         <p id="problem" class="problem" role="alert" hidden></p>
-        <fieldset class="step3 typed" id="tc">
-          <legend><span class="n">4</span>Or type your own claim</legend>
-          <p class="c-note">Any amount or wording claim about these documents. Code reads it first; you confirm which lines are about it before anything is compared.</p>
-          <label class="field"><span>Claim</span><textarea id="tc-text" rows="2" placeholder="The special limit for theft of jewelry is $1,000"></textarea></label>
-          <button type="button" class="btn inv" id="tc-read">Read my claim</button>
-          <div id="tc-out" class="typed-out" hidden></div>
-          <p id="tc-problem" class="problem" role="alert" hidden></p>
-        </fieldset>
-      </form>
+        </details>
+</form>
       <form id="upload" class="start steps3" role="tabpanel" aria-labelledby="tab-upload" autocomplete="off" hidden>
         <fieldset class="step3">
           <legend><span class="n">1</span>Upload</legend>
@@ -150,18 +153,18 @@
           <label class="field narrow"><span>Confirmed by</span><input id="up-who" type="text" autocomplete="name" required></label>
           <button class="btn inv" type="button" id="up-ok">Confirm</button>
         </fieldset>
-        <fieldset class="step3" id="up-question" hidden>
-          <legend><span class="n">3</span>Question</legend>
-          <div id="up-qs" class="choices"></div>
-          <button class="btn inv" type="submit" id="up-run">Check this claim</button>
-        </fieldset>
         <fieldset class="step3 typed" id="utc" hidden>
-          <legend><span class="n">4</span>Or type your own claim</legend>
-          <p class="c-note">Any amount or wording claim about these documents. Code reads it first; you confirm which lines are about it before anything is compared.</p>
+          <legend><span class="n">3</span>Type your claim</legend>
+          <p class="c-note">Any amount or wording claim about these documents. You see every line it finds before anything is compared.</p>
           <label class="field"><span>Claim</span><textarea id="utc-text" rows="2" placeholder="The special limit for theft of jewelry is $1,000"></textarea></label>
-          <button type="button" class="btn inv" id="utc-read">Read my claim</button>
+          <button type="button" class="btn inv" id="utc-read">Find the lines</button>
           <div id="utc-out" class="typed-out" hidden></div>
           <p id="utc-problem" class="problem" role="alert" hidden></p>
+        </fieldset>
+        <fieldset class="step3" id="up-question" hidden>
+          <legend><span class="n">4</span>Or pick a pre-written question</legend>
+          <div id="up-qs" class="choices"></div>
+          <button class="btn inv" type="submit" id="up-run">Check this claim</button>
         </fieldset>
         <p id="up-problem" class="problem" role="alert" hidden></p>
       </form>
@@ -240,7 +243,7 @@
     </nav>
   </section>
 </div>
-<script src="/web/app.js?v=17"></script>
+<script src="/web/app.js?v=20"></script>
 <script src="/web/motion.js?v=3"></script>
 </body>
 </html>
