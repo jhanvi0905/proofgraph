@@ -130,3 +130,13 @@ Written after Family C (`results/family_c.md`): every miss there came from a ste
 
 **Checks:** the D11 regression (5/5), family A (`pgrun verdict`, `pgrun derive`: `unresolved (documents_disagree)`) and family B (`pgrun familyb`: 11/11 D9 expectations, 5/8 preregistered as recorded) replay with no API key and the same answers. Family C, two fresh live runs: 5 of 5 preregistered answers each (`results/family_c.md`, "Under D12").
 
+
+## D13. Effective dates are read from the page; a person picks the figure in a multi-amount line (2026-11-24, accepted)
+
+Both come from gaps in the insurance product, decided before any tax document was opened, so the tax run that follows stays a holdout.
+
+1. **Effective dates come from printed text, never from the form edition.** Today an upload's effective date is taken from the form's edition (`upload.py`, `edition_date`), which is when the form was printed, not when the coverage took effect; two endorsements on different editions could let rule 2 pick a winner for the wrong reason. Now the proposer quotes the printed effective-date line (as it quotes form number and title); code parses the date from the verified quote and records the phrase as printed ("effective 12/31/96", "for taxable years beginning after December 31, 2025"); the person confirms or corrects it on the confirmation row. A date typed by the person with no verified quote is a judgment and needs a reason. No quote and no entry: no effective date, so rule 2 cannot fire on that document. The edition is never used as an effective date. Code orders documents by the parsed date only; it does not interpret "after" or "on or after".
+2. **When a confirmed line holds several amounts and no valid pointer, the person picks the figure.** The confirmation screen lists the amounts code found in the verified quote; the person picks the one the claim means. Recorded as `value_source: set_at_confirmation` with the line and the figure, shown on the result as basis and currency already are (D11, D12). Code never matches the claim's wording to a figure; with no pick, `value_ambiguous` stands.
+
+**Not decided here:** a claim about an amount as of a date ("the cap for tax year 2026"). That is a new claim kind and the expected break of the tax test; it gets its own decision after that test, written in response to what breaks.
+**Checks:** every existing test, the D11 regression, families A, B and C unchanged (Gillette's hand-typed dates are correct; the ISO forms have none). One re-hash after both land.
