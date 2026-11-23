@@ -323,3 +323,4 @@ html.running .steps-nav { visibility: hidden; }
 .tc-pick { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; align-items: center; }
 .tc-pick label { display: inline-flex; gap: .35rem; align-items: center; }
 .tc-pick .tc-why { flex: 1 1 14rem; min-width: 0; padding: .45rem .6rem; border: 2px solid #fff; background: #fff; color: var(--ink); font: inherit; }
+.close .code-note { margin: .6rem 0 0; }

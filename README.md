@@ -6,7 +6,7 @@
 - **With ProofGraph:** an answer you can check in seconds, or a named reason it cannot answer.
 - **The line it never crosses:** the model finds and quotes. Code compares and applies the rules. A model never decides which document wins.
 
-**Not:** a document store, a coverage opinion or legal advice. Tested on two document sets: a 1996 D&O program filed with the SEC, and ISO homeowners forms.
+**Not:** a document store, a coverage opinion or legal advice. Tested on three document sets: a 1996 D&O program filed with the SEC, ISO homeowners forms, and a Chubb cyber policy it was never built on ([2 of 5, and why](results/family_c.md)).
 
 **Bring your own claim** ([D11](DECISIONS.md)). Type any amount or wording claim. Code reads it; the for and against reads find lines in every document of that policy; a person confirms which lines are about the claim (or sets one aside, with a reason, shown on the result); the unchanged decision tree runs. The eight hand-written questions are now the regression test: typed as plain text, all five amount claims give the same answers ([results](results/d11_regression.md)).
 
@@ -136,8 +136,9 @@ Each guard has a test; counterfactual tests show what gets through without it.
 | Right/wrong only for amounts | Wording is quoted, never judged. |
 | Missing-document check needs an `amends` route | Recorded by hand or read from an upload's printed line. Out-of-policy amendments (Gillette's Endorsement 13 → GS-212C) are listed as set aside, not checked. |
 | Endorsement rule only on an assembled packet | Fired 3 of 3 on two ISO forms paired under a specimen policy; both state the same amount, so no value dispute has yet been settled by a rule. |
-| Small sample | 20 packets (12 Gillette dev, 8 ISO holdout). Shows the design; not a rate. |
-| Typed claims | A person confirms every grouping; pre-fill from past confirmations and auto-accept are not built. Dates are refused (no comparator). Checked live on the worked packets and one upload of the ISO forms; no third packet yet. Proposer checked on the two ISO forms only. No public API. |
+| Small sample | 20 packets (12 Gillette dev, 8 ISO holdout) plus 5 typed claims on a third set. Shows the design; not a rate. |
+| New layouts | On the Chubb cyber sample, 2 of 5 preregistered answers; none wrong. Misses: 2-up pages, repeated wording across coverages, a missing value pointer, a wording claim about a duration. Fixes accepted as [D12](DECISIONS.md), not built ([results](results/family_c.md)). |
+| Typed claims | A person confirms every grouping; pre-fill from past confirmations and auto-accept are not built. Dates are refused (no comparator). Proposer checked on the two ISO forms and one Chubb form. No public API. |
 
 ## Repo map
 
@@ -145,4 +146,6 @@ Each guard has a test; counterfactual tests show what gets through without it.
 - [`DEFERRED.md`](DEFERRED.md): found and deliberately left, with reasons.
 - [`data/SOURCES.md`](data/SOURCES.md): both document sets, read from the files.
 - [`results/family_b.md`](results/family_b.md): the holdout run.
+- [`results/d11_regression.md`](results/d11_regression.md): typed claims reproduce the frozen answers.
+- [`results/family_c.md`](results/family_c.md): a third document set, preregistered, 2 of 5.
 - Earlier version (ContractNLI evidence graph): git history up to `14264f0`.

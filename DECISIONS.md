@@ -101,3 +101,16 @@ An uploaded endorsement's printed amends line (for example "Form HO 00 03 Only")
 **Mapping rows** are keyed on form number and edition, never carrier or wording alone. Conflicting rows within one form switch pre-fill off and send the grouping to a person.
 
 **Before any code changed:** the five amount claims' expected answers and cited pages were written to `data/regression_d11.json` and hashed into `data/freeze.json`.
+
+## D12. Verdict inputs come from verified text and a bounded region (2026-11-24, accepted, not built)
+
+Written after Family C (`results/family_c.md`): every miss there came from a step before the decision tree, each shaped by the first two document sets. Amends D2 and D6 and the checker; D11 is unchanged. Build order: 3, 2, 1, 4, 5; one re-hash after all five land.
+
+1. **Value from the verified quote, or the pointer inside it.** One amount in the quote: code reads it (derived). Several amounts: the model's pointer, used only if it lies inside the verified quote (Endorsement 13's "$10M NIL/NIL/1,000,000" needs it). Several and no pointer: `value_ambiguous`. None: `value_not_in_verified_span`. The prompt is unchanged, so recordings still replay.
+2. **Identity is the page plus the region the model was shown**, never an offset in our extracted text (the checker stays independent of the parser). The quote must occur once inside that region, as consecutive lines in one column; repeats elsewhere on the page are not ambiguity. A hash mismatch means stale: read again, never substitute. Raw text keeps file offsets.
+3. **Columns from page coordinates**, per page, with the geometry recorded on each passage; no separable columns means single, whole-page reading order. Lands before 2.
+4. **Wording first.** Claims are classified before the amount-shaped atom check; wording claims use the D9 precedence rules to pick the controlling clause, then quote it, not checked.
+5. **Currency and basis are data.** ISO 4217 codes with minor units; a (phrase, basis) table where each phrase is its own basis (no equivalence without a decision, D6). `unknown_currency` names the token; a phrase outside the table reads as no basis. **"$" is recorded as "dollars, country not printed"**: it compares with "$"; against a named currency it is not comparable until a person sets the currency at confirmation, recorded as set there and shown on the result, as the basis is under D11.
+
+**Checks when built:** the D11 regression and families A and B return the same answers; Family C re-runs against its preregistered answers.
+**Open:** label normalisation once mapping rows key on form number and edition; whether conflicting rows within one form switch pre-fill off.
