@@ -7,6 +7,10 @@ directory for run_packet: raw/<files>, instruments.json, predicates.json, docume
 
 A route's citation is its admission scope (see admit() in retrieve.py), so it is the verified identifying line unless
 the person names a wider block of lines (scope_page and scope_text), which is verified the same way.
+
+D13: a document's effective date is the date code parsed from its verified printed effective-date line, as the
+person confirms it on the row, or a date the person types instead (a judgment: it needs a written reason), or
+none. The form's edition is never an effective date: it is when the form was printed.
 """
 
 from __future__ import annotations
@@ -22,7 +26,7 @@ from pathlib import Path
 from proofgraph.checker import open_source, verify_citation
 from proofgraph.ingest import pdf_text_layer
 from proofgraph.model import complete_json
-from proofgraph.propose import Row, edition_date, propose, verify_line
+from proofgraph.propose import Row, printed_date, propose, verify_line
 from proofgraph.schema import (
     AmendsRoute,
     Citation,
@@ -216,6 +220,8 @@ class UploadStore:
                                                     "locator": {"kind": "page_quote", "page": a["page"]}, "text": a["text"]})
                 if broken := verify_citation(citation, src):
                     row_errors.append(f"{row['file']}: the line you gave was not found on that page: {broken}")
+            eff, eff_record, eff_errors = _effective(row, r)
+            row_errors += [f"{row['file']}: {e}" for e in eff_errors]
             if row_errors:
                 errors += row_errors
                 continue
@@ -233,7 +239,6 @@ class UploadStore:
             amends_q = next((q for q in row["quotes"] if q["field"] == "amends"), None)
             if amends_q:
                 pending_amends.append((len(routes) - 1, amends_q, row, policy, src.sha256))
-            eff = edition_date(row["edition"])
             labels.append(SourceLabel(
                 source_id=doc_id, file=row["stored"], url=None, fetch_note="uploaded by a person; see confirmed.json",
                 sha256_of_file=src.sha256, extractor=Extractor.PDF_COLUMNS, edgar_type=None, edgar_sequence=None,
@@ -242,7 +247,8 @@ class UploadStore:
                                              effective_date=eff, first_page=1, last_page=row["pages"]),)))
             record.append({"doc_id": doc_id, "file": row["file"], "sha256": row["sha256"], "kind": kind, "policy": policy, "how": how,
                            "reason": written, "proposed_kind": row["kind"], "proposed_policy": row["policy"],
-                           "proposed_how": row["how"], "proposed_form": row["form_number"], "route_citation": citation.model_dump(mode="json")})
+                           "proposed_how": row["how"], "proposed_form": row["form_number"], "route_citation": citation.model_dump(mode="json"),
+                           **eff_record})
         # D10: what an uploaded endorsement amends, from its printed line. The amended document counts as
         # present when another confirmed file's printed form number (edition dropped) appears in that line.
         cores = {_core(rec["proposed_form"]): rec["doc_id"] for rec in record if rec.get("proposed_form")}
@@ -275,6 +281,34 @@ class UploadStore:
         folder = self.dir(upload_id)
         mappings = DocumentMappingFile.model_validate_json((folder / "document_mappings.json").read_text(encoding="utf-8"))
         return folder, [m.doc_id for m in mappings.documents], mappings
+
+
+def _effective(row: dict, sent: dict) -> tuple[object, dict, list[str]]:
+    """D13: (effective date or None, what is recorded, errors) for one confirmation row.
+
+    The row's `effective_date`, when sent, is the person's value; when not sent, the proposed one stands. Equal to the
+    date parsed from the verified printed line: that line's date. Blank: none. Anything else is typed by the person:
+    code must read one date from it, and with no verified quote behind it, it is a judgment and needs a reason.
+    """
+    proposed = row.get("effective_date") or ""
+    phrase = row.get("effective_phrase") or ""
+    quote = next((q for q in row.get("quotes", []) if q["field"] == "effective_date"), None)
+    typed = str(sent.get("effective_date", proposed) or "").strip()
+    reason = " ".join(str(sent.get("effective_reason", "") or "").split())
+    rec = {"effective_date": None, "effective_source": "none", "effective_phrase": phrase or None,
+           "effective_quote": quote, "proposed_effective_date": proposed or None, "effective_reason": None}
+    if not typed:
+        return None, {**rec, "effective_source": "cleared_at_confirmation" if proposed else "none"}, []
+    if proposed and typed == proposed:
+        return printed_date(phrase), {**rec, "effective_date": proposed, "effective_source": "printed"}, []
+    d = printed_date(typed)
+    if d is None:
+        return None, rec, [f"the effective date {typed!r} is not one date code can read (for example 2025-12-31 or 6/1/96)"]
+    if proposed and d.isoformat() == proposed:  # the same date written another way: still the printed line's
+        return d, {**rec, "effective_date": proposed, "effective_source": "printed"}, []
+    if not reason:
+        return None, rec, ["an effective date typed with no verified printed line is a judgment and needs a written reason"]
+    return d, {**rec, "effective_date": d.isoformat(), "effective_source": "typed_at_confirmation", "effective_reason": reason}, []
 
 
 def _core(form: str) -> str:

@@ -297,12 +297,16 @@
     up.view = v; up.id = v.upload_id;
     var rows = v.rows.map(function (r) {
       var printed = r.quotes.map(function (q) { return esc(q.text) + ' <small>(p. ' + q.page + ')</small>'; }).join("<br>") || "<em>nothing it could verify</em>";
-      if (r.status === "unplaceable") return '<tr class="out"><td>' + esc(r.file) + '</td><td colspan="4">Could not be placed: ' + esc(r.reason) + '</td></tr>';
+      if (r.status === "unplaceable") return '<tr class="out"><td>' + esc(r.file) + '</td><td colspan="5">Could not be placed: ' + esc(r.reason) + '</td></tr>';
       return '<tr data-row="' + esc(r.row_id) + '"><td>' + esc(r.file) + '</td><td>' + printed + '</td><td><select data-f="kind">' + opts(v.kinds, r.kind) +
         '</select></td><td><input type="text" data-f="policy" value="' + esc(r.policy) + '" aria-label="Policy it describes"></td><td><select data-f="how">' +
-        opts(v.how_options, r.how) + '</select><input type="text" data-f="reason" placeholder="Why, if judgment" value="' + esc(r.reason || "") + '" aria-label="Reason"></td></tr>';
+        opts(v.how_options, r.how) + '</select><input type="text" data-f="reason" placeholder="Why, if judgment" value="' + esc(r.reason || "") + '" aria-label="Reason"></td><td>' +
+        // D13: the date code read from the printed effective-date line, or blank. The edition is never used.
+        '<input type="text" data-f="effective_date" value="' + esc(r.effective_date || "") + '" placeholder="None printed" aria-label="Effective date">' +
+        (r.effective_phrase ? '<small>Printed: &ldquo;' + esc(r.effective_phrase) + '&rdquo;</small>' : "") +
+        '<input type="text" data-f="effective_reason" placeholder="Why, if you typed it" aria-label="Why this effective date"></td></tr>';
     });
-    v.refused.forEach(function (r) { rows.push('<tr class="out"><td>' + esc(r.file) + '</td><td colspan="4">Refused: ' + esc(r.refusal) + '</td></tr>'); });
+    v.refused.forEach(function (r) { rows.push('<tr class="out"><td>' + esc(r.file) + '</td><td colspan="5">Refused: ' + esc(r.refusal) + '</td></tr>'); });
     $("up-rows").innerHTML = rows.join("");
     $("up-confirm").hidden = false; $("up-question").hidden = true;
     $("up-confirm").scrollIntoView({ block: "start" });
