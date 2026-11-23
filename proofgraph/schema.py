@@ -400,25 +400,26 @@ class IngestResult(_Model):
 # ---------------------------------------------------------------- numbers
 
 
-class Currency(str, Enum):
-    USD = "USD"
+_DATA = Path(__file__).resolve().parent.parent / "data"
+CURRENCY_TABLE = json.loads((_DATA / "currencies.json").read_text(encoding="utf-8"))  # D12 item 5
+BASIS_TABLE = json.loads((_DATA / "basis_phrases.json").read_text(encoding="utf-8"))  # D12 item 5
+DOLLARS_COUNTRY_NOT_PRINTED = "dollars_country_not_printed"
 
+# ISO 4217 codes from data/currencies.json, plus "$" as printed: dollars, the country not printed (D12).
+Currency = Enum("Currency", [(r["code"], r["code"]) for r in CURRENCY_TABLE["codes"]]
+                + [(DOLLARS_COUNTRY_NOT_PRINTED.upper(), DOLLARS_COUNTRY_NOT_PRINTED)], type=str)
+MINOR_UNITS = {r["code"]: r["minor_units"] for r in CURRENCY_TABLE["codes"]}
 
-class Basis(str, Enum):
-    EACH_OCCURRENCE = "each_occurrence"
-    ANY_ONE_CLAIM = "any_one_claim"
-    PER_PERSON = "per_person"
-    AGGREGATE = "aggregate"
-    # As written. No equivalence with any_one_claim or each_occurrence is assumed (D6).
-    EACH_CLAIM = "each_claim"
-    EACH_LOSS = "each_loss"
-    UNKNOWN = "unknown"  # legal: no lexicon match
+# Each phrase in data/basis_phrases.json names its own basis. No equivalence is assumed between any two (D6).
+# `unknown` is legal: no table match.
+Basis = Enum("Basis", [(b.upper(), b) for b in dict.fromkeys(r["basis"] for r in BASIS_TABLE["rows"])] + [("UNKNOWN", "unknown")],
+             type=str)
 
 
 class Amount(_Model):
     minor_units: int  # integer cents; no floats anywhere
     decimals: int = Field(ge=0)  # decimal places as written, for faithful rendering
-    currency: Currency | None  # None = not stated in the cited text (D1); never filled in
+    currency: Currency | None  # None = not stated in the cited text (D1); never filled in. "$" is dollars_country_not_printed
 
 
 class ParseFailure(_Model):
@@ -669,6 +670,9 @@ class ComparisonReason(str, Enum):
     CURRENCY_MISMATCH = "currency_mismatch"
     BASIS_NOT_STATED = "basis_not_stated"
     BASIS_MISMATCH = "basis_mismatch"
+    # D12: "$" (dollars, the country not printed) against a named currency. Not comparable until a person sets the
+    # claim's currency at confirmation.
+    CURRENCY_COUNTRY_NOT_PRINTED = "currency_country_not_printed"
 
 
 class Comparison(_Model):

@@ -24,11 +24,11 @@ from app.limit import LiveRunLimit, visitor_id
 from app.upload import Refusal, UploadStore
 from app.result import _absent_detail, _doc_name, crop_png, render
 from proofgraph.claims import load_claims
-from proofgraph.grouping import BASIS_PHRASE, REFUSAL_TEXT, decide_typed, gather_typed, read_claim
+from proofgraph.grouping import BASIS_PHRASE, REFUSAL_TEXT, decide_typed, gather_typed, read_claim, refusal_text
 from proofgraph.model import complete_json
-from proofgraph.numbers import find_basis
+from proofgraph.numbers import find_basis, parse_amount
 from proofgraph.pipeline import PacketRun, run_packet
-from proofgraph.schema import Basis, DocumentMappingFile, SourceManifest
+from proofgraph.schema import DOLLARS_COUNTRY_NOT_PRINTED, MINOR_UNITS, Basis, DocumentMappingFile, ParseFailure, SourceManifest
 from proofgraph.trace import Trace
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -132,6 +132,9 @@ def _reason(run: PacketRun, named: dict) -> str:
         if v.unresolved_reason.value == "governing_instrument_absent":
             return f"{head} {_absent_detail(v, named)}".strip()
         if v.unresolved_reason.value == "amounts_not_comparable":
+            if v.claim_comparison is not None and v.claim_comparison.reason.value == "currency_country_not_printed":
+                return (f"{head} One side prints only \"$\", dollars with no country, and the other names a currency. "
+                        "Set the claim's currency when you confirm the lines.")
             return f"{head} Their currency or basis (per loss, per claim, in total) differs, or one side does not state it."
         return head
     return "None of these documents addresses this question."
@@ -317,9 +320,10 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
         return docs, mappings, folder, policies
 
     def read_view(r):
-        return {"kind": r.kind, "written": r.written, "value": r.value, "currency": r.currency,
+        cur = "dollars, country not printed" if r.currency == DOLLARS_COUNTRY_NOT_PRINTED else r.currency
+        return {"kind": r.kind, "written": r.written, "value": r.value, "currency": cur,
                 "basis": BASIS_PHRASE.get(r.basis) if r.basis else None, "policy_matches": list(r.policy_matches),
-                "refusal": REFUSAL_TEXT[r.refusal] if r.refusal else None}
+                "refusal": refusal_text(r.refusal, r.token) if r.refusal else None}
 
     @app.post("/api/claim/read")
     def claim_read(body: dict):
@@ -339,7 +343,7 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
             return refuse(exc)
         r = read_claim(str(body.get("text", "")), policies)
         if r.refusal:
-            return JSONResponse({"refusal": REFUSAL_TEXT[r.refusal]}, status_code=400)
+            return JSONResponse({"refusal": refusal_text(r.refusal, r.token)}, status_code=400)
         policy = str(body.get("policy", ""))
         if policy not in policies:
             return JSONResponse({"refusal": REFUSAL_TEXT["policy_not_in_packet"]}, status_code=400)
@@ -368,10 +372,18 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
                           "no_value": ("states several amounts; the reads did not say which is the claim's" if c.no_value else None),
                           "basis": BASIS_PHRASE.get(b[0]) if b else None})
         basis_in_lines = sorted({x["basis"] for x in lines if x["basis"]})
+        named = set()  # D12: named currencies the lines print, for a "$" claim's currency to be set at confirmation
+        for c in g.candidates:
+            a = parse_amount(c.value) if c.value else None
+            if a is not None and not isinstance(a, ParseFailure) and a.currency is not None \
+                    and a.currency.value != DOLLARS_COUNTRY_NOT_PRINTED:
+                named.add(a.currency.value)
         return {"gather_id": gid, "read": read_view(g.read), "policy": policy, "policy_source": source, "lines": lines,
                 "nothing_found": [_doc_name(d, named) for d in g.nothing_found],
                 "ask_basis": g.read.kind == "amount" and not g.read.basis and bool(basis_in_lines),
-                "basis_options": [{"id": k.value, "label": v} for k, v in BASIS_PHRASE.items()], "basis_in_lines": basis_in_lines}
+                "basis_options": [{"id": k.value, "label": v} for k, v in BASIS_PHRASE.items()], "basis_in_lines": basis_in_lines,
+                "ask_currency": g.read.kind == "amount" and g.read.currency == DOLLARS_COUNTRY_NOT_PRINTED and bool(named),
+                "currency_in_lines": sorted(named)}
 
     @app.post("/api/claim/{gather_id}/decide")
     def claim_decide(gather_id: str, body: dict):
@@ -387,8 +399,11 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
             basis_set = Basis(basis) if basis else None
         except ValueError:
             return JSONResponse({"refusal": "That basis is not one the comparator knows."}, status_code=400)
+        currency = str(body.get("currency") or "").strip().upper() or None
+        if currency is not None and currency not in MINOR_UNITS:
+            return JSONResponse({"refusal": REFUSAL_TEXT["currency_not_known"]}, status_code=400)
         d = decide_typed(g, set(body.get("confirmed", [])), {str(k): str(v) for k, v in (body.get("dropped") or {}).items()},
-                         confirmed_by=by, policy_source=source, basis_set=basis_set)
+                         confirmed_by=by, policy_source=source, basis_set=basis_set, currency_set=currency)
         if d.refusal:
             return JSONResponse({"refusal": REFUSAL_TEXT[d.refusal]}, status_code=400)
         gathered.pop(gather_id, None)

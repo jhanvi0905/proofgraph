@@ -103,7 +103,9 @@ def test_every_pair_is_recorded_with_its_reason(assertions):
     by = {frozenset((p.a, p.b)): p for p in v.pairs}
     assert len(by) == 3 and v.unresolved_pairs == 3
     cr = by[frozenset(("cover_note_ib_retention", "reliance_corp_reimbursement_retention"))]
-    assert (cr.compared, cr.reason, cr.detail) == (False, ComparisonReason.BASIS_MISMATCH, "each_claim vs each_loss")
+    # D12 item 5: Reliance prints "$" (dollars, country not printed) and the cover note "USD", so the pair stops at
+    # the currency before the bases (each_claim vs each_loss, the reason recorded until D12). Still not compared.
+    assert (cr.compared, cr.reason, cr.detail) == (False, ComparisonReason.CURRENCY_COUNTRY_NOT_PRINTED, "'$' vs USD")
     ic = by[frozenset(("item7_primary_retention", "cover_note_ib_retention"))]
     assert (ic.compared, ic.reason, ic.value) == (False, ComparisonReason.CURRENCY_NOT_STATED, ValueComparison.EQUAL)
 
@@ -126,7 +128,8 @@ def test_later_effective_date_flips_the_verdict_when_reliance_is_in_scope(assert
     # The author's claim (USD 1,000,000, no basis) against Reliance's $500,000 each loss: not comparable, named.
     w = arb(moved)
     assert (w.verdict, w.unresolved_reason) == (Verdict.UNRESOLVED, UnresolvedReason.AMOUNTS_NOT_COMPARABLE)
-    assert w.claim_comparison.reason is ComparisonReason.BASIS_NOT_STATED and w.claim_comparison.detail == "not stated by claim"
+    # D12 item 5: the claim's "USD" against Reliance's "$" is named first (until D12: basis_not_stated, "not stated by claim").
+    assert w.claim_comparison.reason is ComparisonReason.CURRENCY_COUNTRY_NOT_PRINTED and w.claim_comparison.detail == "'$' vs USD"
     assert w.governing_doc_id == "reliance_binder" and "claim 'USD 1,000,000' vs reliance_binder '$500,000'" in w.unresolved_detail
 
 

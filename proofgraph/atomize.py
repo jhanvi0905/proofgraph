@@ -65,6 +65,9 @@ Your previous answer failed validation:
 {errors}
 Return a corrected answer."""
 
+# The bases the atomize prompt lists, frozen as they were at D9 so the prompt and its recorded responses do not
+# move. Documents' bases come from data/basis_phrases.json (D12 item 5); this list only steers the model's atom.
+ATOM_BASES = ("each_occurrence", "any_one_claim", "per_person", "aggregate", "each_claim", "each_loss", "unknown")
 _NULLABLE_STR = {"anyOf": [{"type": "string"}, {"type": "null"}]}
 _PRONOUN_RE = re.compile(r"^\s*(it|this|that|they|the policy|this policy|that policy|the document)\s*$", re.I)
 _CONJ_RE = re.compile(r"\b(and|&)\b", re.I)
@@ -76,7 +79,7 @@ def atomize(claim: Claim, predicates: PredicateSet, trace: Trace, complete: Comp
         predicates="\n".join(
             f"- {p.name}: {p.meaning}" + (f" kinds: {', '.join(p.kinds)}" if p.kinds else "") for p in predicates.predicates
         ),
-        bases=", ".join(b.value for b in Basis),
+        bases=", ".join(ATOM_BASES),
         claim=claim.text,
     )
     schema = _wire_schema(predicates)
@@ -119,7 +122,7 @@ def _wire_schema(predicates: PredicateSet) -> dict:
             "value": _NULLABLE_STR,
             "period": _NULLABLE_STR,
             "territory": _NULLABLE_STR,
-            "basis": {"anyOf": [{"type": "string", "enum": [b.value for b in Basis]}, {"type": "null"}]},
+            "basis": {"anyOf": [{"type": "string", "enum": list(ATOM_BASES)}, {"type": "null"}]},
             "conditions": _NULLABLE_STR,
         },
         "required": _FIELDS,

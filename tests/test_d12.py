@@ -274,3 +274,104 @@ def test_gather_shows_a_value_ambiguous_line_to_the_person(monkeypatch, chubb_li
     g = grouping.gather_typed(grouping.read_claim("The limit is $5,000.", ("P1",)), "P1", "t", ["doc"], None, Path("."), None)
     assert [(c.quote, c.value, c.no_value) for c in g.candidates] == [(two, None, "value_ambiguous: 2 amounts")]
     assert g.nothing_found == []
+
+
+# ---------------------------------------------------------------- item 5: currency and basis are data
+
+
+def test_iso_codes_and_symbols_come_from_the_table_and_an_unknown_token_is_named():
+    from proofgraph.numbers import parse_amount
+    from proofgraph.schema import ParseFailure
+
+    assert parse_amount("EUR 4,200").currency.value == "EUR"  # until D12: unparseable, only US dollars were read
+    assert parse_amount("£250").currency.value == "GBP"
+    assert parse_amount("US$5").currency.value == "USD"
+    for raw, token in (("XYZ 1,000", "XYZ"), ("NT$500", "NT$"), ("¥300", "¥")):
+        out = parse_amount(raw)
+        assert isinstance(out, ParseFailure) and out.reason == f"unknown_currency: {token}"
+    out = parse_amount("JPY 1,000.50")  # minor units from the table: yen has none
+    assert isinstance(out, ParseFailure) and "JPY" in out.reason
+
+
+def test_a_typed_claim_in_an_unknown_currency_is_refused_naming_the_token():
+    from proofgraph.grouping import read_claim, refusal_text
+
+    r = read_claim("The limit is XYZ 1,000.", ())
+    assert r.refusal == "unknown_currency" and "XYZ" in refusal_text(r.refusal, r.token)
+    assert read_claim("Lost wages are covered for the first 60 days.", ()).kind == "wording"  # capitals only: "the 60" is no token
+
+
+def test_dollar_sign_is_dollars_with_no_country_printed():
+    from proofgraph.numbers import _compare, parse_amount
+
+    d = parse_amount("$500,000").currency
+    assert d.value == "dollars_country_not_printed"  # until D12: USD
+    same = _compare("a", "$1,000", d, None, "b", "$1,000", d, None)
+    assert same.compared and same.reason.value == "equal"
+    usd = parse_amount("USD 1,000").currency
+    named = _compare("a", "$1,000", d, None, "b", "USD 1,000", usd, None)
+    assert not named.compared and named.reason.value == "currency_country_not_printed" and named.detail == "'$' vs USD"
+
+
+def test_basis_phrases_come_from_the_table_each_its_own_basis():
+    from proofgraph.numbers import find_basis
+
+    assert find_basis("up to $5,000 per coverage period")[0].value == "per_coverage_period"  # until D12: no basis
+    assert find_basis("$1,000 each occurrence")[0].value == "each_occurrence"
+    assert find_basis("$1,000 per occurrence")[0].value == "per_occurrence"  # its own basis, not each_occurrence (D6)
+    assert find_basis("$1,000 for any single mishap") is None  # outside the table: no basis
+
+
+def test_the_atomize_prompt_keeps_its_d9_basis_list():
+    from proofgraph.atomize import ATOM_BASES
+
+    assert ATOM_BASES == ("each_occurrence", "any_one_claim", "per_person", "aggregate", "each_claim", "each_loss", "unknown")
+
+
+@pytest.fixture(scope="module")
+def usd_line(tmp_path_factory) -> Path:
+    return write_pdf(tmp_path_factory.mktemp("usd") / "usd.pdf", [[(42.5, 100, "fees up to USD 5,000 per coverage period")]])
+
+
+def _usd_gathered(usd_line):
+    from proofgraph.assertions import assert_from_evidence
+    from proofgraph.grouping import Candidate, Gathered, read_claim
+    from proofgraph.pipeline import PacketRun
+    from proofgraph.schema import Claim
+    from proofgraph.trace import Trace
+
+    r = read_claim("Under P1, fees are covered up to $5,000 per coverage period.", ("P1",))
+    a = assert_from_evidence(_evidence_on(usd_line, 1, "fees up to USD 5,000 per coverage period", None), _inst(), "P1.t",
+                             Trace(None))
+    run = PacketRun(claim=Claim(claim_id="c", text=r.text, slot="P1.t", kind="amount", value=r.value), atom_text=None,
+                    assertions=[a])
+    c = Candidate(a.assertion_id, "doc", "support", 1, None, None, a.citation.text, a.value.text)
+    return Gathered(read=r, policy="P1", temp_slot="P1.t", doc_ids=["doc"], run=run, checked=(), candidates=[c]), c
+
+
+def test_a_dollar_claim_against_a_named_currency_waits_for_a_person(usd_line):
+    from proofgraph.grouping import decide_typed
+
+    g, c = _usd_gathered(usd_line)
+    d = decide_typed(g, {c.line_id}, {}, confirmed_by="t", policy_source="chosen")
+    v = d.run.verdict
+    assert (v.verdict.value, v.unresolved_reason.value) == ("unresolved", "amounts_not_comparable")
+    assert v.claim_comparison.reason.value == "currency_country_not_printed"
+    assert d.record["currency_source"] == "dollars_country_not_printed"
+
+
+def test_the_currency_set_at_confirmation_is_recorded_and_then_compared(usd_line):
+    from proofgraph.grouping import decide_typed
+
+    g, c = _usd_gathered(usd_line)
+    d = decide_typed(g, {c.line_id}, {}, confirmed_by="t", policy_source="chosen", currency_set="USD")
+    assert d.run.verdict.verdict.value == "supported"
+    assert (d.record["currency_source"], d.record["currency_set"]) == ("set_at_confirmation", "USD")
+    assert d.record["claim_value_compared"] == "USD 5,000 per coverage period"
+    from app.result import _record_line
+
+    line = _record_line({**d.record, "confirmed_on": None})
+    assert "Currency: set at confirmation, not written by the claimant (USD)" in line
+    g, c = _usd_gathered(usd_line)
+    assert decide_typed(g, {c.line_id}, {}, confirmed_by="t", policy_source="chosen", currency_set="XYZ").refusal == \
+        "currency_not_known"

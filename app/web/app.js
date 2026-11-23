@@ -469,8 +469,11 @@
         var basis = g.ask_basis ? '<label class="field narrow"><span>The lines state a basis (' + g.basis_in_lines.map(esc).join(", ") +
           '); your claim does not. Set the claim&rsquo;s basis, or leave it unstated. Recorded as set here, not written by you.</span><select id="' + pre + '-basis"><option value="">Leave unstated</option>' +
           g.basis_options.map(function (b) { return '<option value="' + esc(b.id) + '">' + esc(b.label) + "</option>"; }).join("") + "</select></label>" : "";
+        var currency = g.ask_currency ? '<label class="field narrow"><span>Your claim writes &ldquo;$&rdquo;, which names no country; the lines name ' +
+          g.currency_in_lines.map(esc).join(", ") + '. Set the claim&rsquo;s currency, or leave it as written (then it is not compared). Recorded as set here, not written by you.</span><select id="' + pre + '-currency"><option value="">Leave as written</option>' +
+          g.currency_in_lines.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + "</option>"; }).join("") + "</select></label>" : "";
         $(pre + "-lines").innerHTML = '<p class="c-note">Confirm each line, or set it aside with a reason. Nothing is compared until you do.</p>' +
-          '<ol class="tc-list">' + rows + "</ol>" + none + basis +
+          '<ol class="tc-list">' + rows + "</ol>" + none + basis + currency +
           '<label class="field narrow"><span>Confirmed by</span><input id="' + pre + '-who" type="text" autocomplete="name"></label>' +
           '<button type="button" class="btn inv" id="' + pre + '-decide">Check this claim</button>';
         $(pre + "-lines").addEventListener("change", function (e) {
@@ -491,8 +494,9 @@
         else dropped[c.dataset.line] = li.querySelector(".tc-why").value;
       });
       if (missing) return fail("Confirm or set aside every line first (" + missing + " left).");
-      var b = $(pre + "-basis");
-      post("/api/claim/" + state.gid + "/decide", { confirmed: confirmed, dropped: dropped, confirmed_by: $(pre + "-who").value, basis: b ? b.value : "" })
+      var b = $(pre + "-basis"), cu = $(pre + "-currency");
+      post("/api/claim/" + state.gid + "/decide", { confirmed: confirmed, dropped: dropped, confirmed_by: $(pre + "-who").value, basis: b ? b.value : "",
+        currency: cu ? cu.value : "" })
         .then(function (x) {
           var ok = x[0], d = x[1];
           if (!ok || d.refusal) return fail(d.refusal || "The check could not run.");

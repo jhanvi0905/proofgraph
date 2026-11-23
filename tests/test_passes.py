@@ -273,7 +273,8 @@ def test_reliance_becomes_usd_500000_each_loss_on_a_judgment_identification(env)
 
     ev, inst = _evidence(env, "Corporate Reimbursement", "$500,000                  Corporate Reimbursement, each loss", "$500,000")
     a = assert_from_evidence(ev, inst, ATOM.slot, memory_trace())
-    assert (a.amount.minor_units, a.amount.currency.value, a.basis.value) == (50_000_000, "USD", "each_loss")
+    # D12 item 5: "$" names no country (until D12 it was read as USD)
+    assert (a.amount.minor_units, a.amount.currency.value, a.basis.value) == (50_000_000, "dollars_country_not_printed", "each_loss")
     assert a.routes[0].strength.value == "judgment"
 
 

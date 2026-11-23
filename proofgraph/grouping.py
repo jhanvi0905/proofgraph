@@ -22,15 +22,15 @@ from typing import Literal
 
 from proofgraph.arbiter import arbitrate, arbitrate_wording
 from proofgraph.assertions import VALUE_AMBIGUOUS
-from proofgraph.numbers import find_basis, parse_amount
+from proofgraph.numbers import BASIS_PHRASE, CLAIM_CURRENCY_TOKEN, find_basis, parse_amount
 from proofgraph.pipeline import PacketRun, gather
-from proofgraph.schema import Amount, Basis, Claim, DocumentMappingFile, ParseFailure, PageQuote
+from proofgraph.schema import DOLLARS_COUNTRY_NOT_PRINTED, MINOR_UNITS, Amount, Basis, Claim, DocumentMappingFile, ParseFailure, PageQuote
 from proofgraph.trace import Trace
 
 _SCALE = r"(?:m|mm|million|k|thousand|b|billion)\b"
 # An amount needs a currency marker, digit grouping, or a scale word, so "item 5" is not one.
 _AMOUNT_RE = re.compile(
-    rf"(?P<cur>US\$|USD\s*|\$)\s?(?P<n>\d[\d,]*(?:\.\d+)?)(?:\s?(?P<s1>{_SCALE}))?"
+    rf"(?P<cur>{CLAIM_CURRENCY_TOKEN})\s?(?P<n>\d[\d,]*(?:\.\d+)?)(?:\s?(?P<s1>{_SCALE}))?"
     rf"|(?P<n2>\d{{1,3}}(?:,\d{{3}})+(?:\.\d+)?)(?:\s?(?P<s2>{_SCALE}))?"
     rf"|(?P<n3>\d+(?:\.\d+)?)\s?(?P<s3>million|thousand|billion)\b",
     re.I,
@@ -40,12 +40,10 @@ _DATE_RE = re.compile(
     rf"\b\d{{1,2}}/\d{{1,2}}/\d{{2,4}}\b|\b\d{{4}}-\d{{2}}-\d{{2}}\b|\b{_MONTHS}\s+\d{{1,2}},?\s+\d{{4}}\b|\b\d{{1,2}}\s+{_MONTHS}\s+\d{{4}}\b",
     re.I,
 )
-BASIS_PHRASE = {Basis.EACH_CLAIM: "each claim", Basis.ANY_ONE_CLAIM: "any one claim", Basis.EACH_LOSS: "each loss",
-                Basis.EACH_OCCURRENCE: "each occurrence", Basis.PER_PERSON: "per person", Basis.AGGREGATE: "in the aggregate"}
 
 Refusal = Literal["empty_claim", "more_than_one_value", "dates_not_supported", "value_unparseable",
                   "no_candidate_line", "no_line_confirmed", "confirmation_incomplete", "policy_not_in_packet",
-                  "value_ambiguous"]
+                  "value_ambiguous", "unknown_currency", "currency_not_known"]
 
 REFUSAL_TEXT = {
     "empty_claim": "Type a claim to check.",
@@ -56,6 +54,9 @@ REFUSAL_TEXT = {
     "no_line_confirmed": "No line was confirmed as being about the claim, so there is nothing to compare.",
     "confirmation_incomplete": "Every line must be confirmed or set aside with a reason before the check runs.",
     "policy_not_in_packet": "That policy is not one the documents were assigned to.",
+    "unknown_currency": ("The claim's currency, {token}, is not in the currency table (ISO 4217 codes and the printed signs "
+                         "listed with them), so it can't be compared."),
+    "currency_not_known": "That currency is not an ISO 4217 code in the currency table.",
     "value_ambiguous": ("Unresolved: a line you confirmed states more than one amount, and the reads did not say which one "
                         "is the claim's, so nothing was compared. Set that line aside if it is not about the claim."),
 }
@@ -71,6 +72,11 @@ class ReadClaim:
     basis: Basis | None
     policy_matches: tuple[str, ...]  # packet policy numbers found in the text; shown, never applied
     refusal: Refusal | None = None
+    token: str | None = None  # unknown_currency: the token as written
+
+
+def refusal_text(refusal: Refusal, token: str | None = None) -> str:
+    return REFUSAL_TEXT[refusal].replace("{token}", token or "")
 
 
 def _render(a: Amount, marker: str) -> str:
@@ -94,10 +100,13 @@ def read_claim(text: str, packet_policies: tuple[str, ...]) -> ReadClaim:
         cur = (m.group("cur") or "").strip()
         num = m.group("n") or m.group("n2") or m.group("n3")
         scale = m.group("s1") or m.group("s2") or m.group("s3") or ""
-        parsed = parse_amount(f"{cur}{num}{' ' + scale if scale else ''}")
+        parsed = parse_amount(f"{cur}{' ' if len(cur) == 3 and cur.isalpha() else ''}{num}{' ' + scale if scale else ''}")
         if isinstance(parsed, ParseFailure):
+            if parsed.reason.startswith("unknown_currency"):
+                return ReadClaim(t, "amount", m.group(0), None, None, None, matches, "unknown_currency", token=cur)
             return ReadClaim(t, "amount", m.group(0), None, None, None, matches, "value_unparseable")
-        marker = "USD " if cur.upper().startswith("USD") else ("$" if cur else "")
+        # the currency mark as written: a code is followed by a space ("USD 1,000"), a sign is not ("$1,000")
+        marker = f"{cur} " if len(cur) == 3 and cur.isalpha() else cur
         value = _render(parsed, marker)
         if basis:
             value += " " + BASIS_PHRASE.get(basis[0], t[basis[1]:basis[2]])
@@ -184,14 +193,26 @@ class Decided:
 
 def decide_typed(g: Gathered, confirmed: set[str], dropped: dict[str, str], *, confirmed_by: str,
                  policy_source: str, basis_set: Basis | None = None, grouping_mode: str = "person",
-                 mapping_row: str | None = None) -> Decided:
-    """A person's grouping becomes the question; the unchanged decision tree runs on it."""
+                 mapping_row: str | None = None, currency_set: str | None = None) -> Decided:
+    """A person's grouping becomes the question; the unchanged decision tree runs on it.
+
+    D12 item 5: a claim written with "$" (dollars, the country not printed) may have its currency set here
+    by the person, as its basis may (D11). Only the claim's: a document's printed currency is never filled in.
+    """
     ids = {c.line_id for c in g.candidates}
+    dollars = g.read.currency == DOLLARS_COUNTRY_NOT_PRINTED
+    if currency_set is not None and not dollars:
+        currency_set = None  # the claim names its currency; nothing to set
+    if currency_set is not None and currency_set not in MINOR_UNITS:
+        return Decided(g.run, {"claim_as_typed": g.read.text}, "currency_not_known")
     record = {
         "grouping_mode": grouping_mode, "mapping_row": mapping_row, "confirmed_by": confirmed_by,
         "policy": g.policy, "policy_source": policy_source,
         "claim_as_typed": g.read.text, "amount_as_written": g.read.written, "amount_as_read": g.read.value,
         "basis_source": "claimant" if g.read.basis else ("set_at_confirmation" if basis_set else "not_stated"),
+        "currency_source": ("not_stated" if g.read.currency is None else "set_at_confirmation" if dollars and currency_set
+                            else "dollars_country_not_printed" if dollars else "claimant"),
+        "currency_set": currency_set if dollars else None,
         "dropped": [{"line_id": k, "reason": v, "text": next(c.quote for c in g.candidates if c.line_id == k),
                      "doc_id": next(c.doc_id for c in g.candidates if c.line_id == k)} for k, v in dropped.items() if k in ids],
         "nothing_found": list(g.nothing_found),
@@ -220,6 +241,8 @@ def decide_typed(g: Gathered, confirmed: set[str], dropped: dict[str, str], *, c
     value = g.read.value
     if g.read.kind == "amount" and basis_set and not g.read.basis:
         value = f"{value} {BASIS_PHRASE[basis_set]}"
+    if g.read.kind == "amount" and dollars and currency_set and value.startswith("$"):
+        value = f"{currency_set} {value[1:]}"
     record["claim_value_compared"] = value
     claim = Claim(claim_id=g.run.claim.claim_id, text=g.read.text, slot=final, kind=g.read.kind, value=value)
 

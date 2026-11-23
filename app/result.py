@@ -33,7 +33,17 @@ REASON = {
     "basis_not_stated": "not compared: {who} states no basis (each claim, each loss, aggregate…)",
     "basis_mismatch": "not compared: different bases ({detail})",
     "no_numeral": "not compared: one side states no amount ({detail})",
+    "currency_country_not_printed": "not compared: one side prints only \"$\", dollars with no country, the other a named currency ({detail})",
 }
+CURRENCY_SOURCE = {"claimant": "written in the claim", "set_at_confirmation": "set at confirmation, not written by the claimant",
+                   "dollars_country_not_printed": "\"$\" as written: dollars, country not printed", "not_stated": "not stated"}
+
+
+def _currency(c) -> str:
+    """How a currency reads on the page. "$" names no country (D12)."""
+    if c is None:
+        return "not stated"
+    return "dollars, country not printed" if c.value == "dollars_country_not_printed" else c.value
 RULE_WORDS = {
     "endorsement_over_base": "Endorsement over base form",
     "later_effective_date": "Later effective date over earlier",
@@ -186,6 +196,12 @@ def _not_comparable(v, assertions, names) -> str:
         parts.append(f"{' and '.join(no_cur)} {'states' if len(no_cur) == 1 else 'state'} no currency")
     if no_basis := who(lambda a: a.basis is None):
         parts.append(f"{' and '.join(no_basis)} {'states' if len(no_basis) == 1 else 'state'} no basis")
+    dollars = who(lambda a: a.amount.currency is not None and a.amount.currency.value == "dollars_country_not_printed")
+    named = sorted({by[i].amount.currency.value for i in involved if by[i].amount.currency is not None
+                    and by[i].amount.currency.value != "dollars_country_not_printed"})
+    if dollars and named:
+        parts.append(f"{' and '.join(dollars)} {'prints' if len(dollars) == 1 else 'print'} only \"$\" (dollars, no country) "
+                     f"against {', '.join(named)}")
     bases = sorted({a.basis.value.replace('_', ' ') for i in involved if (a := by[i]).basis})
     if len(bases) > 1:
         parts.append(f"the bases differ ({' vs '.join(bases)})")
@@ -243,7 +259,9 @@ def _record_line(r: dict) -> str:
            else "chosen by the person")
     return (f'<p class="record"><strong>How this question was set.</strong> Grouping: {E(mode)}, by {E(r["confirmed_by"])}'
             f'{", " + E(r["confirmed_on"]) if r.get("confirmed_on") else ""}. Policy {E(r["policy"])}: {pol}. '
-            f'Basis: {E(BASIS_SOURCE.get(r["basis_source"], r["basis_source"]))}. Question key <code>{E(r["question"])}</code>, from the printed line &ldquo;{E(r["label_from"])}&rdquo;.</p>')
+            f'Basis: {E(BASIS_SOURCE.get(r["basis_source"], r["basis_source"]))}. '
+            f'Currency: {E(CURRENCY_SOURCE.get(r.get("currency_source", "claimant"), r.get("currency_source", "")))}'
+            f'{" (" + E(r["currency_set"]) + ")" if r.get("currency_set") else ""}. Question key <code>{E(r["question"])}</code>, from the printed line &ldquo;{E(r["label_from"])}&rdquo;.</p>')
 
 
 def _how_set(r: dict) -> str:
@@ -251,6 +269,8 @@ def _how_set(r: dict) -> str:
     read = (f'You wrote <b>{E(r["amount_as_written"])}</b>; code read <b>{E(r["claim_value_compared"])}</b>.'
             if r.get("amount_as_written") else "A claim about wording: nothing to read as an amount.")
     basis = " The basis was set at confirmation, not written by the claimant." if r["basis_source"] == "set_at_confirmation" else ""
+    if r.get("currency_source") == "set_at_confirmation":
+        basis += f" The currency ({r['currency_set']}) was set at confirmation: the claim wrote \"$\", which names no country."
     dropped = "".join(f'<li><strong>{E(x["doc"])}</strong>: set aside by a person, because &ldquo;{E(x["reason"])}&rdquo;'
                       f'<blockquote class="says">{E(" ".join(x["text"].split()))}</blockquote></li>' for x in r["dropped"])
     nothing = "".join(f"<li>{E(x)}: nothing found</li>" for x in r["nothing_found"])
@@ -312,7 +332,7 @@ def _weakest_label(a: Assertion) -> str:
 def _assertion(a: Assertion, v, name: str, info, data: Path) -> str:
     governs = a.assertion_id == v.governing_assertion
     side = "Cited against the claim" if a.assertion_id.startswith("attack:") else "Cited for the claim"
-    cur = a.amount.currency.value if a.amount.currency else "not stated"
+    cur = _currency(a.amount.currency)
     basis = a.basis.value.replace("_", " ") if a.basis else "not stated"
     routes = "".join(
         f'<li><span class="k">{"Which policy" if r.mapping_id.startswith("identify") else "Which figure"}</span> '

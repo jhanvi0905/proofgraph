@@ -80,7 +80,8 @@ def test_three_asserters_one_slot_each_with_its_own_routes(env):
     assert {a.instrument.doc_id for a in got.values()} == {"coda_end13", "london_fd960228", "reliance_binder"}
     cover, rel, item7 = got["cover_note_ib_retention"], got["reliance_corp_reimbursement_retention"], got["item7_primary_retention"]
     assert (cover.amount.minor_units, cover.amount.currency.value, cover.basis.value) == (100_000_000, "USD", "each_claim")
-    assert (rel.amount.minor_units, rel.amount.currency.value, rel.basis.value) == (50_000_000, "USD", "each_loss")
+    # D12 item 5: "$" names no country (until D12 it was read as USD)
+    assert (rel.amount.minor_units, rel.amount.currency.value, rel.basis.value) == (50_000_000, "dollars_country_not_printed", "each_loss")
     assert item7.amount.currency is None and item7.basis is None
     # no two asserters share a route
     routes = [{r.mapping_id for r in a.routes} for a in got.values()]
