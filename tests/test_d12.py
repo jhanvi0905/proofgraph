@@ -8,6 +8,7 @@ across coverages), so nothing third-party is committed.
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 import pdfplumber
@@ -49,11 +50,11 @@ def _words(path: Path, page: int = 1):
         return page_words(p), float(p.width)
 
 
-def _cite(path: Path, page: int, text: str, region: BBox | None = None, sha: str | None = None) -> Citation:
+def _cite(path: Path, page: int, text: str, region: BBox | tuple[BBox, ...] | None = None, sha: str | None = None) -> Citation:
     src = open_source(path)
     loc = {"kind": "page_quote", "page": page}
     if region is not None:
-        loc["region"] = region.model_dump()
+        loc["region"] = tuple(r.model_dump() for r in (region if isinstance(region, tuple) else (region,)))
     if sha is not None:
         loc["text_sha256"] = sha
     return Citation.model_validate({"source_file": path.name, "sha256_of_file": src.sha256, "locator": loc, "text": text})
@@ -375,3 +376,37 @@ def test_the_currency_set_at_confirmation_is_recorded_and_then_compared(usd_line
     g, c = _usd_gathered(usd_line)
     assert decide_typed(g, {c.line_id}, {}, confirmed_by="t", policy_source="chosen", currency_set="XYZ").refusal == \
         "currency_not_known"
+
+
+def test_a_passage_running_into_the_next_column_is_bounded_by_its_box_in_each_column(tmp_path):
+    """Family C C1 under D12, first run: the passage ran from the foot of the left column into the right one, its
+    single box covered the whole page, and a line printed again higher in the left column was "2 times inside the
+    region". The region is the passage's box in each column it covers."""
+    from proofgraph.ingest import ingest
+    from proofgraph.passes import _cite as cite_from_span
+    from proofgraph.schema import InstrumentLabel, SourceLabel
+
+    left = column_lines(42.5, 60, 4) + [(42.5, 112, "3. reimbursement for wages you lose during the")] \
+        + column_lines(42.5, 125, 20) + [(42.5, 400, "4. The next item begins here")] + column_lines(42.5, 420, 24)
+    right = column_lines(306.2, 60, 6) + [(306.2, 140, "3. reimbursement for wages you lose during the"),
+                                         (306.2, 153, "first 60 days after the occurrence begins.")] \
+        + column_lines(306.2, 166, 30)
+    path = write_pdf(tmp_path / "flow.pdf", [left + right])
+    sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    label = SourceLabel.model_validate_json(json.dumps({
+        "source_id": "flow", "file": path.name, "sha256_of_file": sha, "extractor": "pdf_columns", "url": None, "fetch_note": "test",
+        "edgar_type": None, "edgar_sequence": None,
+        "instruments": [{"doc_id": "flow", "version": "1", "instrument_type": "policy_form", "issuer": "x",
+                         "policy_numbers": ["P1"], "effective_date": None, "first_page": 1, "last_page": 1}]}))
+    inst = ingest(label, tmp_path).instruments[0]
+    sp = next(s for s in inst.spans if "first 60 days" in s.text)
+    assert len(sp.regions) == 2  # the foot of the left column, the head of the right one
+    quote = "3. reimbursement for wages you lose during the first 60 days after the occurrence begins."
+    start = " ".join(sp.text.split()).index(quote)
+    pos = sp.text.index("3. reimbursement for wages you lose during the\nfirst")
+    c = cite_from_span(sp, inst, pos, pos + len("3. reimbursement for wages you lose during the\nfirst 60 days"),
+                       open_source(path))
+    src = open_source(path)
+    assert start >= 0 and verify_citation(c, src) is None
+    union = c.model_copy(update={"locator": c.locator.model_copy(update={"region": (sp.bbox,)})})
+    assert "2 times inside the passage's region" in verify_citation(union, src)  # one box for the whole passage

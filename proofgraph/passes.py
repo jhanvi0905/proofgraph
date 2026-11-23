@@ -225,6 +225,7 @@ def _cite(sp: Span, inst: Instrument, start: int, end: int, src: Source) -> Cita
         line_end = sp.text.find("\n", end)
         line_end = len(sp.text) if line_end == -1 else line_end
         text = "\n".join(" ".join(ln.split()) for ln in sp.text[line_start:line_end].split("\n") if ln.strip())
-        locator = {"kind": "page_quote", "page": sp.page, "region": sp.bbox.model_dump() if sp.bbox else None,
+        region = sp.regions or ((sp.bbox,) if sp.bbox else ())
+        locator = {"kind": "page_quote", "page": sp.page, "region": tuple(b.model_dump() for b in region) or None,
                    "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()}
     return Citation.model_validate({"source_file": src.path.name, "sha256_of_file": src.sha256, "locator": locator, "text": text})

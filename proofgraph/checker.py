@@ -6,7 +6,8 @@ through a source adapter:
 - page_quote: each line of the expected text occurs exactly once on that PDF
   page, as found by the PDF parser (pdfplumber), not by this project's own text
   rebuild. When the citation records the region of the passage the model was
-  shown (D12 item 2), "exactly once" is counted inside that region; repeats
+  shown (D12 item 2: its box in each column it covers), "exactly once" is
+  counted inside that region; repeats
   elsewhere on the page are not ambiguity. The lines run top to bottom, all in one
   column, with no other line between them. Columns come from the page's own
   coordinates (proofgraph.geometry, D12 item 3), never from the page midpoint.
@@ -106,7 +107,7 @@ def verify_citation(c: Citation, src: Source, within: Instrument | None = None) 
             if found is None:
                 return f"page {loc.page} does not exist"
             if loc.region is not None:
-                found = [b for b in found if _inside(b, loc.region)]
+                found = [b for b in found if any(_inside(b, r) for r in loc.region)]
             if len(found) != 1:
                 what = "quote" if "\n" not in c.text else f"line {k} of the block"
                 return f"{what} occurs {len(found)} times{where} on page {loc.page}; must be exactly once"

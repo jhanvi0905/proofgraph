@@ -339,6 +339,7 @@ def _clauses(il: InstrumentLabel, text: str, lines: list[_Line], allcaps: bool):
             if boxes and len({ln.page for ln in body}) == 1 else None
         )
         span_text = text[s:e]
+        regions = _regions(body) if bbox is not None else ()
         return Span(
             span_id=span_id_for(il.doc_id, il.version, span_text, s, e),
             doc_id=il.doc_id,
@@ -350,6 +351,7 @@ def _clauses(il: InstrumentLabel, text: str, lines: list[_Line], allcaps: bool):
             section_path=(il.doc_id,) + cur_path + ((field,) if field else ()),
             bbox=bbox,
             layout=body[0].layout,
+            regions=regions,
         )
 
     for ln in lines:
@@ -386,6 +388,21 @@ def _clauses(il: InstrumentLabel, text: str, lines: list[_Line], allcaps: bool):
     sp = flush()
     if sp is not None:
         yield sp
+
+
+def _regions(body: list[_Line]) -> tuple[BBox, ...]:
+    """The passage's box in each column it covers (D12 item 2): consecutive lines in one column share a box."""
+    runs: list[tuple[int, list[BBox]]] = []
+    for ln in body:
+        if ln.bbox is None:
+            continue
+        col = column_of(ln.layout, ln.bbox.x0, ln.bbox.x1) if ln.layout is not None else 0
+        if runs and runs[-1][0] == col:
+            runs[-1][1].append(ln.bbox)
+        else:
+            runs.append((col, [ln.bbox]))
+    return tuple(BBox(x0=min(b.x0 for b in bs), top=min(b.top for b in bs), x1=max(b.x1 for b in bs),
+                      bottom=max(b.bottom for b in bs)) for _, bs in runs)
 
 
 _DEF_RE = re.compile(r"[\"“]([^\"”]{1,60})[\"”]\s+(?:means|includes)\b", re.I)

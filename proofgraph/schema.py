@@ -132,6 +132,7 @@ class Span(_Model):
     section_path: tuple[str, ...]
     bbox: BBox | None = None
     layout: PageLayout | None = None  # D12: the page geometry in force when the passage was read (PDFs)
+    regions: tuple[BBox, ...] = ()  # D12: the passage's box in each column it covers, in reading order (PDFs)
 
     @model_validator(mode="after")
     def _check(self) -> Span:
@@ -179,15 +180,17 @@ class PageQuote(_Model):
     offsets into extracted text move whenever the extractor changes, even when the
     page does not. Each line of the block must occur exactly once on the page, as
     found by the PDF parser (pdfplumber's page search), never by this project's
-    column rebuild. The lines must run top to bottom within one column.
+    column rebuild. The lines must run top to bottom within one column, consecutive. D12: columns come from
+    the page's coordinates, and when `region` is recorded, "exactly once" is counted inside it.
     """
 
     kind: Literal["page_quote"]
     page: int = Field(ge=1)
-    # D12 item 2: the region of the passage the model was shown (its box on the page). When present, each line
-    # must occur exactly once inside it; repeats elsewhere on the page are not ambiguity. None (hand-written
-    # citations, upload anchors): each line must occur once on the whole page, as before.
-    region: BBox | None = None
+    # D12 item 2: the region of the passage the model was shown: one box per column it covers on the page (a passage
+    # that runs from the foot of one column to the head of the next has two). When present, each line must occur
+    # exactly once inside it; repeats elsewhere on the page are not ambiguity. None (hand-written citations, upload
+    # anchors): each line must occur once on the whole page, as before.
+    region: tuple[BBox, ...] | None = None
     # sha256 of the quoted text when the citation was built. A mismatch means the citation is stale: read again.
     text_sha256: str | None = None
 
