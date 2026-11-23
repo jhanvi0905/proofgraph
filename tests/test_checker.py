@@ -72,7 +72,7 @@ def test_block_lines_out_of_order_are_broken(pdf):
 def test_a_block_spanning_both_columns_is_broken(pdf):
     left = '"Bodily injury" means bodily harm, sickness or'
     right = "Vacant land, other than farm land, owned by or"  # same row, right column
-    assert "both columns" in verify_citation(_pdf_cite(1, left + "\n" + right), pdf)
+    assert "more than one column" in verify_citation(_pdf_cite(1, left + "\n" + right), pdf)
 
 
 def test_a_page_quote_has_no_empty_lines():

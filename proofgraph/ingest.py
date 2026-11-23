@@ -7,9 +7,11 @@ Normalisation happens only inside span_id_for, for hashing.
 There are two extractors:
 - edgar_sgml: select one <DOCUMENT> by <TYPE>/<SEQUENCE>. The source text is that
   document's raw <TEXT> body, byte for byte, and <PAGE> markers give page numbers.
-- pdf_columns: build the text from pdfplumber words, in reading order. Lines that
-  cross the column gutter count as full width. The left column is emitted, then
-  the right column, then the full-width line. Pages are joined with a form feed.
+- pdf_columns: build the text from pdfplumber words, in reading order. Columns come
+  from page coordinates (proofgraph.geometry, D12): a page is single (whole-page
+  reading order) or has one or more gutters. Lines that cross a gutter count as full
+  width. The columns are emitted left to right, then the full-width line. Pages are
+  joined with a form feed. The geometry in force is recorded on each passage.
 """
 
 from __future__ import annotations
@@ -19,8 +21,10 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from proofgraph.geometry import FULL_WIDTH_MAX_GAP, column_of, page_layout, page_words, rows
 from proofgraph.schema import (
     BBox,
+    PageLayout,
     Definition,
     Extractor,
     IngestResult,
@@ -74,6 +78,7 @@ class _Line:
     end: int
     bbox: BBox | None
     bold: bool | None  # every word bold; None when the source has no fonts (EDGAR)
+    layout: PageLayout | None = None  # D12: the page's geometry (PDFs)
 
 
 # ---------------------------------------------------------------- EDGAR
@@ -133,12 +138,14 @@ def _pdf_text(path: Path) -> tuple[str, list[int], list[_Line]]:
                 parts.append("\f")
                 offset += 1
             page_starts.append(offset)
-            for i, (line_text, bbox, bold) in enumerate(_page_lines(page)):
+            page_lines, layout = _page_lines_layout(page)
+            for i, (line_text, bbox, bold) in enumerate(page_lines):
                 if i > 0:
                     parts.append("\n")
                     offset += 1
                 parts.append(line_text)
-                lines.append(_Line(page=page_no, start=offset, end=offset + len(line_text), bbox=bbox, bold=bold))
+                lines.append(_Line(page=page_no, start=offset, end=offset + len(line_text), bbox=bbox, bold=bold,
+                                   layout=layout))
                 offset += len(line_text)
     return "".join(parts), page_starts, lines
 
@@ -163,73 +170,46 @@ def pdf_text_layer(path: Path, first_pages: int = 3) -> tuple[int, list[str], bo
     return n, texts, has_text
 
 
-# Measured on HO 00 03 04 91: gaps between words are 0-7pt, column gutters 20pt+.
-_FULL_WIDTH_MAX_GAP = 12.0
-
-
-def _without_stamps(page):
-    """The page without watermark and stamp characters: any glyph more than three times the page's typical
-    text size ("SAMPLE", "SPECIMEN", "COPY" printed across the page). Body text, headings and footers are far
-    below that. Without this, stamp letters land inside sentences and no verbatim quote of them can verify."""
-    sizes = sorted(c["size"] for c in page.chars if c.get("text", "").strip())
-    if not sizes:
-        return page
-    limit = 3 * sizes[len(sizes) // 2]
-    return page.filter(lambda o: o.get("object_type") != "char" or o.get("size", 0) <= limit)
-
-
 def _page_lines(page) -> list[tuple[str, BBox, bool]]:
-    page = _without_stamps(page)
-    words = page.extract_words(x_tolerance=1.5, y_tolerance=2, keep_blank_chars=False, extra_attrs=["fontname"])
-    gutter = _gutter_x(words, page.width)
-    rows = _rows(words)
-
-    out: list[tuple[str, BBox, bool]] = []
-    left: list[tuple[str, BBox, bool]] = []
-    right: list[tuple[str, BBox, bool]] = []
-    for row in rows:
-        lw = [w for w in row if w["x1"] <= gutter]
-        rw = [w for w in row if w["x0"] >= gutter]
-        crosses = any(w["x0"] < gutter < w["x1"] for w in row)
-        narrow_gap = bool(lw and rw) and (min(w["x0"] for w in rw) - max(w["x1"] for w in lw)) < _FULL_WIDTH_MAX_GAP
-        if crosses or narrow_gap:
-            out += left + right + [_join(row)]
-            left, right = [], []
-        else:
-            if lw:
-                left.append(_join(lw))
-            if rw:
-                right.append(_join(rw))
-    return out + left + right
+    return _page_lines_layout(page)[0]
 
 
-def _gutter_x(words: list[dict], width: float) -> float:
-    """Midway between the left column's right margin and the right column's left margin.
+def _page_lines_layout(page) -> tuple[list[tuple[str, BBox, bool]], PageLayout]:
+    """The page's lines in reading order, and the geometry that set it (D12 item 3).
 
-    Margins are measured from the page's own words (95th percentile of left-column
-    right edges, 5th percentile of right-column left edges), so hanging list numbers
-    ("1." set into the gutter) do not move it. An earlier rule, "the x crossed by the
-    fewest words", put the gutter at x=331 on 8 of 18 ISO pages, inside the right
-    column's hanging numbers, and so misread reading order there.
+    Columns come from the page's coordinates (proofgraph.geometry, shared with the checker). A row with a
+    word across a gutter, or with too narrow a gap between two columns' words, is full width: the columns
+    read so far are emitted in order, then the row. A single-column page (no separable columns, or a table)
+    is read row by row, left to right.
     """
-    mid = width / 2
-    lefts = sorted(w["x1"] for w in words if w["x1"] < mid + 20 and w["x0"] < mid - 40)
-    rights = sorted(w["x0"] for w in words if w["x0"] > mid - 20 and w["x1"] > mid + 40)
-    if not lefts or not rights:
-        return mid
-    left_edge = lefts[int(len(lefts) * 0.95)]
-    right_edge = rights[int(len(rights) * 0.05)]
-    return (left_edge + right_edge) / 2 if left_edge < right_edge else mid
-
-
-def _rows(words: list[dict], tol: float = 2.0) -> list[list[dict]]:
-    rows: list[list[dict]] = []
-    for w in sorted(words, key=lambda w: (round(w["top"]), w["x0"])):
-        if rows and abs(rows[-1][0]["top"] - w["top"]) <= tol:
-            rows[-1].append(w)
+    words = page_words(page, extra_attrs=["fontname"])
+    layout = page_layout(words, page.width)
+    rws = rows(words)
+    if layout.kind == "single":
+        return [_join(r) for r in rws], layout
+    gutters = layout.gutters
+    out: list[tuple[str, BBox, bool]] = []
+    cols: list[list[tuple[str, BBox, bool]]] = [[] for _ in range(len(gutters) + 1)]
+    for row in rws:
+        parts: list[list[dict]] = [[] for _ in cols]
+        crosses = False
+        for w in row:
+            k = column_of(layout, w["x0"], w["x1"])
+            if k < 0:
+                crosses = True
+                break
+            parts[k].append(w)
+        occupied = [p for p in parts if p]
+        narrow_gap = not crosses and any(
+            min(w["x0"] for w in b) - max(w["x1"] for w in a) < FULL_WIDTH_MAX_GAP for a, b in zip(occupied, occupied[1:]))
+        if crosses or narrow_gap:
+            out += [ln for c in cols for ln in c] + [_join(row)]
+            cols = [[] for _ in cols]
         else:
-            rows.append([w])
-    return [sorted(r, key=lambda w: w["x0"]) for r in rows]
+            for k, p in enumerate(parts):
+                if p:
+                    cols[k].append(_join(p))
+    return out + [ln for c in cols for ln in c], layout
 
 
 def _join(words: list[dict]) -> tuple[str, BBox, bool]:
@@ -369,6 +349,7 @@ def _clauses(il: InstrumentLabel, text: str, lines: list[_Line], allcaps: bool):
             text=span_text,
             section_path=(il.doc_id,) + cur_path + ((field,) if field else ()),
             bbox=bbox,
+            layout=body[0].layout,
         )
 
     for ln in lines:

@@ -98,6 +98,20 @@ class BBox(_Model):
     bottom: float
 
 
+class PageLayout(_Model):
+    """D12 item 3: a page's columns, from its coordinates. `single` is whole-page reading order; `columns` lists
+    the gutters' x positions, ascending (one gutter: two columns; three: a 2-up page's four columns)."""
+
+    kind: Literal["single", "columns"]
+    gutters: tuple[float, ...]
+
+    @model_validator(mode="after")
+    def _check(self) -> PageLayout:
+        if (self.kind == "single") != (not self.gutters):
+            raise ValueError("a single-column page has no gutters, and a columns page has at least one")
+        return self
+
+
 def span_id_for(doc_id: str, version: str, text: str, start: int, end: int) -> str:
     """sha256 of (doc_id, version, normalised text, start, end), first 16 hex chars."""
     normalised = " ".join(text.split()).lower()
@@ -117,6 +131,7 @@ class Span(_Model):
     text: str
     section_path: tuple[str, ...]
     bbox: BBox | None = None
+    layout: PageLayout | None = None  # D12: the page geometry in force when the passage was read (PDFs)
 
     @model_validator(mode="after")
     def _check(self) -> Span:
@@ -169,6 +184,12 @@ class PageQuote(_Model):
 
     kind: Literal["page_quote"]
     page: int = Field(ge=1)
+    # D12 item 2: the region of the passage the model was shown (its box on the page). When present, each line
+    # must occur exactly once inside it; repeats elsewhere on the page are not ambiguity. None (hand-written
+    # citations, upload anchors): each line must occur once on the whole page, as before.
+    region: BBox | None = None
+    # sha256 of the quoted text when the citation was built. A mismatch means the citation is stale: read again.
+    text_sha256: str | None = None
 
 
 class Citation(_Model):

@@ -288,5 +288,6 @@ def _clip_to_block(inst: Instrument, page: int, block: str):
         start, end = sp.start + ra, sp.start + rb
         out.append(sp if (ra, rb) == (0, len(sp.text)) else sp.model_copy(update={
             "start": start, "end": end, "text": piece,
-            "span_id": span_id_for(sp.doc_id, sp.version, piece, start, end), "bbox": None}))
+            # D12: a clipped piece keeps its passage's box, a region that contains it
+            "span_id": span_id_for(sp.doc_id, sp.version, piece, start, end), "bbox": sp.bbox}))
     return tuple(out)
