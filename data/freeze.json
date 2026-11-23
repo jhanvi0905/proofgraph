@@ -1,5 +1,5 @@
 {
-  "note": "Domain-layer freeze (DECISIONS.md D8, re-taken at D9). Each file must stay byte-identical until a new decision supersedes the freeze. tests/test_freeze.py checks the hashes. D9 (2026-11-23, post-freeze, approved by the user) changed the arbiter, numbers, assertions, claims, schema, family A's claims and document mappings, and added family B's records, so the hashes below are the D9 freeze; the D8 hashes are in git history at domain-freeze (b353e20).",
+  "note": "Domain-layer freeze (DECISIONS.md D8, re-taken at D9). Each file must stay byte-identical until a new decision supersedes the freeze. tests/test_freeze.py checks the hashes. D9 (2026-11-23, post-freeze, approved by the user) changed the arbiter, numbers, assertions, claims, schema, family A's claims and document mappings, and added family B's records, so the hashes below are the D9 freeze; the D8 hashes are in git history at domain-freeze (b353e20). D11 (2026-11-23, accepted by the user) added data/regression_d11.json, the five typed-claim expectations written before any D11 code; no existing hash changed, because D11 lives outside the frozen files.",
   "frozen_on": "2026-11-23",
   "files": {
     "proofgraph/arbiter.py": "7450f056636e1d0998e17d892e4215ff0b2ae95501dd7fad67f493de77fa33b0",
@@ -19,7 +19,8 @@
     "data/family_b/slots.json": "d170acf99f8dd686bd342eecdbb52c2e29d570d9fd02384fea2cc77a7d079609",
     "data/family_b/document_mappings.json": "9e15f64b278336800a6c69b7d94d4b9bd29b2b5f076bf6da5d43b56258d47c5a",
     "data/family_b/labels.json": "b9fe078c760dc995bd15321c0566314906e76ced74f449a027a70490da356cb6",
-    "data/family_b/labels_d9.json": "3412c805c0526434eb3af3dfea0623e6f16fcaadceccf857f50793ea6fe8e6e7"
+    "data/family_b/labels_d9.json": "3412c805c0526434eb3af3dfea0623e6f16fcaadceccf857f50793ea6fe8e6e7",
+    "data/regression_d11.json": "e14f7923b055ea1c941182dc2459f6cc2b8460d05a49ac3d375938580a9b92d4"
   },
   "d8_frozen_on": "2026-11-22"
 }

@@ -81,3 +81,23 @@ What changed, each approved as worded:
 An uploaded file has no hand-marked scope block. Under the D3 admission rule only its identifying line would reach the model, so every upload would end not found. `DocumentRoute.scope` gains a value: `"citation"` (the default, every existing mapping) admits only text inside the citation; `"document"` admits the whole document once its identifying citation verifies. Only the upload flow writes `"document"`, and only after a person has confirmed the row.
 An uploaded endorsement's printed amends line (for example "Form HO 00 03 Only") becomes its `amends` route when the line verifies on its page. The amended document counts as present when another confirmed file's printed form number, edition dropped, appears in that line. This is string containment on printed text, nothing more; a line that repeats on its page is not recorded, so the check never rests on an ambiguous citation.
 **Consequence:** no existing verdict moves (every hand-labelled route keeps `"citation"`). An upload of HO 00 15 without HO 00 03 reaches `governing_instrument_absent`. `proofgraph/schema.py` is re-hashed in `data/freeze.json`.
+
+## D11. A confirmed grouping replaces the hand-written question list (2026-11-23, accepted)
+
+**Decision.** A claim is typed. Code reads its kind (amount, date or wording), its value, currency and basis, and any policy number in its text. The for and against reads run on the claim's own text. A person confirms which returned lines are about the claim's subject; the question is created from the confirmed lines (the policy, plus a label from the printed wording) and the decision tree runs unchanged on it. The eight questions in `slots.json` stay as a regression fixture, not as the accepted input. Supersedes D8's frozen question list as the interface, not as a fixture.
+
+**Why.** The fixed list bundled a guard (the model must not name or reinterpret the question) with scaffolding (a list written before every question there will ever be). The guard is kept: the model still names nothing; a person confirms the grouping. The list was harness that leaked into the product.
+
+**How, against the code** (the four fixes accepted with D11):
+1. **Policy before the reads.** Admission needs the question's policy before any model call (`pipeline.py`). The claim box takes the policy from the packet's confirmed document assignments. If code finds an exact policy number from those assignments in the claim text, the match is shown and the person accepts or changes it; it is never applied silently. Only the label comes from the confirmed lines.
+2. **Two phases with a frozen record between them.** *Gather*: atomize, retrieve and the for and against reads run under a run-local key (policy plus a slug of the claim text); every quote is verified as today; candidate lines are stored. *Decide*: after confirmation, the confirmed lines are re-keyed to the final key and `arbitrate` or `arbitrate_wording` runs. `arbiter.py`, `numbers.py`, `assertions.py`, `checker.py`, `passes.py`, `atomize.py` and `schema.py` stay byte-identical (`tests/test_freeze.py`).
+3. **The regression needs live calls.** Retrieval adds the key's words to its query, so a typed claim with no key sends the model a different top ten and recorded responses do not replay. A different answer on the regression is a finding, recorded, not a bug to tune away.
+4. **The basis can be set at confirmation.** When confirmed lines state a basis and the claim does not, the person sets the claim's basis on the confirmation screen. The run records that it was set there, not written by the claimant, and the result shows it the way it shows `grouping_mode`. D9's comparison rule is unchanged.
+
+**Recorded on every run:** `grouping_mode` (`person`, or `prefilled_from_mapping` with the row id), `basis_source` (`claimant` or `set_at_confirmation`), `policy_source` (`chosen` or `matched_in_claim` with the matched text), the dropped lines with text and reason, and documents with nothing found. Auto-accept is out of D11: unattended trust needs a second named confirmer and its own decision.
+
+**Refusals, each named:** the claim does not parse as an amount, a date or wording; it states more than one value; dates (until a comparator exists); no admitted document yielded a candidate line; no line was confirmed; plus every existing D9 reason.
+
+**Mapping rows** are keyed on form number and edition, never carrier or wording alone. Conflicting rows within one form switch pre-fill off and send the grouping to a person.
+
+**Before any code changed:** the five amount claims' expected answers and cited pages were written to `data/regression_d11.json` and hashed into `data/freeze.json`.
