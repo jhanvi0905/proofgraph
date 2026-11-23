@@ -24,6 +24,7 @@ from proofgraph.ingest import pdf_text_layer
 from proofgraph.model import complete_json
 from proofgraph.propose import Row, edition_date, propose, verify_line
 from proofgraph.schema import (
+    AmendsRoute,
     Citation,
     DocumentMapping,
     DocumentMappingFile,
@@ -183,7 +184,7 @@ class UploadStore:
         sent = {str(r.get("row_id", "")): r for r in body.get("rows", []) if isinstance(r, dict)}
         errors = [f"{placed[k]['file']}: not in the confirmation; confirm, correct or exclude every row" for k in placed if k not in sent]
         errors += [f"unknown row {k!r}" for k in sent if k not in placed]
-        routes, labels, doc_ids, record, excluded = [], [], set(), [], []
+        routes, labels, doc_ids, record, excluded, pending_amends = [], [], set(), [], [], []
         for key, row in placed.items():
             r = sent.get(key)
             if r is None:
@@ -227,7 +228,11 @@ class UploadStore:
             method = MappingMethod.JUDGMENT if how == "judgment" else MappingMethod.LABEL
             written = reason
             routes.append(DocumentMapping(doc_id=doc_id, describes=(DocumentRoute(
-                policy=policy, method=method, strength=strength, reasoning=written if how == "judgment" else None, citation=citation),)))
+                policy=policy, method=method, strength=strength, reasoning=written if how == "judgment" else None, citation=citation,
+                scope="citation" if scope is not None else "document"),)))
+            amends_q = next((q for q in row["quotes"] if q["field"] == "amends"), None)
+            if amends_q:
+                pending_amends.append((len(routes) - 1, amends_q, row, policy, src.sha256))
             eff = edition_date(row["edition"])
             labels.append(SourceLabel(
                 source_id=doc_id, file=row["stored"], url=None, fetch_note="uploaded by a person; see confirmed.json",
@@ -237,7 +242,20 @@ class UploadStore:
                                              effective_date=eff, first_page=1, last_page=row["pages"]),)))
             record.append({"doc_id": doc_id, "file": row["file"], "sha256": row["sha256"], "kind": kind, "policy": policy, "how": how,
                            "reason": written, "proposed_kind": row["kind"], "proposed_policy": row["policy"],
-                           "proposed_how": row["how"], "route_citation": citation.model_dump(mode="json")})
+                           "proposed_how": row["how"], "proposed_form": row["form_number"], "route_citation": citation.model_dump(mode="json")})
+        # D10: what an uploaded endorsement amends, from its printed line. The amended document counts as
+        # present when another confirmed file's printed form number (edition dropped) appears in that line.
+        cores = {_core(rec["proposed_form"]): rec["doc_id"] for rec in record if rec.get("proposed_form")}
+        for i, q, row, policy, sha in pending_amends:
+            cit = Citation.model_validate({"source_file": row["stored"], "sha256_of_file": sha,
+                                           "locator": {"kind": "page_quote", "page": q["page"]}, "text": q["text"]})
+            if verify_citation(cit, open_source(folder / "raw" / row["stored"])):
+                continue  # repeats on its page; the check cannot rest on it, so it is not recorded
+            line = " ".join(q["text"].upper().split())
+            hit = next((d for c, d in cores.items() if c and c in line and d != routes[i].doc_id), None)
+            routes[i] = routes[i].model_copy(update={"amends": AmendsRoute(
+                instrument=q["text"], instrument_doc_id=hit, policy=policy, method=MappingMethod.LABEL,
+                strength=RouteStrength.READ, reasoning=None, citation=cit)})
         if not routes and not errors:
             errors.append("every row was excluded; nothing is left to run")
         if errors:
@@ -257,6 +275,12 @@ class UploadStore:
         folder = self.dir(upload_id)
         mappings = DocumentMappingFile.model_validate_json((folder / "document_mappings.json").read_text(encoding="utf-8"))
         return folder, [m.doc_id for m in mappings.documents], mappings
+
+
+def _core(form: str) -> str:
+    """A printed form number without its edition: "HO 00 03 04 91" -> "HO 00 03"."""
+    t = " ".join((form or "").upper().split())
+    return re.sub(r"\s+\d{2}\s+\d{2}$", "", t)
 
 
 def _row_errors(kind: str, policy: str, how: str, reason: str, quotes: tuple[str, ...]) -> list[str]:

@@ -260,6 +260,10 @@ class DocumentRoute(_Model):
     strength: RouteStrength
     reasoning: str | None  # required for judgment
     citation: Citation
+    # D10: "citation" admits only text inside the citation (hand-labelled scopes). "document" admits the
+    # whole document once its identifying citation verifies: for uploads a person confirmed, where no
+    # one has marked a narrower block. The citation is still checked before anything is admitted.
+    scope: Literal["citation", "document"] = "citation"
 
     @model_validator(mode="after")
     def _check(self) -> DocumentRoute:

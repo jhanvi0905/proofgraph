@@ -253,3 +253,31 @@ def test_the_form_fallback_row_for_a_file_the_proposer_could_not_place(tmp_path)
 def test_review_stays_a_refusal_that_points_at_the_upload_flow(tmp_path):
     r = _client(tmp_path).post("/api/review")
     assert r.status_code == 400 and "guess which policy" in r.json()["refusal"] and "/api/upload" in r.json()["refusal"]
+
+
+def test_a_confirmed_upload_is_admitted_whole_and_its_printed_amends_line_is_recorded(tmp_path):
+    """D10. With no narrower block named, the whole document is admitted once its identifying line verifies,
+    and an endorsement's printed 'Form HO 00 03 Only' points at the uploaded HO 00 03 when it is there."""
+    from proofgraph.checker import open_source
+    from proofgraph.ingest import ingest
+    from proofgraph.retrieve import admit
+    from proofgraph.schema import DocumentMappingFile, SourceManifest
+    from proofgraph.trace import Trace
+
+    c = _client(tmp_path)
+    v = _upload(c, *ISO)
+    assert c.post(f"/api/upload/{v['upload_id']}/confirm", json=_confirm_body(v)).status_code == 200
+    folder = tmp_path / v["upload_id"]
+    mapping = DocumentMappingFile.model_validate_json((folder / "document_mappings.json").read_text())
+    by = {m.doc_id: m for m in mapping.documents}
+    assert all(m.describes[0].scope == "document" for m in mapping.documents)
+    assert by["ho_00_15_04_91"].amends.instrument_doc_id == "ho_00_03_04_91" and by["ho_00_03_04_91"].amends is None
+    label = SourceManifest.model_validate_json((folder / "instruments.json").read_text()).sources[0]
+    ing = ingest(label, folder / "raw")
+    admitted, _ = admit(ing.instruments, mapping, "SPECIMEN-HO3", open_source(folder / "raw" / label.file), Trace(None), ing.source.extractor)
+    assert sum(len(i.spans) for i in admitted) == sum(len(i.spans) for i in ing.instruments) > 1
+
+    alone = _upload(c, "ho_00_15_04_91.pdf")
+    assert c.post(f"/api/upload/{alone['upload_id']}/confirm", json=_confirm_body(alone)).status_code == 200
+    m = DocumentMappingFile.model_validate_json((tmp_path / alone["upload_id"] / "document_mappings.json").read_text())
+    assert m.documents[0].amends.instrument_doc_id is None  # its base form was not uploaded: the check will refuse

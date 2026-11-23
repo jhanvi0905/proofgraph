@@ -8,7 +8,7 @@
     "proofgraph/claims.py": "5c2ea830b168156b8f218dfe7a3f4aea069b8170c192f5b7ab05db1fb7de9d80",
     "proofgraph/checker.py": "9b09ae5727eff6d47f2960b9863abcacaa78fbaa9e7bbe074eededa8d7f87d7a",
     "proofgraph/passes.py": "4f9f23a926e79dd21269fef347c66e459b2ab812955a27a07b68dc6d92cd1fcf",
-    "proofgraph/schema.py": "2e5001d36af95a4e58190946613cbefdb1463cbbc388e969adff0d7eec50467d",
+    "proofgraph/schema.py": "8ba5d2f245af4fd434561ca00cea912be71f75540cd5076a6997fc7eda972043",
     "proofgraph/atomize.py": "50ca196d8cea77d20695da41f55917d0991ec67782c4e4a877ba77ddd3c4fa38",
     "data/predicates.json": "a793a7893a37fcf58d7c19f517fc985cde877e1bc7308eb6d54a76dcb1a20d5c",
     "data/slots.json": "2b17babd1a62af16954b648e288f786942fc8ba46a9a08dac8f8b73760be6b00",

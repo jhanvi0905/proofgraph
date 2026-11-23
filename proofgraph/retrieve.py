@@ -208,6 +208,10 @@ def admit(instruments: tuple[Instrument, ...], mappings: DocumentMappingFile, po
         if route is None or inst is None or verify_citation(route.citation, src, within=inst) is not None:
             continue
         loc = route.citation.locator
+        if route.scope == "document":  # D10: a confirmed upload with no narrower block: the whole document
+            admitted.append(inst)
+            routes.append((m.doc_id, route))
+            continue
         if isinstance(loc, PageQuote):
             pieces = _clip_to_block(inst, loc.page, route.citation.text)
             if not pieces:
