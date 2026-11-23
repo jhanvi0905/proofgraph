@@ -295,22 +295,40 @@
   function opts(list, cur) { return list.map(function (k) { return '<option value="' + esc(k) + '"' + (k === cur ? " selected" : "") + ">" + esc(k.replace(/_/g, " ")) + "</option>"; }).join(""); }
   function showProposal(v) {
     up.view = v; up.id = v.upload_id;
+    var proposed = (v.rows.filter(function (r) { return r.policy; })[0] || {}).policy || "";
+    $("up-policy").value = proposed;
+    $("up-why").value = "Uploaded together as one set of documents.";
+    try { $("up-who").value = $("up-who").value || localStorage.getItem("pg-who") || ""; } catch (e) {}
+    $("up-split").checked = false;
     var rows = v.rows.map(function (r) {
-      var printed = r.quotes.map(function (q) { return esc(q.text) + ' <small>(p. ' + q.page + ')</small>'; }).join("<br>") || "<em>nothing it could verify</em>";
-      if (r.status === "unplaceable") return '<tr class="out"><td>' + esc(r.file) + '</td><td colspan="5">Could not be placed: ' + esc(r.reason) + '</td></tr>';
-      return '<tr data-row="' + esc(r.row_id) + '"><td>' + esc(r.file) + '</td><td>' + printed + '</td><td><select data-f="kind">' + opts(v.kinds, r.kind) +
-        '</select></td><td><input type="text" data-f="policy" value="' + esc(r.policy) + '" aria-label="Policy it describes"></td><td><select data-f="how">' +
-        opts(v.how_options, r.how) + '</select><input type="text" data-f="reason" placeholder="Why, if judgment" value="' + esc(r.reason || "") + '" aria-label="Reason"></td><td>' +
-        // D13: the date code read from the printed effective-date line, or blank. The edition is never used.
-        '<input type="text" data-f="effective_date" value="' + esc(r.effective_date || "") + '" placeholder="None printed" aria-label="Effective date">' +
-        (r.effective_phrase ? '<small>Printed: &ldquo;' + esc(r.effective_phrase) + '&rdquo;</small>' : "") +
-        '<input type="text" data-f="effective_reason" placeholder="Why, if you typed it" aria-label="Why this effective date"></td></tr>';
+      var printed = r.quotes.filter(function (q) { return q.field === "form_number" || q.field === "title"; })
+        .map(function (q) { return q.text; }).filter(function (t, i, a) { return a.indexOf(t) === i; }).map(esc).join(" &middot; ");
+      if (r.status === "unplaceable") return '<tr class="out"><td colspan="3"><b>' + esc(r.file) + '</b><br>Could not be placed: ' + esc(r.reason) + '</td></tr>';
+      return '<tr data-row="' + esc(r.row_id) + '" data-how="' + esc(r.how || "judgment") + '" data-proposed-policy="' + esc(r.policy || "") +
+        '" data-proposed-date="' + esc(r.effective_date || "") + '"><td><b>' + esc(r.file) + '</b>' +
+        (printed ? '<small class="printed">Printed: ' + printed + '</small>' : '<small class="printed">Nothing printed it could verify</small>') +
+        '<input type="text" class="row-policy" data-f="policy" value="' + esc(r.policy || "") + '" placeholder="Policy or provision" aria-label="Policy for ' + esc(r.file) + '" hidden></td>' +
+        '<td><select data-f="kind" aria-label="Kind of document">' + (r.kind ? "" : '<option value="" selected>Choose…</option>') + opts(v.kinds, r.kind) + '</select></td><td>' +
+        '<input type="text" data-f="effective_date" value="' + esc(r.effective_date || "") + '" placeholder="' + (r.effective_phrase ? "No day printed: type one if it applies" : "None printed") + '" aria-label="Effective date">' +
+        (r.effective_phrase ? '<small class="printed">Printed: &ldquo;' + esc(r.effective_phrase) + '&rdquo;</small>' : "") +
+        '<input type="text" data-f="effective_reason" placeholder="Why this date" aria-label="Why this effective date" hidden></td></tr>';
     });
-    v.refused.forEach(function (r) { rows.push('<tr class="out"><td>' + esc(r.file) + '</td><td colspan="5">Refused: ' + esc(r.refusal) + '</td></tr>'); });
+    v.refused.forEach(function (r) { rows.push('<tr class="out"><td colspan="3"><b>' + esc(r.file) + '</b><br>Refused: ' + esc(r.refusal) + '</td></tr>'); });
     $("up-rows").innerHTML = rows.join("");
     $("up-confirm").hidden = false; $("up-question").hidden = true;
     $("up-confirm").scrollIntoView({ block: "start" });
   }
+  // A typed or changed date needs a reason; the field appears only then.
+  $("up-rows").addEventListener("input", function (e) {
+    if (e.target.dataset.f !== "effective_date") return;
+    var tr = e.target.closest("tr"), why = tr.querySelector('[data-f="effective_reason"]');
+    why.hidden = e.target.value.trim() === "" || e.target.value.trim() === tr.dataset.proposedDate;
+  });
+  $("up-split").addEventListener("change", function () {
+    var on = this.checked;
+    Array.prototype.forEach.call($("up-rows").querySelectorAll(".row-policy"), function (i) { i.hidden = !on; if (on && !i.value) i.value = $("up-policy").value; });
+    $("up-policy").disabled = on;
+  });
   $("up-go").addEventListener("click", function () {
     var f = $("files").files; if (!f.length) { upSay("Choose at least one PDF first."); return; }
     var fd = new FormData(); Array.prototype.forEach.call(f, function (x) { fd.append("files", x); });
@@ -322,11 +340,23 @@
   });
   $("up-ok").addEventListener("click", function () {
     var who = $("up-who").value.trim(); if (!who) { upSay("Enter your name: who is confirming what these documents are."); $("up-who").focus(); return; }
+    var split = $("up-split").checked, shared = $("up-policy").value.trim(), why = $("up-why").value.trim();
+    if (!split && !shared) { upSay("Name the policy or provision these documents belong to."); $("up-policy").focus(); return; }
+    var bad = 0;
     var rows = Array.prototype.map.call($("up-rows").querySelectorAll("tr[data-row]"), function (tr) {
       var o = { row_id: tr.dataset.row };
       Array.prototype.forEach.call(tr.querySelectorAll("[data-f]"), function (i) { o[i.dataset.f] = i.value.trim(); });
+      if (!split) o.policy = shared;
+      // "read" only where the proposal quoted this very policy from the page; anything else is the person's judgment, with the shared reason.
+      o.how = tr.dataset.how === "read" && o.policy === tr.dataset.proposedPolicy ? "read" : "judgment";
+      o.reason = o.how === "judgment" ? why : "";
+      if (o.effective_date && o.effective_date !== tr.dataset.proposedDate && !o.effective_reason) bad++;
       return o;
     });
+    if (rows.some(function (o) { return !o.kind; })) { upSay("Choose what kind each document is: it decides which rule can apply."); return; }
+    if (bad) { upSay("Say why for each date you typed or changed."); return; }
+    if (rows.some(function (o) { return o.how === "judgment"; }) && !why) { upSay("Say why these documents belong to that policy."); $("up-why").focus(); return; }
+    try { localStorage.setItem("pg-who", who); } catch (e) {}
     fetch("/api/upload/" + up.id + "/confirm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed_by: who, rows: rows }) })
       .then(function (r) { return r.json().then(function (j) { return [r.ok, j]; }); })
       .then(function (x) {

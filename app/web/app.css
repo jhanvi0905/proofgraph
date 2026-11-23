@@ -352,3 +352,22 @@ html.running .steps-nav { visibility: hidden; }
 .worked-qs[open] > summary { margin-bottom: .75rem; }
 .worked-qs > * + * { margin-top: 1rem; }
 .check #pk + .map-fold { margin-top: 1rem; }
+
+/* Upload confirmation: shared answers once, three columns per document. */
+.up-shared { display: grid; gap: .75rem 1.25rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 720px) { .up-shared { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.up-shared .field { display: grid; gap: .35rem; margin: 0; }
+.up-shared .field span { font-weight: 700; }
+.up-shared input, .up-table input, .up-table select { width: 100%; padding: .5rem .6rem; border: 2px solid #fff; border-radius: 0; background: #fff; color: var(--ink); font: inherit; }
+.up-shared input:disabled { opacity: .55; }
+.up-split { display: inline-flex; gap: .5rem; align-items: center; font-size: var(--t-13); }
+.up-table { min-width: 0; }
+.up-table td { font-size: var(--t-16); }
+.up-table .printed { display: block; opacity: .85; font-size: var(--t-13); margin: .2rem 0 .35rem; }
+.up-table input + input, .up-table .printed + input { margin-top: .35rem; }
+@media (max-width: 640px) {
+  .up-table thead { display: none; }
+  .up-table tr { display: grid; gap: .5rem; padding: .75rem 0; border-bottom: 1px solid rgba(255,255,255,.35); }
+  .up-table td { border: 0; padding: 0; }
+}
+#up-confirm > .field.narrow { max-width: 20rem; }

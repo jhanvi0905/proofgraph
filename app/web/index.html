@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="/web/tokens.css?v=3">
-<link rel="stylesheet" href="/web/app.css?v=28">
+<link rel="stylesheet" href="/web/app.css?v=30">
 <script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
@@ -148,9 +148,14 @@
         </fieldset>
         <fieldset class="step3" id="up-confirm" hidden>
           <legend><span class="n">2</span>Confirm what each document is</legend>
-          <p class="c-note">Proposed from the form number and title printed on each. Correct anything wrong. Your confirmation is recorded with the run.</p>
-          <div class="map-wrap"><table class="map"><thead><tr><th>Document</th><th>Printed on it</th><th>Kind</th><th>Policy it describes</th><th>How we know</th><th>Effective date</th></tr></thead><tbody id="up-rows"></tbody></table></div>
-          <label class="field narrow"><span>Confirmed by</span><input id="up-who" type="text" autocomplete="name" required></label>
+          <p class="c-note">Proposed from what is printed on each. Correct anything wrong; your confirmation is recorded with the run.</p>
+          <div class="up-shared">
+            <label class="field"><span>Policy or provision they belong to</span><input id="up-policy" type="text" placeholder="e.g. a policy number, or Section 223"></label>
+            <label class="field"><span>Why they belong to it</span><input id="up-why" type="text"></label>
+          </div>
+          <label class="up-split"><input type="checkbox" id="up-split"> These documents belong to different policies</label>
+          <div class="map-wrap"><table class="map up-table"><thead><tr><th>Document</th><th>Kind</th><th>Effective date</th></tr></thead><tbody id="up-rows"></tbody></table></div>
+          <label class="field narrow"><span>Your name</span><input id="up-who" type="text" autocomplete="name" required></label>
           <button class="btn inv" type="button" id="up-ok">Confirm</button>
         </fieldset>
         <fieldset class="step3 typed" id="utc" hidden>
@@ -243,7 +248,7 @@
     </nav>
   </section>
 </div>
-<script src="/web/app.js?v=20"></script>
+<script src="/web/app.js?v=23"></script>
 <script src="/web/motion.js?v=3"></script>
 </body>
 </html>

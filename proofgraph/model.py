@@ -69,7 +69,7 @@ def complete_json(prompt: str, schema: dict, *, system: str, template: str, effo
 
     import anthropic
 
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(timeout=90.0, max_retries=2)  # a hung request becomes an error in minutes, not a ten-minute silence
     t0 = time.monotonic()
     response = client.beta.messages.create(
         model=MODEL,
