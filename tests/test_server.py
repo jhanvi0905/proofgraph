@@ -58,8 +58,8 @@ def test_rule_one_page_names_the_rule_the_governing_form_and_boxes_the_lines(cli
 def test_disagreement_page_says_neither_rule_fired_and_why(client):
     stream, page = _run(client, "documents-disagree")
     assert '"status": "unresolved"' in stream
-    assert "This can’t be settled from these documents." in page and "no rule picks one" in page
-    assert "Neither precedence rule fired" in page
+    assert "This can’t be settled from these documents." in page and "no rule says which one controls" in page
+    assert "Neither rule applied" in page
     assert "Only Underwriters at Lloyd" in page and "<mark>" in page  # raw-text pane marks the cited characters
     assert "in scope: [" not in page and "support:" not in page  # no internal ids on the screen
 
@@ -87,14 +87,15 @@ def test_form_lists_each_packet_with_its_mapping_and_its_claims(client):
 
 def test_each_hero_example_gives_its_answer_and_names_why(client):
     """The three answers, the missing-document refusal and the quoted wording claim, each with its plain reason."""
-    want = {"endorsement-replaces-limit": ("supported", "HO 00 15 (endorsement) governs"),
+    want = {"endorsement-replaces-limit": ("supported", "HO 00 15 (endorsement) controls"),
             "claim-is-wrong": ("contradicted", "the claim says $1,500"),
-            "documents-disagree": ("unresolved", "different amounts and no rule picks one"),
-            "base-form-missing": ("unresolved", "would govern is not in the packet"),
+            "documents-disagree": ("unresolved", "different amounts, and no rule says which one controls"),
+            "base-form-missing": ("unresolved", "changes HO 00 03, and HO 00 03 is not among these documents"),
             "wording-quoted": ("quoted", "Quoted, not checked")}
     for sid, (status, words) in want.items():
         body = client.post(f"/api/sample/{sid}").text
         assert f'"status": "{status}"' in body and words in body, (sid, body[-600:])
+        assert "support:" not in body and "attack:" not in body and "_mismatch" not in body  # no internal ids in the reason line
 
 
 def test_every_question_with_a_claim_replays_to_its_label(client):
@@ -106,7 +107,7 @@ def test_every_question_with_a_claim_replays_to_its_label(client):
 
 def test_questions_outside_the_registry_or_without_a_claim_are_refused_before_running(client):
     r = client.post("/api/run/gillette/not.a.slot")
-    assert r.status_code == 400 and "not in the registry" in r.json()["refusal"]
+    assert r.status_code == 400 and "not on the fixed list" in r.json()["refusal"]
     r = client.post("/api/run/gillette/81385411.d_and_o.limit")
     assert r.status_code == 400 and "No claim has been written" in r.json()["refusal"]
 
@@ -117,4 +118,4 @@ def test_the_run_shows_what_the_model_was_allowed_to_see(client):
     assert '"name": "HO 00 15 (endorsement)"' in body and '"in_scope": true' in body
     # D9: the governing form is named on the page (see the rule-one test); the stream's one-line reason
     # names it only for resolved_by_rule, which this sample no longer is (app/server.py _reason)
-    assert "ho_00_15 governs" not in body  # never an internal id
+    assert "ho_00_15 controls" not in body  # never an internal id

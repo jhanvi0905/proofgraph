@@ -254,7 +254,7 @@
       }
       var name = d.source ? '<a href="' + esc(d.source) + '" target="_blank" rel="noopener">' + esc(d.name) + '<span class="sr"> (opens the original in a new tab)</span></a>' : esc(d.name);
       return '<tr><td>' + name + where + '</td><td>' + esc(d.kind) + '</td><td><code>' + esc(d.policy || "none recorded") + '</code></td><td class="how-' +
-        esc(d.strength || "none") + '">' + esc(d.how || "not mapped, so not admitted") + '</td></tr>';
+        esc(d.strength || "none") + '">' + esc(d.how || "no policy recorded, so the model does not see it") + '</td></tr>';
     }).join("");
     $("qs").innerHTML = p.questions.map(function (q) {
       var sub = !q.claim ? "No claim written for this question yet." : (q.kind === "wording" ? "Wording claim, quoted not checked: " : "Claim: ") + q.claim;
@@ -317,7 +317,7 @@
       .then(function () { btn.disabled = false; btn.textContent = "Read the documents"; });
   });
   $("up-ok").addEventListener("click", function () {
-    var who = $("up-who").value.trim(); if (!who) { upSay("Say who is confirming this mapping."); $("up-who").focus(); return; }
+    var who = $("up-who").value.trim(); if (!who) { upSay("Enter your name: who is confirming what these documents are."); $("up-who").focus(); return; }
     var rows = Array.prototype.map.call($("up-rows").querySelectorAll("tr[data-row]"), function (tr) {
       var o = { row_id: tr.dataset.row };
       Array.prototype.forEach.call(tr.querySelectorAll("[data-f]"), function (i) { o[i.dataset.f] = i.value.trim(); });
@@ -350,14 +350,14 @@
 
   function runSample(s) {
     state.passcode = $("passcode").value;
-    if (state.needPass && !state.passcode) { $("passcode").focus(); problem.textContent = "Enter the passcode to open a packet."; problem.hidden = false; return; }
+    if (state.needPass && !state.passcode) { $("passcode").focus(); problem.textContent = "Enter the passcode to run a check."; problem.hidden = false; return; }
     var fd = new FormData(); fd.append("passcode", state.passcode);
     current = s.id;
     run("/api/sample/" + s.id, fd, s.claim);
   }
 
   // Both examples, one click each: the case a rule decides, and the case it refuses to pick.
-  var LABEL = { "endorsement-replaces-limit": "the claim that is right", "documents-disagree": "the packet that can\u2019t be settled" };
+  var LABEL = { "endorsement-replaces-limit": "the claim that is right", "documents-disagree": "the example that can\u2019t be settled" };
   var samples = [], current = null;
   function sampleButton(s, cls) {
     var b = el("button", cls, LABEL[s.id] || s.title); b.type = "button"; b.title = s.title;

@@ -118,7 +118,7 @@ class UploadStore:
                 row = propose(path, name, stored, sha, trace, self.complete)
             except Exception as exc:  # report, never guess: the person can type a row instead
                 row = Row(file=name, stored=stored, sha256=sha, pages=pages, status="unplaceable",
-                          reason=f"{name} could not be placed: the proposer could not run ({type(exc).__name__}). "
+                          reason=f"{name} could not be identified: reading what is printed on it failed ({type(exc).__name__}). "
                                  "Type its kind, policy, how you know, and one line printed on it.")
             rows.append(row.model_dump(mode="json"))
         self._write(upload_id, {"upload_id": upload_id, "created_at": _now(), "rows": rows, "refused": refused})
@@ -149,7 +149,7 @@ class UploadStore:
     # ------------------------------------------------------------ the mapping form fallback
     def add_row(self, upload_id: str, body: dict) -> dict:
         if self.confirmed(upload_id):
-            raise Refusal("This mapping is already confirmed and frozen.", 409)
+            raise Refusal("These documents are already confirmed and can no longer be changed.", 409)
         state = self._read(upload_id)
         key = str(body.get("row_id", ""))
         row = next((r for r in state["rows"] if r["sha256"][:12] == key), None)
@@ -175,14 +175,14 @@ class UploadStore:
     def confirm(self, upload_id: str, body: dict) -> dict:
         folder = self.dir(upload_id)
         if self.confirmed(upload_id):
-            raise Refusal("This mapping is already confirmed and frozen.", 409)
+            raise Refusal("These documents are already confirmed and can no longer be changed.", 409)
         who = str(body.get("confirmed_by", "")).strip()
         if not who:
             raise Refusal("Say who confirmed this mapping (confirmed_by).")
         state = self._read(upload_id)
         placed = {r["sha256"][:12]: r for r in state["rows"] if r["status"] in ("proposed", "typed")}
         sent = {str(r.get("row_id", "")): r for r in body.get("rows", []) if isinstance(r, dict)}
-        errors = [f"{placed[k]['file']}: not in the confirmation; confirm, correct or exclude every row" for k in placed if k not in sent]
+        errors = [f"{placed[k]['file']}: not confirmed; confirm, correct or exclude every document" for k in placed if k not in sent]
         errors += [f"unknown row {k!r}" for k in sent if k not in placed]
         routes, labels, doc_ids, record, excluded, pending_amends = [], [], set(), [], [], []
         for key, row in placed.items():
@@ -204,9 +204,9 @@ class UploadStore:
                                                      "locator": {"kind": "page_quote", "page": r.get("scope_page")},
                                                      "text": "\n".join(" ".join(ln.split()) for ln in str(r.get("scope_text", "")).split("\n"))})
                 except Exception:
-                    row_errors.append(f"{row['file']}: the scope needs a page and one or more lines")
+                    row_errors.append(f"{row['file']}: give a page and at least one line from it")
                 if scope is not None and (broken := verify_citation(scope, src)):
-                    row_errors.append(f"{row['file']}: the scope does not check out: {broken}")
+                    row_errors.append(f"{row['file']}: these lines were not found on that page: {broken}")
                     scope = None
             if scope is not None:
                 citation = scope
@@ -215,7 +215,7 @@ class UploadStore:
                 citation = Citation.model_validate({"source_file": row["stored"], "sha256_of_file": src.sha256,
                                                     "locator": {"kind": "page_quote", "page": a["page"]}, "text": a["text"]})
                 if broken := verify_citation(citation, src):
-                    row_errors.append(f"{row['file']}: the identifying line does not check out: {broken}")
+                    row_errors.append(f"{row['file']}: the line you gave was not found on that page: {broken}")
             if row_errors:
                 errors += row_errors
                 continue
@@ -257,9 +257,9 @@ class UploadStore:
                 instrument=q["text"], instrument_doc_id=hit, policy=policy, method=MappingMethod.LABEL,
                 strength=RouteStrength.READ, reasoning=None, citation=cit)})
         if not routes and not errors:
-            errors.append("every row was excluded; nothing is left to run")
+            errors.append("every document was excluded, so there is nothing to check")
         if errors:
-            raise Refusal("The mapping was not confirmed.", 400, errors)
+            raise Refusal("What each document is was not confirmed.", 400, errors)
         mapping = DocumentMappingFile(note=f"Confirmed by {who} on {_now()}: uploaded documents, mapping proposed by the model and confirmed by a person.",
                                       documents=tuple(routes))
         (folder / "instruments.json").write_text(SourceManifest(note="Uploaded documents; kinds as confirmed.", sources=tuple(labels)).model_dump_json(indent=1), encoding="utf-8")

@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.limit import LiveRunLimit, visitor_id
 from app.upload import Refusal, UploadStore
-from app.result import _doc_name, crop_png, render
+from app.result import _absent_detail, _doc_name, crop_png, render
 from proofgraph.claims import load_claims
 from proofgraph.model import complete_json
 from proofgraph.pipeline import PacketRun, run_packet
@@ -99,8 +99,8 @@ def _sse(name: str, data: object) -> str:
 
 STATUS = {"supported": "supported", "contradicted": "contradicted", "unresolved": "unresolved", "not_found": "not_found",
           "quoted": "quoted"}
-RULE = {"endorsement_over_base": "an endorsement controls over the form it amends where they differ",
-        "later_effective_date": "the later effective date governs"}
+RULE = {"endorsement_over_base": "an endorsement overrides the form it changes where they differ",
+        "later_effective_date": "a later effective date overrides an earlier one"}
 
 
 def _reason(run: PacketRun, named: dict) -> str:
@@ -112,23 +112,26 @@ def _reason(run: PacketRun, named: dict) -> str:
     rule = f" ({RULE[v.governing_rule.value]})" if v.governing_rule and v.governing_rule.value in RULE else ""
     verdict = v.verdict.value
     if verdict == "supported":
-        return f"{gov} governs{rule} and states {v.governing_value}." if gov else f"The documents that state it agree on {v.governing_value}."
+        return f"{gov} controls{rule} and states {v.governing_value}." if gov else f"The documents that state it agree on {v.governing_value}."
     if verdict == "contradicted":
-        return (f"{gov or 'The governing document'} governs{rule} and states {v.governing_value}; "
+        return (f"{gov or 'The governing document'} controls{rule} and states {v.governing_value}; "
                 f"the claim says {v.claim_value}.")
     if verdict == "quoted" and v.quoted:
-        return f"Quoted from {_doc_name(v.quoted.doc_id, named)}, page {v.quoted.page}. Quoted, not checked: a wording claim gets no verdict."
+        return f"Quoted from {_doc_name(v.quoted.doc_id, named)}, page {v.quoted.page}. Quoted, not checked: a claim about wording is not judged."
     if verdict == "quoted":
         return "Quoted, not checked. " + (v.unresolved_detail or "")
     if v.unresolved_reason:
-        head = {"documents_disagree": "The documents state different amounts and no rule picks one.",
+        head = {"documents_disagree": "The documents state different amounts, and no rule says which one controls.",
                 "amounts_not_comparable": "The amounts cannot be compared.",
-                "governing_instrument_absent": "The document that would govern is not in the packet."}.get(v.unresolved_reason.value, "")
-        detail = v.unresolved_detail or ""
-        for d in sorted(named, key=len, reverse=True):  # document names, never internal ids
-            detail = detail.replace(d, _doc_name(d, named))
-        return f"{head} {detail}".strip()
-    return "No document in the packet addresses this question."
+                "governing_instrument_absent": "A document needed to decide this is missing."}.get(v.unresolved_reason.value, "")
+        # One plain sentence, never the arbiter's internal detail (assertion ids, reason codes): the evidence
+        # below the answer carries the specifics.
+        if v.unresolved_reason.value == "governing_instrument_absent":
+            return f"{head} {_absent_detail(v, named)}".strip()
+        if v.unresolved_reason.value == "amounts_not_comparable":
+            return f"{head} Their currency or basis (per loss, per claim, in total) differs, or one side does not state it."
+        return head
+    return "None of these documents addresses this question."
 
 
 def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: LiveRunLimit | None = None,
@@ -224,7 +227,7 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
             return JSONResponse({"refusal": "That packet is not available."}, status_code=404)
         claim = next((c for c in p["choices"] if c.claim_id == key), None) or p["claims"].get(key)
         if claim is None and key not in p["slots"]:
-            return JSONResponse({"refusal": "That question is not in the registry for this packet, so nothing ran."}, status_code=400)
+            return JSONResponse({"refusal": "That question is not on the fixed list for these documents, so nothing ran."}, status_code=400)
         if claim is None:
             return JSONResponse({"refusal": "No claim has been written for this question yet, so nothing ran."}, status_code=400)
         sample = {"id": f"{packet_id}:{claim.claim_id}", "title": f"{QUESTION.get(claim.slot, claim.slot)} ({p['title']})",
@@ -270,7 +273,7 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
     def upload_run(upload_id: str, slot: str, request: Request):
         try:
             if uploads.confirmed(upload_id) is None:
-                raise Refusal("The document mapping for this upload has not been confirmed by a person, so nothing ran.")
+                raise Refusal("No one has confirmed what each uploaded document is yet, so nothing ran.")
             folder, docs, mappings = uploads.packet(upload_id)
         except Refusal as exc:
             return refuse(exc)
@@ -280,11 +283,11 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
             known += [k for k in p["slots"] if k.split(".", 1)[0] in policies]
             claims.update({k: c for k, c in p["claims"].items() if k.split(".", 1)[0] in policies})
         if slot not in known:
-            return JSONResponse({"refusal": "This question is not in the registry for this packet, so nothing ran."}, status_code=400)
+            return JSONResponse({"refusal": "That question is not on the fixed list for these documents, so nothing ran."}, status_code=400)
         if slot not in claims:
             return JSONResponse({"refusal": "No claim has been written for this question yet, so nothing ran."}, status_code=400)
         if not os.environ.get("ANTHROPIC_API_KEY"):
-            return JSONResponse({"refusal": "No API key is configured on this server, so a live run cannot happen and nothing ran."}, status_code=400)
+            return JSONResponse({"refusal": "This server is not set up to call the model, so a new check cannot run. The worked examples still work."}, status_code=400)
         if not limit.allow(who(request)):
             return JSONResponse({"refusal": "Too many runs from here for now. Try again later."}, status_code=429)
         sample = {"id": f"upload-{upload_id}:{slot}", "title": f"{QUESTION.get(slot, slot)} (uploaded packet)", "claim": claims[slot],

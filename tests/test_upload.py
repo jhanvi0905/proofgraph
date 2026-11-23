@@ -175,7 +175,7 @@ def test_nothing_runs_on_an_unconfirmed_proposal(tmp_path, monkeypatch):
     c = _client(tmp_path)
     v = _upload(c, *ISO)
     r = c.post(f"/api/upload/{v['upload_id']}/run/SPECIMEN-HO3.jewelry_theft.special_limit")
-    assert r.status_code == 400 and "not been confirmed" in r.json()["refusal"]
+    assert r.status_code == 400 and "No one has confirmed" in r.json()["refusal"]
 
 
 def test_a_question_outside_the_registry_for_the_confirmed_policies_is_refused(tmp_path, monkeypatch):
@@ -185,7 +185,7 @@ def test_a_question_outside_the_registry_for_the_confirmed_policies_is_refused(t
     c.post(f"/api/upload/{v['upload_id']}/confirm", json=_confirm_body(v))
     for slot in ("not.a.slot", "FD960228.corp_reimbursement.retention"):  # unknown, and known but for a different policy
         r = c.post(f"/api/upload/{v['upload_id']}/run/{slot}")
-        assert r.status_code == 400 and r.json()["refusal"] == "This question is not in the registry for this packet, so nothing ran."
+        assert r.status_code == 400 and r.json()["refusal"] == "That question is not on the fixed list for these documents, so nothing ran."
 
 
 def test_no_key_refuses_and_a_key_runs_the_packet_from_the_upload_folder(tmp_path, monkeypatch):
@@ -197,7 +197,7 @@ def test_no_key_refuses_and_a_key_runs_the_packet_from_the_upload_folder(tmp_pat
     slot = "SPECIMEN-HO3.jewelry_theft.special_limit"
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     r = c.post(f"/api/upload/{v['upload_id']}/run/{slot}")
-    assert r.status_code == 400 and "No API key" in r.json()["refusal"]
+    assert r.status_code == 400 and "not set up to call the model" in r.json()["refusal"]
 
     seen = {}
 
