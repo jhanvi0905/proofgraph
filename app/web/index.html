@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="/web/tokens.css?v=3">
-<link rel="stylesheet" href="/web/app.css?v=30">
+<link rel="stylesheet" href="/web/app.css?v=31">
 <script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
@@ -149,12 +149,13 @@
         <fieldset class="step3" id="up-confirm" hidden>
           <legend><span class="n">2</span>Confirm what each document is</legend>
           <p class="c-note">Proposed from what is printed on each. Correct anything wrong; your confirmation is recorded with the run.</p>
-          <div class="up-shared">
-            <label class="field"><span>Policy or provision they belong to <small>(optional)</small></span><input id="up-policy" type="text" placeholder="Leave blank to treat them as one set"></label>
-            <label class="field"><span>Why they belong to it</span><input id="up-why" type="text"></label>
+          <label class="up-split"><input type="checkbox" id="up-split"> These documents are about different contracts or rules</label>
+          <div class="up-shared" hidden>
+            <p class="c-note">Name the contract or rule each document belongs to, so a later document only overrides one about the same thing.</p>
+            <label class="field"><span>Why each belongs where you put it</span><input id="up-why" type="text"></label>
+            <input id="up-policy" type="hidden">
           </div>
-          <label class="up-split"><input type="checkbox" id="up-split"> These documents belong to different policies</label>
-          <div class="map-wrap"><table class="map up-table"><thead><tr><th>Document</th><th>Kind</th><th>Effective date</th></tr></thead><tbody id="up-rows"></tbody></table></div>
+          <div class="map-wrap"><table class="map up-table"><thead><tr><th>Document</th><th>What it is</th><th>Effective date</th></tr></thead><tbody id="up-rows"></tbody></table></div>
           <label class="field narrow"><span>Your name</span><input id="up-who" type="text" autocomplete="name" required></label>
           <button class="btn inv" type="button" id="up-ok">Confirm</button>
         </fieldset>
@@ -248,7 +249,7 @@
     </nav>
   </section>
 </div>
-<script src="/web/app.js?v=24"></script>
+<script src="/web/app.js?v=27"></script>
 <script src="/web/motion.js?v=3"></script>
 </body>
 </html>

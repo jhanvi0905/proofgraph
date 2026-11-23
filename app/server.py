@@ -418,7 +418,7 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
         d.record["dropped"] = [{**x, "doc": _doc_name(x["doc_id"], named)} for x in d.record["dropped"]]
         d.record["nothing_found"] = [_doc_name(x, named) for x in d.record["nothing_found"]]
         rid = uuid.uuid4().hex[:12]
-        reviews[rid] = render(d.run, folder, "ProofGraph: a typed claim", question=f"A typed claim on policy {d.record['policy']}", record=d.record)
+        reviews[rid] = render(d.run, folder, "ProofGraph: a typed claim", question=("A typed claim on these documents" if d.record["policy"] == "Uploaded set" else f"A typed claim on policy {d.record['policy']}"), record=d.record)
         while len(reviews) > KEEP:
             reviews.popitem(last=False)
         status = STATUS.get(d.run.verdict.verdict.value, "error")

@@ -292,12 +292,16 @@
   $("files").addEventListener("change", function () {
     var n = this.files.length; $("files-label").textContent = n ? plural(n, "file") + " chosen" : "Choose PDF files";
   });
-  function opts(list, cur) { return list.map(function (k) { return '<option value="' + esc(k) + '"' + (k === cur ? " selected" : "") + ">" + esc(k.replace(/_/g, " ")) + "</option>"; }).join(""); }
+  // Plain names for the document kinds. Only "amends another document" lets the endorsement rule apply.
+  var KIND_LABEL = { policy_form: "Main document", declarations: "Schedule of amounts", endorsement: "Amends another document",
+    binder: "Temporary cover (binder)", cover_note: "Cover note", correspondence: "Letter or notice" };
+  function opts(list, cur) { return list.map(function (k) { return '<option value="' + esc(k) + '"' + (k === cur ? " selected" : "") + ">" + esc(KIND_LABEL[k] || k.replace(/_/g, " ")) + "</option>"; }).join(""); }
   function showProposal(v) {
     up.view = v; up.id = v.upload_id;
     var proposed = (v.rows.filter(function (r) { return r.policy; })[0] || {}).policy || "";
     $("up-policy").value = proposed;
-    $("up-why").value = "Uploaded together as one set of documents.";
+    $("up-why").value = "";
+    document.querySelector("#up-confirm .up-shared").hidden = true;
     try { $("up-who").value = $("up-who").value || localStorage.getItem("pg-who") || ""; } catch (e) {}
     $("up-split").checked = false;
     var rows = v.rows.map(function (r) {
@@ -307,8 +311,8 @@
       return '<tr data-row="' + esc(r.row_id) + '" data-how="' + esc(r.how || "judgment") + '" data-proposed-policy="' + esc(r.policy || "") +
         '" data-proposed-date="' + esc(r.effective_date || "") + '"><td><b>' + esc(r.file) + '</b>' +
         (printed ? '<small class="printed">Printed: ' + printed + '</small>' : '<small class="printed">Nothing printed it could verify</small>') +
-        '<input type="text" class="row-policy" data-f="policy" value="' + esc(r.policy || "") + '" placeholder="Policy or provision" aria-label="Policy for ' + esc(r.file) + '" hidden></td>' +
-        '<td><select data-f="kind" aria-label="Kind of document">' + (r.kind ? "" : '<option value="" selected>Choose…</option>') + opts(v.kinds, r.kind) + '</select></td><td>' +
+        '<input type="text" class="row-policy" data-f="policy" value="' + esc(r.policy || "") + '" placeholder="Contract or rule it belongs to" aria-label="Contract or rule for ' + esc(r.file) + '" hidden></td>' +
+        '<td><select data-f="kind" aria-label="Kind of document">' + opts(v.kinds, r.kind || "policy_form") + '</select></td><td>' +
         '<input type="text" data-f="effective_date" value="' + esc(r.effective_date || "") + '" placeholder="' + (r.effective_phrase ? "No day printed: type one if it applies" : "None printed") + '" aria-label="Effective date">' +
         (r.effective_phrase ? '<small class="printed">Printed: &ldquo;' + esc(r.effective_phrase) + '&rdquo;</small>' : "") +
         '<input type="text" data-f="effective_reason" placeholder="Why this date" aria-label="Why this effective date" hidden></td></tr>';
@@ -326,8 +330,8 @@
   });
   $("up-split").addEventListener("change", function () {
     var on = this.checked;
-    Array.prototype.forEach.call($("up-rows").querySelectorAll(".row-policy"), function (i) { i.hidden = !on; if (on && !i.value) i.value = $("up-policy").value; });
-    $("up-policy").disabled = on;
+    document.querySelector("#up-confirm .up-shared").hidden = !on;
+    Array.prototype.forEach.call($("up-rows").querySelectorAll(".row-policy"), function (i) { i.hidden = !on; });
   });
   $("up-go").addEventListener("click", function () {
     var f = $("files").files; if (!f.length) { upSay("Choose at least one PDF first."); return; }
@@ -342,8 +346,9 @@
     var who = $("up-who").value.trim(); if (!who) { upSay("Enter your name: who is confirming what these documents are."); $("up-who").focus(); return; }
     var split = $("up-split").checked, shared = $("up-policy").value.trim(), why = $("up-why").value.trim();
     // No name given: the uploads are one set. The label only groups them; the result says it was grouped by default.
-    var defaulted = !split && !shared;
-    if (defaulted) { shared = "Uploaded set"; if (!why || why === "Uploaded together as one set of documents.") why = "Uploaded together as one set; no policy named, so they are treated as one."; }
+    // Default: the uploads are one set. A proposed policy number is kept as the label; otherwise "Uploaded set".
+    if (!split) { shared = shared || "Uploaded set"; why = "Uploaded together and checked as one set."; }
+    else if (!why) { upSay("Say why each document belongs where you put it."); $("up-why").focus(); return; }
     var bad = 0;
     var rows = Array.prototype.map.call($("up-rows").querySelectorAll("tr[data-row]"), function (tr) {
       var o = { row_id: tr.dataset.row };
@@ -355,6 +360,7 @@
       if (o.effective_date && o.effective_date !== tr.dataset.proposedDate && !o.effective_reason) bad++;
       return o;
     });
+    if (split && rows.some(function (o) { return !o.policy; })) { upSay("Name the contract or rule for each document."); return; }
     if (rows.some(function (o) { return !o.kind; })) { upSay("Choose what kind each document is: it decides which rule can apply."); return; }
     if (bad) { upSay("Say why for each date you typed or changed."); return; }
     if (rows.some(function (o) { return o.how === "judgment"; }) && !why) { upSay("Say why these documents belong to that policy."); $("up-why").focus(); return; }
@@ -491,7 +497,8 @@
       problem.hidden = true;
       var go = $(pre + "-read"); go.disabled = true; go.textContent = "Reading the documents…";
       var why = { matched_in_claim: "named in your claim", only_in_packet: "the only one in these documents", chosen: "chosen by you" }[src];
-      $(pre + "-scope").innerHTML = '<p class="tc-match">Checking against <b>' + esc(pol) + "</b>, " + why + ".</p>";
+      $(pre + "-scope").innerHTML = pol === "Uploaded set" ? '<p class="tc-match">Checking against all the documents you uploaded.</p>'
+        : '<p class="tc-match">Checking against <b>' + esc(pol) + "</b>, " + why + ".</p>";
       post("/api/claim/gather", { packet: state.key, text: state.text, policy: pol, policy_source: src }).then(function (x) {
         go.disabled = false; go.textContent = "Find the lines";
         var ok = x[0], g = x[1];

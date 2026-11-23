@@ -259,7 +259,8 @@ def _record_line(r: dict) -> str:
     pol = (f"found in the claim (&ldquo;{E(r['policy'])}&rdquo;), shown and accepted" if r["policy_source"] == "matched_in_claim"
            else "the only one in these documents" if r["policy_source"] == "only_in_packet" else "chosen by the person")
     return (f'<p class="record"><strong>How this question was set.</strong> Grouping: {E(mode)}, by {E(r["confirmed_by"])}'
-            f'{", " + E(r["confirmed_on"]) if r.get("confirmed_on") else ""}. Policy {E(r["policy"])}: {pol}. '
+            f'{", " + E(r["confirmed_on"]) if r.get("confirmed_on") else ""}. '
+            f'{"Documents: uploaded and checked as one set. " if r["policy"] == "Uploaded set" else "Policy " + E(r["policy"]) + ": " + pol + ". "}'
             f'Basis: {E(BASIS_SOURCE.get(r["basis_source"], r["basis_source"]))}. '
             f'Currency: {E(CURRENCY_SOURCE.get(r.get("currency_source", "claimant"), r.get("currency_source", "")))}'
             f'{" (" + E(r["currency_set"]) + ")" if r.get("currency_set") else ""}. '
@@ -448,6 +449,8 @@ def _doc_name(doc_id: str | None, info) -> str:
     _, i = info[doc_id]
     kind = i.instrument_type.value.replace("_", " ")
     known = {"ho_00_03": "HO 00 03 (base form)", "ho_00_15": "HO 00 15 (endorsement)"}
+    if tuple(i.policy_numbers) == ("Uploaded set",):  # uploads checked as one set: the name is what is printed on it
+        return i.issuer
     number = f" {', '.join(i.policy_numbers)}" if i.policy_numbers else ""
     return known.get(doc_id, f"{i.issuer}, {kind}{number}")
 
