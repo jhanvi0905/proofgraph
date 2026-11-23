@@ -131,3 +131,30 @@ def test_no_fit_is_an_outcome_not_a_repair():
     res = atomize(CLAIM, PREDICATES, memory_trace(), fake)
     assert res.atoms == () and res.repairs == 0 and len(fake.calls) == 1
     assert res.errors[0].code is AtomErrorCode.NO_PREDICATE_FITS
+
+
+# ---- D12 item 4: wording first
+
+
+C4 = Claim(claim_id="c4", text="Under policy 1m23456789, lost wages are reimbursed only for the first 60 days after a cyber "
+           "disruption occurrence begins.", slot="1m23456789.typed_lost_wages", kind="wording")
+
+
+def test_a_wording_claim_about_a_duration_is_not_refused_by_the_amount_check():
+    """Family C C4. Before D12 the amount-shaped check refused it (missing_slot, or an unparseable "60 days")."""
+    no_value = _atom(subject="lost wages reimbursement after a cyber disruption occurrence", quantity_raw=None,
+                     conditions="only for the first 60 days after the occurrence begins")
+    days = _atom(subject="lost wages reimbursement period", quantity_raw="60 days")
+    for atom in (no_value, days):
+        w = ProposedAtom.model_validate_json(json.dumps(atom))
+        assert validate_atom_fields(w, PREDICATES, C4.slot, "amount")[0]  # the old path: refused
+        assert validate_atom_fields(w, PREDICATES, C4.slot, "wording") == ([], None)
+    res = atomize(C4, PREDICATES, memory_trace(), _fake({"atoms": [no_value], "no_fit_reason": None}))
+    assert res.errors == () and len(res.atoms) == 1 and res.atoms[0].quantity is None
+
+
+def test_a_wording_claim_still_gets_the_structural_checks():
+    w = ProposedAtom.model_validate_json(json.dumps(_atom(subject="it", quantity_raw=None)))
+    assert {e.code for e in validate_atom_fields(w, PREDICATES, C4.slot, "wording")[0]} == {AtomErrorCode.UNRESOLVED_REF}
+    w = ProposedAtom.model_validate_json(json.dumps(_atom(quantity_raw=None)))
+    assert {e.code for e in validate_atom_fields(w, PREDICATES, None, "wording")[0]} == {AtomErrorCode.MISSING_SLOT}

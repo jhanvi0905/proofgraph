@@ -142,15 +142,22 @@ def _parse(claim: Claim, text: str, predicates: PredicateSet) -> tuple[list[Atom
     atoms: list[Atom] = []
     errors: list[AtomError] = []
     for i, w in enumerate(wires):
-        errs, amount = validate_atom_fields(w, predicates, claim.slot)
+        errs, amount = validate_atom_fields(w, predicates, claim.slot, claim.kind)
         errors += errs
         if not errs:
             atoms.append(Atom(atom_id=f"{claim.claim_id}.a{i}", slot=claim.slot, quantity=amount, **w.model_dump()))
     return atoms, errors
 
 
-def validate_atom_fields(w: ProposedAtom, predicates: PredicateSet, claim_slot: str | None) -> tuple[list[AtomError], Amount | None]:
-    """Pure validation of one proposed atom. Exposed for tests; not a pipeline stage."""
+def validate_atom_fields(w: ProposedAtom, predicates: PredicateSet, claim_slot: str | None,
+                        claim_kind: str = "amount") -> tuple[list[AtomError], Amount | None]:
+    """Pure validation of one proposed atom. Exposed for tests; not a pipeline stage.
+
+    D12 item 4, wording first: the claim's kind is decided before this check (declared, or read by code
+    for a typed claim), never by the model. A wording claim reads no amount, so the amount-shaped checks
+    (a `states` atom needs a quantity or value; a quantity must parse with a currency) do not apply to it:
+    "the first 60 days" is wording, not an unparseable amount. The structural checks still do.
+    """
     errs: list[AtomError] = []
 
     def err(code: AtomErrorCode, field: str | None, detail: str) -> None:
@@ -177,8 +184,10 @@ def validate_atom_fields(w: ProposedAtom, predicates: PredicateSet, claim_slot: 
     if spec.name == "states":
         if not claim_slot:
             err(AtomErrorCode.MISSING_SLOT, "slot", "a states atom needs the claim file to give a slot")
-        if not w.quantity_raw and not w.value:
+        if claim_kind != "wording" and not w.quantity_raw and not w.value:
             err(AtomErrorCode.MISSING_SLOT, "quantity_raw", "states needs a quantity or a value")
+    if claim_kind == "wording":
+        return errs, None
     if w.quantity_raw and not any(e.field == "quantity_raw" for e in errs):
         parsed = parse_amount(w.quantity_raw)
         if isinstance(parsed, ParseFailure):
