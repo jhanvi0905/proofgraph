@@ -131,7 +131,9 @@ Written after Family C (`results/family_c.md`): every miss there came from a ste
 **Checks:** the D11 regression (5/5), family A (`pgrun verdict`, `pgrun derive`: `unresolved (documents_disagree)`) and family B (`pgrun familyb`: 11/11 D9 expectations, 5/8 preregistered as recorded) replay with no API key and the same answers. Family C, two fresh live runs: 5 of 5 preregistered answers each (`results/family_c.md`, "Under D12").
 
 
-## D13. Effective dates are read from the page; a person picks the figure in a multi-amount line (2026-11-24, accepted)
+## D13. Effective dates are read from the page; a person picks the figure in a multi-amount line (2026-11-24, accepted, built 2026-11-24)
+
+Status: accepted, built 2026-11-24.
 
 Both come from gaps in the insurance product, decided before any tax document was opened, so the tax run that follows stays a holdout.
 
@@ -140,3 +142,10 @@ Both come from gaps in the insurance product, decided before any tax document wa
 
 **Not decided here:** a claim about an amount as of a date ("the cap for tax year 2026"). That is a new claim kind and the expected break of the tax test; it gets its own decision after that test, written in response to what breaks.
 **Checks:** every existing test, the D11 regression, families A, B and C unchanged (Gillette's hand-typed dates are correct; the ISO forms have none). One re-hash after both land.
+
+**Built: 2026-11-24, with notes.** Commits `4f99170` (1), `e2ff5b2` (2). No frozen file changed (the arbiter, assertions, schema and checker are byte-identical), so the hashes in `data/freeze.json` stand; its note names D13. The support, attack and atomize prompts are unchanged; only the upload proposer's prompt gained a field, and no recorded response or replayed verdict depends on it. Where the text left a choice, the conservative option was taken:
+1. **Parsing (1).** `printed_date` in `proofgraph/propose.py` reads month-name dates ("June 1, 1996", "Dec. 31, 2025", "1 June 1996"), slash dates as month/day/year (as US forms print them; a two-digit year is 19yy from 50, else 20yy) and ISO dates. A line with no date, an impossible one, or two different dates ("6/1/96 to 6/1/99") gives none. The words around the date are kept in the phrase and never read.
+2. **Confirmation (1).** The row's effective date is prefilled with the parsed date and can be confirmed, corrected or cleared. The same date written another way counts as the printed one; a different date, or any date on a file with no verified line, is `typed_at_confirmation` and needs a reason; a cleared printed date is recorded as `cleared_at_confirmation`, and the document has no effective date. Recorded in `confirmed.json` with the phrase and the verified quote (page, occurrence, count). `InstrumentLabel` is unchanged, so the schema did not move. The edition is still kept as the instrument's version.
+3. **Which lines take a pick (2).** Only a value_ambiguous line whose verified quote states several amounts lists them. A quote with one amount and a pointer elsewhere in it (code and model disagree) is not offered a pick and stays `value_ambiguous`. A pick outside the list, or for a line that lists none, is ignored, so the line stays `value_ambiguous`.
+4. **The pick (2).** A pick is the position of a figure in the line's list, never its text, so a figure printed twice in one line is not ambiguous. The figure goes through the unchanged assertion step as a pointer inside the verified quote; its reading route is recorded as `set_at_confirmation`, a judgment. A picked figure that does not parse is refused (`figure_not_read`). To build that assertion after the reads, `PacketRun` now keeps the admitted instruments (`pipeline.py`, not frozen).
+

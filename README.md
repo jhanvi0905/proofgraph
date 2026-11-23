@@ -82,7 +82,7 @@ SEC_USER_AGENT="Your Name you@example.com" uv run pgrun demo
 - text from documents mapped to the claim's policy, inside each mapping's scope (`admit()` in [`retrieve.py`](proofgraph/retrieve.py));
 - one claim per pass (support or attack), never the whole packet ([`passes.py`](proofgraph/passes.py)).
 
-**The model returns:** a passage id, an exact quote, a pointer to the value inside it, a one-line reading. Code reads the value from the verified quote: one amount, code reads it; several, the pointer decides, only if it lies inside the quote; otherwise it refuses ([D12](DECISIONS.md)).
+**The model returns:** a passage id, an exact quote, a pointer to the value inside it, a one-line reading. Code reads the value from the verified quote: one amount, code reads it; several, the pointer decides, only if it lies inside the quote; otherwise a person picks the figure at confirmation, or it refuses ([D12](DECISIONS.md), [D13](DECISIONS.md)).
 
 **Code does the rest:**
 
