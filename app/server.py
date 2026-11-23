@@ -43,6 +43,7 @@ QUESTION = {
     "FD960228.corp_reimbursement.retention": "Corporate reimbursement retention on FD960228",
     "81385411.d_and_o.limit": "D&O limit on the Chubb excess layer (81385411)",
     "752-034765-96.d_and_o.limit": "D&O limit on the ERMA excess layer (752-034765-96)",
+    "SPECIMEN-HO3.jewelry_theft.loss_wording": "Which losses the jewelry limit covers (wording)",
 }
 KIND = {"policy_form": "Base form", "declarations": "Declarations", "endorsement": "Endorsement", "binder": "Binder",
         "cover_note": "Cover note", "correspondence": "Correspondence"}
@@ -50,35 +51,45 @@ HOW = {"read": "stated in the document", "derived": "derived from what it states
 
 
 def _packets() -> list[dict]:
-    """The two pre-loaded packets, each with every question the registry has for it. A question runs only
-    when a claim has been written for it; the others are listed and switched off."""
+    """The pre-loaded packets. Each lists its claims (one question can carry a right and a wrong claim) and every
+    registry question; a question with no claim written is listed and switched off."""
     fb = DATA / "family_b"
-    labels = json.loads((fb / "labels.json").read_text(encoding="utf-8"))
     claims_b = {c.claim_id: c for c in load_claims(fb / "claims.json", fb / "slots.json")}
-    by_slot_b = {claims_b[p["claim_id"]].slot: claims_b[p["claim_id"]] for p in labels["packets"] if p["packet_id"].endswith("-endorsed")}
+    claims_a = {c.claim_id: c for c in load_claims(DATA / "claims.json", DATA / "slots.json")}
     slots_b = [e["key"] for e in json.loads((fb / "slots.json").read_text(encoding="utf-8"))["slots"]]
     slots_a = [e["key"] for e in json.loads((DATA / "slots.json").read_text(encoding="utf-8"))["slots"]]
     mappings_a = DocumentMappingFile.model_validate_json((DATA / "document_mappings.json").read_text(encoding="utf-8"))
     mappings_b = DocumentMappingFile.model_validate_json((fb / "document_mappings.json").read_text(encoding="utf-8"))
-    by_slot_a = {c.slot: c for c in load_claims(DATA / "claims.json", DATA / "slots.json")}
-    return [
+    home = ["fb_jewelry", "fb_jewelry_wrong", "fb_jewelry_wording", "fb_money", "fb_firearms", "fb_silverware"]
+    packs = [
         {"id": "homeowners", "title": "ISO homeowners: base form HO 00 03 with endorsement HO 00 15",
-         "docs": ["ho_00_03", "ho_00_15"], "mappings": mappings_b, "slots": slots_b, "claims": by_slot_b,
-         "default": "SPECIMEN-HO3.jewelry_theft.special_limit"},
+         "docs": ["ho_00_03", "ho_00_15"], "mappings": mappings_b, "slots": slots_b, "choices": [claims_b[c] for c in home]},
+        {"id": "endorsement-alone", "title": "ISO homeowners: endorsement HO 00 15 without its base form",
+         "docs": ["ho_00_15"], "mappings": mappings_b, "slots": slots_b, "choices": [claims_b["fb_jewelry"]]},
         {"id": "gillette", "title": "Gillette D&O program, 1996 SEC filing",
-         "docs": [d.doc_id for d in mappings_a.documents], "mappings": mappings_a, "slots": slots_a, "claims": by_slot_a,
-         "default": "FD960228.corp_reimbursement.retention"},
+         "docs": [d.doc_id for d in mappings_a.documents], "mappings": mappings_a, "slots": slots_a, "choices": list(claims_a.values())},
     ]
+    for p in packs:  # by question: the first claim written for it (the upload flow and old links use this)
+        p["claims"] = {}
+        for c in p["choices"]:
+            p["claims"].setdefault(c.slot, c)
+        p["default"] = p["choices"][0].claim_id
+    return packs
 
 
 def _samples() -> list[dict]:
-    """The two runs the hero and the tests use, by their old ids."""
-    home, gil = _packets()
+    """The runs the hero and the tests use. Ids are stable links."""
+    home, alone, gil = _packets()
+    by = {c.claim_id: c for c in home["choices"]}
+
+    def s(sid, title, pack, claim):
+        return {"id": sid, "title": title, "claim": claim, "docs": pack["docs"], "mappings": pack["mappings"]}
     return [
-        {"id": "endorsement-replaces-limit", "title": "an endorsement that replaces a special limit (ISO HO 00 03 + HO 00 15)",
-         "claim": home["claims"][home["default"]], "docs": home["docs"], "mappings": home["mappings"]},
-        {"id": "documents-disagree", "title": "three documents that disagree on a retention (Gillette D&O, 1996)",
-         "claim": gil["claims"][gil["default"]], "docs": gil["docs"], "mappings": gil["mappings"]},
+        s("endorsement-replaces-limit", "a claim that is right (ISO HO 00 03 with HO 00 15)", home, by["fb_jewelry"]),
+        s("documents-disagree", "documents that disagree on a retention (Gillette D&O, 1996)", gil, gil["choices"][0]),
+        s("claim-is-wrong", "a claim that is wrong (ISO HO 00 03 with HO 00 15)", home, by["fb_jewelry_wrong"]),
+        s("base-form-missing", "an endorsement without its base form (ISO HO 00 15 alone)", alone, alone["choices"][0]),
+        s("wording-quoted", "a wording claim, quoted not checked (ISO HO 00 15)", home, by["fb_jewelry_wording"]),
     ]
 
 
@@ -86,21 +97,35 @@ def _sse(name: str, data: object) -> str:
     return f"event: {name}\ndata: {json.dumps(data)}\n\n"
 
 
-STATUS = {"supported": "supported", "contradicted": "contradicted", "unresolved": "unresolved", "not_found": "not_found"}
+STATUS = {"supported": "supported", "contradicted": "contradicted", "unresolved": "unresolved", "not_found": "not_found",
+          "quoted": "quoted"}
+RULE = {"endorsement_over_base": "an endorsement governs the form it amends",
+        "later_effective_date": "the later effective date governs"}
 
 
 def _reason(run: PacketRun, named: dict) -> str:
+    """One plain line under the answer: why, naming the governing document, or the reason it cannot decide."""
     v = run.verdict
     if v is None:
         return run.failure or ""
-    if v.supported_reason and v.supported_reason.value == "resolved_by_rule":
-        return f"Decided by a rule: {v.governing_rule.value.replace('_', ' ')}; {_doc_name(v.governing_doc_id, named)} governs."
+    gov = _doc_name(v.governing_doc_id, named) if v.governing_doc_id else None
+    rule = f" ({RULE[v.governing_rule.value]})" if v.governing_rule and v.governing_rule.value in RULE else ""
+    verdict = v.verdict.value
+    if verdict == "supported":
+        return f"{gov} governs{rule} and states {v.governing_value}." if gov else f"The documents that state it agree on {v.governing_value}."
+    if verdict == "contradicted":
+        return (f"{gov or 'The governing document'} governs{rule} and states {v.governing_value}; "
+                f"the claim says {v.claim_value}.")
+    if verdict == "quoted" and v.quoted:
+        return f"Quoted from {_doc_name(v.quoted.doc_id, named)}, page {v.quoted.page}. Quoted, not checked: a wording claim gets no verdict."
+    if verdict == "quoted":
+        return "Quoted, not checked. " + (v.unresolved_detail or "")
     if v.unresolved_reason:
-        return {"documents_disagree": "The documents state different amounts and no rule picks one.",
-                "uncompared_agreement": "The amounts match but could not be compared on the same terms."}[v.unresolved_reason.value]
-    if v.supported_reason:
-        return "Nothing disputes it."
-    return "No admitted passage states a value for this."
+        head = {"documents_disagree": "The documents state different amounts and no rule picks one.",
+                "amounts_not_comparable": "The amounts cannot be compared.",
+                "governing_instrument_absent": "The document that would govern is not in the packet."}.get(v.unresolved_reason.value, "")
+        return f"{head} {v.unresolved_detail or ''}".strip()
+    return "No document in the packet addresses this question."
 
 
 def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: LiveRunLimit | None = None,
@@ -144,7 +169,7 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
             if run.verdict and run.verdict.unresolved_reason:
                 yield _sse("disagreement", {"part_id": "a0", "text": _reason(run, named)})
             rid = uuid.uuid4().hex[:12]
-            reviews[rid] = render(run, data, f"ProofGraph: {sample['title']}")
+            reviews[rid] = render(run, data, f"ProofGraph: {sample['title']}", question=QUESTION.get(claim.slot, claim.slot), rerun=sample.get("rerun"))
             while len(reviews) > KEEP:
                 reviews.popitem(last=False)
             yield _sse("done", {"review_id": rid, "status": status,
@@ -165,6 +190,7 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
         sample = next((s for s in _samples() if s["id"] == sample_id), None)
         if sample is None:
             return JSONResponse({"refusal": "That example is not available."}, status_code=404)
+        sample = {**sample, "rerun": f"/?sample={sample_id}"}
         return StreamingResponse(stream(sample), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
 
     @app.get("/api/packets")
@@ -179,22 +205,26 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
                 docs.append({"doc_id": d, "name": _doc_name(d, {d: (None, i)}), "kind": KIND[i.instrument_type.value],
                              "policy": m.policy if m else None, "how": HOW[m.strength.value] if m else None,
                              "strength": m.strength.value if m else None, "effective": i.effective_date})
-            qs = [{"slot": k, "label": QUESTION.get(k, k), "claim": p["claims"][k].text if k in p["claims"] else None}
-                  for k in p["slots"]]
+            qs = [{"id": c.claim_id, "slot": c.slot, "label": QUESTION.get(c.slot, c.slot), "claim": c.text, "kind": c.kind}
+                  for c in p["choices"]]
+            qs += [{"id": k, "slot": k, "label": QUESTION.get(k, k), "claim": None, "kind": None}
+                   for k in p["slots"] if k not in p["claims"]]
             out.append({"id": p["id"], "title": p["title"], "docs": docs, "questions": qs, "default": p["default"]})
         return out
 
-    @app.post("/api/run/{packet_id}/{slot}")
-    def run_question(packet_id: str, slot: str):
+    @app.post("/api/run/{packet_id}/{key}")
+    def run_question(packet_id: str, key: str):
+        """`key` is a claim id, or a registry question (which runs its first claim)."""
         p = next((x for x in _packets() if x["id"] == packet_id), None)
         if p is None:
             return JSONResponse({"refusal": "That packet is not available."}, status_code=404)
-        if slot not in p["slots"]:
+        claim = next((c for c in p["choices"] if c.claim_id == key), None) or p["claims"].get(key)
+        if claim is None and key not in p["slots"]:
             return JSONResponse({"refusal": "That question is not in the registry for this packet, so nothing ran."}, status_code=400)
-        if slot not in p["claims"]:
+        if claim is None:
             return JSONResponse({"refusal": "No claim has been written for this question yet, so nothing ran."}, status_code=400)
-        sample = {"id": f"{packet_id}:{slot}", "title": f"{QUESTION.get(slot, slot)} ({p['title']})",
-                  "claim": p["claims"][slot], "docs": p["docs"], "mappings": p["mappings"]}
+        sample = {"id": f"{packet_id}:{claim.claim_id}", "title": f"{QUESTION.get(claim.slot, claim.slot)} ({p['title']})",
+                  "claim": claim, "docs": p["docs"], "mappings": p["mappings"], "rerun": f"/?run={packet_id}/{claim.claim_id}"}
         return StreamingResponse(stream(sample), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
 
     def refuse(exc: Refusal) -> JSONResponse:

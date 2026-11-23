@@ -46,14 +46,18 @@ def test_rule_one_page_names_the_rule_the_governing_form_and_boxes_the_lines(cli
     # governing form over agreeing values: no_conflict, not "decided by a rule".
     assert "Supported, decided by a rule" not in page and "Rule applied: endorsement over base form" in page
     assert "HO 00 15 (endorsement)" in page and "Governs" in page
-    assert page.count("data:image/png;base64,") == 2  # both pages, cited lines boxed
+    assert "The claim is right." in page and "<b>$1,000</b>" in page  # answer first, the claim's amount in bold
+    assert page.count("data:image/png;base64,") == 3  # the governing page up front, then both pages in the chain
+    assert page.index("The claim is right.") < page.index("How this was decided")  # conclusion before mechanism
+    assert "Re-run this check" in page and "sha256" in page and "Commit" in page
     assert "compared: same amount" in page  # the pair's reason in plain words
 
 
 def test_disagreement_page_says_neither_rule_fired_and_why(client):
     stream, page = _run(client, "documents-disagree")
     assert '"status": "unresolved"' in stream
-    assert "Can’t be settled from these documents: they disagree" in page and "Neither precedence rule fired" in page
+    assert "This can’t be settled from these documents." in page and "no rule picks one" in page
+    assert "Neither precedence rule fired" in page
     assert "Only Underwriters at Lloyd" in page and "<mark>" in page  # raw-text pane marks the cited characters
     assert "in scope: [" not in page and "support:" not in page  # no internal ids on the screen
 
@@ -63,23 +67,36 @@ def test_uploads_are_refused_with_a_reason(client):
     assert r.status_code == 400 and "guess which policy" in r.json()["refusal"]
 
 
-def test_form_lists_each_packet_with_its_mapping_and_registry_questions(client):
+def test_form_lists_each_packet_with_its_mapping_and_its_claims(client):
     packs = {p["id"]: p for p in client.get("/api/packets").json()}
-    assert set(packs) == {"homeowners", "gillette"}
+    assert set(packs) == {"homeowners", "endorsement-alone", "gillette"}
     home = packs["homeowners"]
     assert [d["kind"] for d in home["docs"]] == ["Base form", "Endorsement"]
-    # D9 added a wording question to the registry; the form lists it, with no amount claim wired to it
-    assert all(q["claim"] for q in home["questions"] if not q["slot"].endswith(".loss_wording")) and len(home["questions"]) == 5
+    ids = [q["id"] for q in home["questions"] if q["claim"]]
+    assert ids[:3] == ["fb_jewelry", "fb_jewelry_wrong", "fb_jewelry_wording"] and len(ids) == 6
+    assert [d["kind"] for d in packs["endorsement-alone"]["docs"]] == ["Endorsement"]
     gil = packs["gillette"]
-    runnable = [q["slot"] for q in gil["questions"] if q["claim"]]
-    assert runnable == ["FD960228.corp_reimbursement.retention"]
+    assert [q["slot"] for q in gil["questions"] if q["claim"]] == ["FD960228.corp_reimbursement.retention"]
     assert {d["strength"] for d in gil["docs"]} == {"read", "derived", "judgment"}
+
+
+def test_each_hero_example_gives_its_answer_and_names_why(client):
+    """The three answers, the missing-document refusal and the quoted wording claim, each with its plain reason."""
+    want = {"endorsement-replaces-limit": ("supported", "HO 00 15 (endorsement) governs"),
+            "claim-is-wrong": ("contradicted", "the claim says $1,500"),
+            "documents-disagree": ("unresolved", "different amounts and no rule picks one"),
+            "base-form-missing": ("unresolved", "would govern is not in the packet"),
+            "wording-quoted": ("quoted", "Quoted, not checked")}
+    for sid, (status, words) in want.items():
+        body = client.post(f"/api/sample/{sid}").text
+        assert f'"status": "{status}"' in body and words in body, (sid, body[-600:])
 
 
 def test_every_question_with_a_claim_replays_to_its_label(client):
     for slot in ("SPECIMEN-HO3.money.special_limit", "SPECIMEN-HO3.firearms_theft.special_limit",
                  "SPECIMEN-HO3.silverware_theft.special_limit"):
         assert '"status": "supported"' in client.post(f"/api/run/homeowners/{slot}").text
+    assert '"status": "contradicted"' in client.post("/api/run/homeowners/fb_jewelry_wrong").text
 
 
 def test_questions_outside_the_registry_or_without_a_claim_are_refused_before_running(client):

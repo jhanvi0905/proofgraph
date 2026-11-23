@@ -40,7 +40,8 @@ RULE_WORDS = {
 STRENGTH = {"read": "read in the document", "derived": "derived mechanically", "judgment": "a judgment"}
 
 
-def render(run: PacketRun, data: Path, title: str) -> str:
+def render(run: PacketRun, data: Path, title: str, question: str | None = None, rerun: str | None = None) -> str:
+    """One screen, read like a report: question, claim, answer, why. The chain sits collapsed below it."""
     manifest = SourceManifest.model_validate_json((data / "instruments.json").read_text(encoding="utf-8"))
     info = {i.doc_id: (s, i) for s in manifest.sources for i in s.instruments}
     v = run.verdict
@@ -49,57 +50,168 @@ def render(run: PacketRun, data: Path, title: str) -> str:
     if run.failure or v is None:
         body = f'<p class="fail">The check stopped: {E(run.failure or "no verdict")}. Nothing after this point was read.</p>'
         return _page(title, body)
+    names.update({c.clause_id: _doc_name(c.doc_id, info) for c in v.clauses})  # wording claims rank clauses, not amounts
 
-    verdict_html = _verdict(v, names, info)
+    claim = E(run.claim.text)
+    if v.claim_value and E(v.claim_value) in claim:
+        claim = claim.replace(E(v.claim_value), f"<b>{E(v.claim_value)}</b>", 1)
+    head = f"""<header class="q">
+  <p class="q-label">Question</p>
+  <h1>{E(question or run.claim.slot)}</h1>
+  <p class="claim"><span class="q-label">Claim</span> {claim}</p>
+</header>"""
     rows = "".join(_assertion(a, v, names[a.assertion_id], info, data) for a in run.assertions) or \
         '<p class="empty">No document in this packet states a value for this. Nothing was cited.</p>'
-    pairs = _pairs(v, names)
-    rules = _rules(v, info, names)
-    body = f"""
-<header class="q">
-  <h1>Does the packet support this claim?</h1>
-  <p class="claim">“{E(run.claim.text)}”</p>
-  <p class="meta">Checked against {len(run.documents)} admitted document{'s' if len(run.documents) != 1 else ''}: {E(", ".join(_doc_name(d, info) for d, _ in run.documents))}.</p>
-</header>
-{verdict_html}
-{rules}
-<section aria-labelledby="ev"><h2 id="ev">What each document states, and where</h2>{rows}</section>
-{pairs}
-<footer>
-  <p><strong>Who wrote what.</strong> The claim, its question (<code>{E(run.claim.slot)}</code>), and which policy each document describes are written by a person.
-  The model read the admitted passages and pointed at the values; code parsed every amount, compared every pair, applied the precedence rules,
-  and checked every citation against the file. Nothing on this page is generated prose standing in for a document.</p>
-</footer>"""
+    chain = f"""<details class="chain">
+  <summary>How this was decided: what the model saw, the two passes, the rule</summary>
+  {_admitted(run, v, info)}
+  {_rules(v, info, names)}
+  <section aria-labelledby="ev"><h2 id="ev">What each document states, and where</h2>
+  <p class="why">A support pass and a separate attack pass each saw only the claim and the admitted passages. The model located and quoted; code parsed every amount and checked every quote against the file.</p>{rows}</section>
+  {_pairs(v, names) if v.verdict.value != "quoted" else _clauses(v, info)}
+</details>"""
+    body = f"""{head}
+{_answer(run, v, names, info, data)}
+{chain}
+{_footer(run, info, rerun)}"""
     return _page(title, body)
 
 
-# ---------------------------------------------------------------- sections
+# ---------------------------------------------------------------- the answer, then why
+
+ANSWER = {
+    "supported": ("green", "tick", "The claim is right."),
+    "contradicted": ("red", "circle", "The claim is wrong."),
+    "unresolved": ("clash", "clash", "This can\u2019t be settled from these documents."),
+    "not_found": ("clash", "clash", "This can\u2019t be settled from these documents."),
+    "quoted": ("slate", "bracket", "Quoted, not checked."),
+}
+RULE_WHY = {"endorsement_over_base": "an endorsement governs the form it amends",
+            "later_effective_date": "the later effective date governs the earlier"}
 
 
-def _verdict(v, names, info) -> str:
-    reason = v.supported_reason or v.unresolved_reason or v.not_found_reason
-    r = reason.value if reason else ""
-    if v.verdict.value == "supported" and r == "resolved_by_rule":
-        cls, mark, word = "green", "tick", "Supported, decided by a rule"
-        gov = _doc_name(v.governing_doc_id, info)
-        line = (f"The documents could not be compared directly, so a precedence rule decided which one governs: "
-                f"<strong>{E(gov)}</strong>.")
-    elif v.verdict.value == "supported":
-        cls, mark, word = "green", "tick", "Supported"
-        line = "The documents that state this agree, and nothing disputes it. No rule had anything to decide."
-    elif v.verdict.value == "unresolved" and r == "documents_disagree":
-        cls, mark, word = "clash", "clash", "Can\u2019t be settled from these documents: they disagree"
-        line = "Documents state different amounts, and no precedence rule applies to pick one. The system refuses to choose."
-    elif v.verdict.value == "unresolved":
-        cls, mark, word = "amber", "caret", "Can\u2019t be settled from these documents: the amounts match but could not be compared"
-        line = "The amounts match, but they could not be compared on the same terms, and no rule applies."
+def _answer(run, v, names, info, data: Path) -> str:
+    cls, mark, word = ANSWER[v.verdict.value]
+    gov = next((a for a in run.assertions if a.assertion_id == v.governing_assertion), None)
+    gov_name = _doc_name(v.governing_doc_id, info) if v.governing_doc_id else None
+    rule = RULE_WHY.get(v.governing_rule.value) if v.governing_rule else None
+    verdict = v.verdict.value
+    if verdict in ("supported", "contradicted"):
+        lead = f"<strong>{E(gov_name)} governs</strong>" if gov_name else "<strong>The documents that state it agree</strong>"
+        if rule:
+            others = sorted({names[a] for a in v.in_scope if a in names and a != v.governing_assertion and names[a] != gov_name})
+            lead += f" over {E(' and '.join(others))}: {E(rule)}." if others else f": {E(rule)}."
+        else:
+            lead += "."
+        amounts = (f'<div class="amounts"><div><span class="q-label">The claim says</span><span class="amt">{E(v.claim_value or "")}</span></div>'
+                   f'<div><span class="q-label">{E(gov_name or "The documents")} {"state" if not gov_name else "states"}</span>'
+                   f'<span class="amt">{E(v.governing_value or "")}</span></div></div>')
+        why = f'<p class="why-line">{lead}</p>{amounts}'
+    elif verdict == "quoted":
+        q = v.quoted
+        why = (f'<p class="why-line">A wording claim gets no verdict. Here is the clause that governs, quoted with its page.'
+               f'{" " + E(v.unresolved_detail) if v.unresolved_detail and not q else ""}</p>')
+        if v.clashes:
+            why += ('<p class="why-line clash-note">The attack pass flagged a clause that may read differently. That is the model&rsquo;s '
+                    'reading, a judgment, and it is shown in full below, never as a verdict.</p>')
     else:
-        cls, mark, word = "slate", "bracket", "Not in these documents"
-        line = "No admitted passage states a value for this."
+        reason = v.unresolved_reason.value if v.unresolved_reason else "no_addressing_span"
+        head = {"documents_disagree": "The documents state different amounts, and no rule picks one.",
+                "amounts_not_comparable": "The amounts cannot be compared.",
+                "governing_instrument_absent": "The document that would govern is not in the packet.",
+                "no_addressing_span": "No document in the packet addresses this question."}[reason]
+        detail = (_absent_detail(v, info) if reason == "governing_instrument_absent"
+                  else "" if reason == "documents_disagree" else _human(v.unresolved_detail or "", names))
+        states = "".join(f"<li><strong>{E(names[a.assertion_id])}</strong> states <span class='num'>{E(a.value.text)}</span></li>"
+                         for a in run.assertions)
+        why = f'<p class="why-line"><strong>{E(head)}</strong> {E(detail)}</p>' + (f'<ul class="states">{states}</ul>' if states else "")
+    shown = gov
+    if verdict == "quoted" and v.quoted:
+        shown = next((a for a in run.assertions if a.instrument.doc_id == v.quoted.doc_id), None)
+    pane = ""
+    if shown is not None:
+        pane = f'<figure class="src lead-src">{_source(shown, info, data)}</figure>'
+    elif verdict == "quoted" and v.quoted and info[v.quoted.doc_id][0].file.endswith(".pdf"):
+        q = v.quoted
+        png = _pdf_crop(data / "raw" / info[q.doc_id][0].file, q.page, q.text.split("\n"))
+        pane = (f'<figure class="src lead-src"><img src="data:image/png;base64,{png}" alt="Page {q.page} with the quoted lines boxed">'
+                f'<figcaption>{E(_doc_name(q.doc_id, info))}, page {q.page}. Boxed: the quoted clause. Quoted, not checked.</figcaption></figure>')
+    elif verdict == "quoted" and v.quoted:
+        pane = (f'<blockquote class="says lead-quote"><span class="ref">{E(_doc_name(v.quoted.doc_id, info))}, page {v.quoted.page}</span>'
+                f'{E(" ".join(v.quoted.text.split()))}</blockquote>')
     return f"""<section class="verdict {cls}" aria-labelledby="vd">
   <h2 id="vd"><span class="st">{_mark(mark)}{E(word)}</span></h2>
-  <p>{line}</p>
+  {why}
+  {pane}
 </section>"""
+
+
+def _human(text: str, names: dict) -> str:
+    """Internal ids out, document names in: nothing on the page should need the code to read it."""
+    import re
+    text = re.sub(r"\s*\(?in scope: \[[^\]]*\]\)?", "", text)
+    for aid in sorted(names, key=len, reverse=True):
+        text = text.replace(aid, names[aid])
+    return re.sub(r"\b(support|attack):[\w:]+", "a cited document", text).replace("_", " ")
+
+
+def _clauses(v, info) -> str:
+    items = "".join(
+        f'<li><strong>{E(_doc_name(c.doc_id, info))}, page {c.page}</strong> '
+        f'<span class="s s-{c.strength.value}">{E(STRENGTH[c.strength.value])}</span>'
+        f'{" &middot; flagged by the attack pass" if c.side.value == "attack" else ""}'
+        f'<blockquote class="says">{E(" ".join(c.text.split()))}</blockquote><p class="why">{E(c.reading)}</p></li>' for c in v.clauses)
+    return f"""<section aria-labelledby="cl"><h2 id="cl">Every clause the passes quoted</h2>
+<p class="why">Shown as quoted. A clause the attack pass flagged is the model&rsquo;s reading, marked as a judgment, never a verdict.</p>
+<ul class="clauses">{items}</ul></section>"""
+
+
+def _absent_detail(v, info) -> str:
+    gone = [c for c in v.amends_checks if c.outcome == "absent"]
+    if not gone:
+        return v.unresolved_detail or ""
+    c = gone[0]
+    return (f"{_doc_name(c.doc_id, info)} amends {c.amends}, which is not in the packet, so what it changes "
+            f"cannot be seen. Add {c.amends} and run it again.")
+
+
+def _admitted(run, v, info) -> str:
+    rows = "".join(f"<tr><td>{E(_doc_name(d, info))}</td><td class='num'>{n}</td></tr>" for d, n in run.documents)
+    ex = [c for c in v.amends_checks if c.outcome == "excluded"]
+    note = "".join(f"<li>{E(_doc_name(c.doc_id, info))} amends {E(c.amends)}, which belongs to {E(c.amends_policy)}, outside this "
+                   f"question&rsquo;s policies ({E(', '.join(v.policies))}). Its absence cannot block this answer, so the check "
+                   f"skipped it.</li>" for c in ex)
+    return f"""<section aria-labelledby="ad"><h2 id="ad">What the model was allowed to see</h2>
+<p class="why">Built in code before the model was called: only documents a person mapped to {E(', '.join(v.policies) or 'this policy')}, and only inside each mapping&rsquo;s scope.</p>
+<div class="tw"><table><thead><tr><th>Document</th><th>Passages admitted</th></tr></thead><tbody>{rows}</tbody></table></div>
+{f'<ul class="skipped">{note}</ul>' if note else ''}</section>"""
+
+
+def _footer(run, info, rerun) -> str:
+    docs = [d for d, _ in run.documents] or [a.instrument.doc_id for a in run.assertions]
+    files = []
+    for d in dict.fromkeys(docs):
+        if d in info:
+            label, _ = info[d]
+            files.append(f"<li>{E(_doc_name(d, info))}: <code>{E(label.file)}</code> sha256 <code>{E(label.sha256_of_file[:16])}…</code>, extractor <code>{E(label.extractor.value)}</code></li>")
+    again = f' <a href="{E(rerun)}" target="_top">Re-run this check</a>.' if rerun else ""
+    return f"""<footer>
+  <p><strong>Who wrote what.</strong> A person wrote the claim, its question and which policy each document describes. The model read the admitted passages and quoted; code parsed every amount, compared, applied the rules and checked every quote against the file.</p>
+  <ul class="files">{''.join(files)}</ul>
+  <p>Commit <code>{E(_COMMIT)}</code>.{again}</p>
+</footer>"""
+
+
+def _commit() -> str:
+    import subprocess
+    try:
+        return subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=2,
+                              cwd=Path(__file__).parent).stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
+_COMMIT = _commit()
 
 
 def _rules(v, info, names) -> str:
@@ -107,7 +219,7 @@ def _rules(v, info, names) -> str:
     if fired:
         r = fired[0]
         gov = _doc_name(v.governing_doc_id, info)
-        others = sorted({names[a] for a in v.in_scope if a != v.governing_assertion and names.get(a) != gov})
+        others = sorted({names[a] for a in v.in_scope if a in names and a != v.governing_assertion and names[a] != gov})
         if r.name.value == "endorsement_over_base":
             why = (f"{gov} is an endorsement to {' and '.join(others) or 'the base form'}, and both belong to this policy, "
                    "so the endorsement governs over the form it amends.")
@@ -253,9 +365,10 @@ def _doc_name(doc_id: str | None, info) -> str:
 def _mark(kind: str) -> str:
     paths = {
         "tick": '<path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/>',
-        "clash": '<path class="c1" d="M3 6l7 7"/><path class="c2" d="M14 6l7 7M14 13l7-7"/>',
+        "clash": '<path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/>',
         "caret": '<path d="M5 15l7-8 7 8"/>',
         "bracket": '<path d="M9 4H5v16h4M15 4h4v16h-4"/>',
+        "circle": '<path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/>',
     }
     return (f'<svg class="mark m-{kind}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
             f'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{paths[kind]}</svg>')

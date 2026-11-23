@@ -16,10 +16,11 @@
     clash: "M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"
   };
   var ANSWER = {
-    supported: { word: "Supported", cls: "green", m: "tick" },
-    contradicted: { word: "Contradicted", cls: "red", m: "circle" },
-    not_found: { word: "Not in these documents", cls: "slate", m: "bracket" },
+    supported: { word: "The claim is right", cls: "green", m: "tick" },
+    contradicted: { word: "The claim is wrong", cls: "red", m: "circle" },
+    not_found: { word: "Can’t be settled from these documents", cls: "clash", m: "clash" },
     unresolved: { word: "Can’t be settled from these documents", cls: "clash", m: "clash" },
+    quoted: { word: "Quoted, not checked", cls: "slate", m: "bracket" },
     error: { word: "Could not check", cls: "grey", m: "question" }
   };
   var TICK = "M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8";
@@ -193,11 +194,8 @@
       frame.onload = function () { $("opening").hidden = true; };
       frame.src = "/api/review/" + d.review_id;
       $("result").hidden = false; showAfter(); say("Answer ready. The review is below.");
-      setTimeout(function () {
-        $("parts-sum").textContent = tally();
-        setOpen($("sec-read"), false); setOpen($("sec-parts"), false);
-        scrollTo(window.scrollY + $("result").getBoundingClientRect().top - barH());
-      }, calm ? 0 : 400);
+      $("live").hidden = true;  // the answer comes first; the chain is inside the report, collapsed
+      window.scrollTo(0, 0);
     },
     failed: function (d) { note("failed", d.text, "error"); say(d.text); }
   };
@@ -252,13 +250,14 @@
         esc(d.strength || "none") + '">' + esc(d.how || "not mapped, so not admitted") + '</td></tr>';
     }).join("");
     $("qs").innerHTML = p.questions.map(function (q) {
-      return choice("slot", q.slot, q.label, q.claim ? "Claim: " + q.claim : "No claim written for this question yet.", q.slot, q.slot === p.default, !q.claim);
+      var sub = !q.claim ? "No claim written for this question yet." : (q.kind === "wording" ? "Wording claim, quoted not checked: " : "Claim: ") + q.claim;
+      return choice("slot", q.id, q.label, sub, q.slot, q.id === p.default, !q.claim);
     }).join("");
     showQuestion(p.default);
   }
   function showQuestion(slot) {
     var p = packs.filter(function (x) { return x.id === pick.packet; })[0];
-    var q = p.questions.filter(function (x) { return x.slot === slot; })[0];
+    var q = p.questions.filter(function (x) { return x.id === slot; })[0];
     pick.slot = slot; pick.claim = q ? q.claim : "";
     Array.prototype.forEach.call($("qs").querySelectorAll(".choice"), function (l) {
       l.classList.toggle("on", l.querySelector("input").value === slot);
@@ -280,6 +279,64 @@
     run("/api/run/" + encodeURIComponent(pick.packet) + "/" + encodeURIComponent(pick.slot), fd, pick.claim);
   });
 
+  // Your documents: upload, the system proposes what each one is, a person confirms, then run.
+  var up = { id: null, view: null, slot: null, claim: "" };
+  function upSay(t) { var p = $("up-problem"); p.textContent = t || ""; p.hidden = !t; if (t) say(t); }
+  $("files").addEventListener("change", function () {
+    var n = this.files.length; $("files-label").textContent = n ? plural(n, "file") + " chosen" : "Choose PDF files";
+  });
+  function opts(list, cur) { return list.map(function (k) { return '<option value="' + esc(k) + '"' + (k === cur ? " selected" : "") + ">" + esc(k.replace(/_/g, " ")) + "</option>"; }).join(""); }
+  function showProposal(v) {
+    up.view = v; up.id = v.upload_id;
+    var rows = v.rows.map(function (r) {
+      var printed = r.quotes.map(function (q) { return esc(q.text) + ' <small>(p. ' + q.page + ')</small>'; }).join("<br>") || "<em>nothing it could verify</em>";
+      if (r.status === "unplaceable") return '<tr class="out"><td>' + esc(r.file) + '</td><td colspan="4">Could not be placed: ' + esc(r.reason) + '</td></tr>';
+      return '<tr data-row="' + esc(r.row_id) + '"><td>' + esc(r.file) + '</td><td>' + printed + '</td><td><select data-f="kind">' + opts(v.kinds, r.kind) +
+        '</select></td><td><input type="text" data-f="policy" value="' + esc(r.policy) + '" aria-label="Policy it describes"></td><td><select data-f="how">' +
+        opts(v.how_options, r.how) + '</select><input type="text" data-f="reason" placeholder="Why, if judgment" value="' + esc(r.reason || "") + '" aria-label="Reason"></td></tr>';
+    });
+    v.refused.forEach(function (r) { rows.push('<tr class="out"><td>' + esc(r.file) + '</td><td colspan="4">Refused: ' + esc(r.refusal) + '</td></tr>'); });
+    $("up-rows").innerHTML = rows.join("");
+    $("up-confirm").hidden = false; $("up-question").hidden = true;
+    $("up-confirm").scrollIntoView({ block: "start" });
+  }
+  $("up-go").addEventListener("click", function () {
+    var f = $("files").files; if (!f.length) { upSay("Choose at least one PDF first."); return; }
+    var fd = new FormData(); Array.prototype.forEach.call(f, function (x) { fd.append("files", x); });
+    upSay(""); this.disabled = true; this.textContent = "Reading…"; var btn = this;
+    fetch("/api/upload", { method: "POST", body: fd }).then(function (r) { return r.json().then(function (j) { return [r.ok, j]; }); })
+      .then(function (x) { if (!x[0]) upSay(x[1].refusal || "The upload could not be read."); else showProposal(x[1]); })
+      .catch(function () { upSay("The upload did not reach the server."); })
+      .then(function () { btn.disabled = false; btn.textContent = "Read the documents"; });
+  });
+  $("up-ok").addEventListener("click", function () {
+    var who = $("up-who").value.trim(); if (!who) { upSay("Say who is confirming this mapping."); $("up-who").focus(); return; }
+    var rows = Array.prototype.map.call($("up-rows").querySelectorAll("tr[data-row]"), function (tr) {
+      var o = { row_id: tr.dataset.row };
+      Array.prototype.forEach.call(tr.querySelectorAll("[data-f]"), function (i) { o[i.dataset.f] = i.value.trim(); });
+      return o;
+    });
+    fetch("/api/upload/" + up.id + "/confirm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed_by: who, rows: rows }) })
+      .then(function (r) { return r.json().then(function (j) { return [r.ok, j]; }); })
+      .then(function (x) {
+        if (!x[0]) { upSay((x[1].refusal || "Not confirmed.") + (x[1].errors ? " " + x[1].errors.join(" ") : "")); return; }
+        upSay(""); var pol = {}; x[1].rows.forEach(function (r) { if (r.policy) pol[r.policy] = 1; });
+        var qs = [], seen = {}; packs.forEach(function (p) { p.questions.forEach(function (q) { if (pol[q.slot.split(".")[0]] && !seen[q.slot]) { seen[q.slot] = 1; qs.push(q); } }); });
+        $("up-qs").innerHTML = qs.length ? qs.map(function (q, i) { return choice("upslot", q.slot, q.label, q.claim ? "Claim: " + q.claim : "No claim written for this question yet.", q.slot, i === 0, !q.claim); }).join("")
+          : '<p class="c-note">No question on the list is about the policies you confirmed (' + esc(Object.keys(pol).join(", ") || "none") + '). That is a refusal, not an error: the list is fixed, and nothing runs outside it.</p>';
+        $("up-run").hidden = !qs.length; $("up-question").hidden = false; $("up-confirm").querySelector("#up-ok").disabled = true;
+        if (qs.length) { up.slot = qs[0].slot; up.claim = qs[0].claim || ""; }
+      });
+  });
+  $("up-qs").addEventListener("change", function (e) {
+    if (e.target.name !== "upslot") return; up.slot = e.target.value;
+    up.claim = (e.target.closest(".choice").querySelector(".c-s") || {}).textContent.replace(/^Claim: /, "");
+  });
+  $("upload").addEventListener("submit", function (e) {
+    e.preventDefault(); if (!up.id || !up.slot) return;
+    current = null; run("/api/upload/" + up.id + "/run/" + encodeURIComponent(up.slot), new FormData(), up.claim);
+  });
+
   fetch("/api/config").then(function (r) { return r.json(); }).then(function (c) {
     state.needPass = !!c.passcode_required; $("passcode-field").hidden = !state.needPass; $("passcode").required = state.needPass;
   }).catch(function () {});
@@ -293,23 +350,48 @@
   }
 
   // Both examples, one click each: the case a rule decides, and the case it refuses to pick.
-  var LABEL = { "endorsement-replaces-limit": "A rule decides", "documents-disagree": "The documents disagree" };
+  var LABEL = { "endorsement-replaces-limit": "the claim that is right", "documents-disagree": "the packet that can\u2019t be settled" };
   var samples = [], current = null;
   function sampleButton(s, cls) {
     var b = el("button", cls, LABEL[s.id] || s.title); b.type = "button"; b.title = s.title;
     b.addEventListener("click", function () { runSample(s); }); return b;
   }
   fetch("/api/samples").then(function (r) { return r.json(); }).then(function (list) {
-    if (!list.length) return;
     samples = list;
-    list.forEach(function (s) { $("try-btns").appendChild(sampleButton(s, "try-btn")); });
-    $("try").hidden = false;
-    $("sheet-run").hidden = false; $("sheet-run").addEventListener("click", function () { runSample(list[0]); });
+    var q = new URLSearchParams(location.search), sid = q.get("sample"), rk = q.get("run");
+    if (sid && sampleById(sid)) runSample(sampleById(sid));
+    else if (rk && /^[\w-]+\/[\w.-]+$/.test(rk)) { current = null; run("/api/run/" + rk, new FormData(), ""); }
   }).catch(function () {});
+  // The hero's result card: three real results, each with a button that runs it.
+  function sampleById(id) { return samples.filter(function (x) { return x.id === id; })[0]; }
+  Array.prototype.forEach.call(document.querySelectorAll(".r-run"), function (b) {
+    b.addEventListener("click", function () { var x = sampleById(b.dataset.sample); if (x) runSample(x); });
+  });
+  var tabs = document.querySelector(".r-tabs");
+  function showEx() {
+    var on = (tabs.querySelector("input:checked") || {}).value;
+    Array.prototype.forEach.call(document.querySelectorAll(".r-panel"), function (p) { p.hidden = p.dataset.ex !== on; });
+  }
+  Array.prototype.forEach.call(tabs.querySelectorAll("label[data-needs]"), function (l) {
+    var panel = document.querySelector('.r-panel[data-ex="' + l.dataset.needs + '"]'); if (!panel || !panel.children.length) l.hidden = true;
+  });
+  tabs.addEventListener("change", showEx); showEx();
+  // Two doors: worked packets and your own documents, as tabs in the check section.
+  function door(which) {
+    var up = which === "upload";
+    $("tab-worked").setAttribute("aria-selected", String(!up)); $("tab-upload").setAttribute("aria-selected", String(up));
+    $("start").hidden = up; $("upload").hidden = !up;
+  }
+  $("tab-worked").addEventListener("click", function () { door("worked"); });
+  $("tab-upload").addEventListener("click", function () { door("upload"); });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-door]"), function (a) {
+    a.addEventListener("click", function () { door(a.dataset.door); });
+  });
+
   function showAfter() {
     var box = $("after-btns"); box.textContent = "";
     samples.filter(function (s) { return s.id !== current; }).forEach(function (s) {
-      var b = sampleButton(s, "btn"); b.textContent = "Run: " + b.textContent.charAt(0).toLowerCase() + b.textContent.slice(1); box.appendChild(b);
+      var b = sampleButton(s, "btn"); b.textContent = "Run " + b.textContent; box.appendChild(b);
     });
     $("after").hidden = false;
   }

@@ -33,25 +33,6 @@ html, body { overflow-x: clip; }
 .hero :focus-visible { outline-color: #fff; }
 .problem { margin: 0; padding: .6rem .8rem; border: 2px solid #fff; background: #fff; color: var(--pen-red); font-weight: 700; }
 
-.sheet { margin: 0; background: var(--paper); color: var(--ink); padding: 1.4rem 1.5rem 1.2rem; transform: rotate(1.2deg); max-width: 30rem; justify-self: center; }
-@media (prefers-reduced-motion: reduce) { .sheet { transform: none; } }
-.sheet-tag { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 1rem; margin: -.5rem 0 .5rem; font-size: var(--t-13); color: var(--grey); }
-.sheet-run { display: inline-flex; align-items: center; gap: .35rem; min-height: 44px; padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: var(--stamp); text-decoration: underline; text-underline-offset: .2em; cursor: pointer; }
-.sheet-run[hidden] { display: none; }
-.sheet-run:hover { color: var(--ink); }
-.sheet .sheet-run:focus-visible { outline: 3px solid var(--stamp); outline-offset: 2px; }
-.sheet-claim { font-size: var(--t-25); line-height: 1.3; font-weight: 500; margin: 0; }
-.sheet-answer { display: flex; align-items: center; margin: 1rem 0; font-size: var(--t-20); font-weight: 700; }
-.sheet-answer .mark { margin-right: .5rem; }
-.sheet-quote { margin: 0; padding: .9rem .6rem .6rem; background: var(--sheet); position: relative; }
-.sheet-quote img { display: block; width: 100%; height: auto; }
-.sheet-quote q { quotes: "\201C" "\201D"; display: block; line-height: 1.5; }
-.sheet-quote .ref { position: absolute; top: -.7rem; right: .6rem; background: var(--ink); color: var(--paper); padding: 0 .4rem; font-family: var(--ui); font-size: var(--t-13); }
-.sheet-part { display: flex; align-items: center; flex-wrap: wrap; gap: .1rem .5rem; margin: .9rem 0 0; font-size: 1rem; } .sheet-part .st { font-weight: 700; }
-.sheet-signoff { list-style: none; margin: 1rem 0 0; padding: .3rem 0; background: var(--sheet); font-size: var(--t-13); }
-.sheet-signoff li { display: flex; justify-content: space-between; gap: 1rem; padding: .35rem .6rem; }  .sheet-signoff li > span:last-child { color: var(--grey); }
-.sheet-legend { display: flex; flex-wrap: wrap; gap: .3rem 1rem; list-style: none; margin: 1rem 0 0; padding: .8rem 0 0; border-top: 2px solid var(--ink); font-size: var(--t-13); }
-.sheet-legend li { display: flex; align-items: center; gap: .3rem; }
 
 .band { padding: 4.5rem 0 0; }
 .band h2 { font-size: var(--t-31); line-height: 1.15; margin: 0 0 1rem; letter-spacing: -.01em; }
@@ -97,15 +78,6 @@ html, body { overflow-x: clip; }
 .result.auto iframe { min-height: 0; }
 
 
-/* The example is offered before the form, so a visitor with no documents has a first step that costs nothing. */
-.lede + .try { margin-top: -1rem; }
-.try { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .9rem; margin: 0 0 1.5rem; font-size: var(--t-16); color: #fff; }
-.try[hidden] { display: none; }
-.try-q { flex-basis: 100%; font-weight: 700; }
-.try-btn { min-height: 44px; padding: .5rem 1.1rem; font: inherit; font-weight: 700; color: #fff; background: transparent; border: 2px solid #fff; border-radius: 0; cursor: pointer; }
-.try-btn:hover { background: #fff; color: var(--stamp); }
-.try-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
-#try-what { opacity: .9; }
 
 .live.done .notes li:not(.error) { display: none; }  /* the review shows its own notices; an error stays visible */
 @media (max-width: 640px) { .topnav { position: static; gap: .2rem 1.2rem; } .topnav nav { gap: 0 1.1rem; } }
@@ -169,7 +141,6 @@ html.js [data-rise] { opacity: 0; transform: translateY(24px); transition: opaci
 html.js [data-rise].in { opacity: 1; transform: none; }
 .btn, .try-btn, .sheet-run, .topnav nav a, .faq summary { transition: transform .18s var(--ease), background .15s, color .15s; }
 .btn:active, .try-btn:active { transform: translateY(1px) scale(.98); }
-.try-btn:hover { background: #fff; color: var(--stamp); }
 .faq summary { cursor: pointer; }
 .faq summary:hover { transform: translateX(4px); }
 .frame-pic { transition: transform .9s var(--ease); }
@@ -221,7 +192,6 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 .map.adm tr.out .num-cell { font-weight: 400; }
 
 /* Two examples in the hero; after each answer, the next step. */
-.try-btns { display: flex; flex-wrap: wrap; gap: .5rem; }
 .after { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.25rem; margin: 2rem 0 0; padding: 1.25rem 0 0; border-top: 2px solid var(--ink); }
 .after[hidden] { display: none; }
 .after #after-btns { display: contents; }
@@ -275,3 +245,58 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 .close .code-link { display: block; margin-top: 1.25rem; font-weight: 700; }
 .close .body.signoff { margin-top: 0; max-width: none; }
 .rail .big, .question .big { font-size: clamp(1.6rem, 3vw, 2.4rem); line-height: 1.2; font-weight: 700; letter-spacing: -.015em; max-width: 52rem; text-wrap: balance; }
+
+/* Hero: the answer comes first. A real result card with three tabs, and two doors beside it. */
+.hero h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); }
+.doors { display: flex; flex-wrap: wrap; gap: .75rem; }
+.door { display: inline-flex; align-items: center; min-height: 48px; padding: 0 1.25rem; border: 2px solid #fff; color: #fff; font-weight: 700; text-decoration: none; }
+.door:hover { background: #fff; color: var(--stamp); }
+.door-main { background: #fff; color: var(--stamp); }
+.door-main:hover { background: var(--ink); border-color: var(--ink); color: #fff; }
+.wont { margin: 2.5rem 0 0; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,.45); font-size: var(--t-16); max-width: 60rem; }
+.report { margin: 0; background: var(--paper); color: var(--ink); padding: 0 1.4rem 1.3rem; box-shadow: 0 18px 40px -18px rgba(14,26,43,.55); max-width: 32rem; justify-self: center; width: 100%; }
+.r-tabs { display: flex; margin: 0 -1.4rem 1.1rem; border-bottom: 2px solid var(--ink); }
+.r-tabs label { flex: 1; position: relative; }
+.r-tabs input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.r-tabs span { display: block; padding: .75rem .5rem; text-align: center; font-weight: 700; font-size: var(--t-16); color: var(--grey); border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.r-tabs input:checked + span { color: var(--ink); border-bottom-color: var(--stamp); }
+.r-tabs input:focus-visible + span { outline: 3px solid var(--stamp); outline-offset: -3px; }
+.r-tabs label[hidden] { display: none; }
+.r-panel[hidden] { display: none; }
+.r-q { margin: 0; font-size: var(--t-13); color: var(--grey); }
+.r-claim { margin: .5rem 0 0; font-size: var(--t-20); line-height: 1.35; }
+.r-ans { display: flex; align-items: center; gap: .1rem; margin: 1rem 0 .6rem; font-size: var(--t-25); font-weight: 700; line-height: 1.2; }
+.r-why { margin: 0; font-size: var(--t-16); line-height: 1.5; }
+.r-quote { position: relative; margin: 1.1rem 0 0; padding: 1.1rem .8rem .8rem; background: var(--sheet); line-height: 1.5; }
+.r-quote .ref { position: absolute; top: -.7rem; right: .6rem; background: var(--ink); color: var(--paper); padding: 0 .4rem; font-family: var(--ui); font-size: var(--t-13); }
+.r-run { display: inline-flex; align-items: center; min-height: 44px; margin-top: .6rem; padding: 0; border: 0; background: none; color: var(--stamp); font-weight: 700; text-decoration: underline; text-underline-offset: .2em; cursor: pointer; }
+.r-run:hover { color: var(--ink); }
+
+/* Why it matters: the differentiator, then the two people it serves. */
+.why-band .big { font-size: clamp(1.45rem, 2.6vw, 2.1rem); line-height: 1.25; font-weight: 700; letter-spacing: -.01em; max-width: 56rem; text-wrap: balance; }
+.for-two { display: grid; gap: 1.5rem 4rem; grid-template-columns: minmax(0, 1fr); margin-top: 2rem; border-top: 2px solid var(--ink); padding-top: 1.25rem; }
+@media (min-width: 900px) { .for-two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.for-two p { font-size: var(--t-20); line-height: 1.45; max-width: 36rem; }
+.reasons { margin: .5rem 0 0; padding-left: 1.1rem; font-size: var(--t-16); display: grid; gap: .2rem; }
+
+/* Check a claim: two doors as tabs on the blue band. */
+.d-tabs { display: flex; gap: .5rem; margin-bottom: 1.25rem; }
+.d-tabs button { min-height: 44px; padding: 0 1.1rem; border: 2px solid rgba(255,255,255,.6); background: transparent; color: #fff; font-weight: 700; cursor: pointer; }
+.d-tabs button[aria-selected="true"] { background: #fff; color: var(--stamp); border-color: #fff; }
+.drop { display: block; }
+.drop span { display: block; }
+.map select, .map input[type=text] { font: inherit; padding: .3rem .4rem; border: 1px solid rgba(255,255,255,.7); background: #fff; color: var(--ink); border-radius: 0; max-width: 100%; }
+.field.narrow span { display: block; font-weight: 700; margin-bottom: .3rem; }
+.field.narrow input { width: 100%; padding: .6rem; border: 2px solid #fff; font: inherit; }
+@media (max-width: 640px) {
+  .topnav nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  .topnav nav a { white-space: nowrap; }
+  .hero { padding-top: .5rem; padding-bottom: 2rem; }
+  .hero h1 { margin-top: .75rem; }
+  .lede { font-size: var(--t-16); margin: .75rem 0 1.25rem; }
+  .doors .door { min-height: 44px; padding: 0 .9rem; }
+  .hero-in { gap: 1.5rem; }
+}
+/* The answer comes first: once it is in, the step bar is only a way back. */
+html.running .steps-nav { visibility: hidden; }
+.result { margin-top: 1rem; }

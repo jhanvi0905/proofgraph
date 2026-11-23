@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ProofGraph: which document governs?</title>
-<meta name="description" content="Check a claim about an insurance policy against every document that could govern it: which one governs, by which rule, or that they disagree, with the lines boxed on the page.">
+<title>ProofGraph: a coverage check that shows its work</title>
+<meta name="description" content="A coverage check that shows its work: whether a claim about a policy is right, which document decided it, which clause and which page, or a named reason it cannot be settled.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="/web/tokens.css?v=3">
-<link rel="stylesheet" href="/web/app.css?v=11">
+<link rel="stylesheet" href="/web/app.css?v=15">
 <script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
@@ -16,75 +16,100 @@
   <section id="entrance" class="entrance">
     <header class="topnav" id="top">
       <a class="wordmark" href="#top">ProofGraph</a>
-      <nav aria-label="Sections"><a href="#see">What you see</a><a href="#answers">How it decides</a><a href="#check">Check a claim</a><a href="#faq">Questions</a><a class="ext" href="https://github.com/jhanvi0905/proofgraph/tree/x/proofgraph-v2-arbiter">Code</a></nav>
+      <nav aria-label="Sections"><a href="#answers">The answers</a><a href="#checked">How to check one</a><a href="#refuses">Refusals</a><a href="#check">Check a claim</a><a href="#faq">Questions</a><a class="ext" href="https://github.com/jhanvi0905/proofgraph/tree/x/proofgraph-v2-arbiter">Code</a></nav>
     </header>
     <div class="hero">
       <div class="hero-in">
         <div class="hero-copy">
-          <h1>An AI that checks a claim across a packet of documents, and won&rsquo;t guess when they disagree.</h1>
-          <p class="lede">Give it a claim and a packet of insurance documents: the policy, its endorsements and binders. It shows where each document answers, quotes the clause on its page, and says which document wins and by which rule. When two of them conflict and no rule decides, it tells you that instead of picking one.</p>
-          <p id="try" class="try" hidden><span class="try-q">Run an example:</span> <span id="try-btns" class="try-btns"></span></p>
+          <h1>A coverage check that shows its work.</h1>
+          <p class="lede">Give it a question, a claim somebody wrote, and the documents that might answer it. It says whether the claim is right, which document decided it, which clause, and which page. When the documents cannot settle it, it says so instead of picking one.</p>
+          <div class="doors">
+            <a class="door door-main" href="#check" data-door="worked">Run a worked packet</a>
+            <a class="door" href="#check" data-door="upload">Upload your documents</a>
+          </div>
         </div>
-        <figure class="sheet" aria-label="A real result from the family B run">
-          <p class="sheet-tag"><span>Real result, ISO HO 00 03 with HO 00 15</span><button type="button" class="sheet-run" id="sheet-run" hidden>Run it<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></p>
-          <p class="sheet-claim">Jewelry theft limit: <span class="u green">$1,000.</span></p>
-          <p class="sheet-answer"><svg class="mark m-tick" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span class="st green">Supported, decided by a rule</span></p>
-          <p class="sheet-quote says"><span class="ref">HO 00 15, page 2</span><q>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</q></p>
-          <p class="sheet-part">The base form says $1000 for theft alone. Neither line states a basis, so they cannot be compared; the endorsement governs over the base form.</p>
-          <ul class="sheet-signoff" aria-label="Sign-off"><li><span>Claim and policy identification</span><span>Written by a person</span></li><li><span>Rule applied</span><span>Endorsement over base form</span></li></ul>
-          <ul class="sheet-legend" aria-label="Marks">
-            <li><svg class="mark m-tick" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg>Supported</li>
-            <li><svg class="mark m-clash" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/></svg>Can&rsquo;t be settled</li>
-          </ul>
+        <figure class="report" aria-label="Three real results">
+          <div class="r-tabs" role="radiogroup" aria-label="Pick a result">
+            <label><input type="radio" name="ex" value="right" checked><span>Right</span></label>
+            <label data-needs="wrong"><input type="radio" name="ex" value="wrong"><span>Wrong</span></label>
+            <label><input type="radio" name="ex" value="cant"><span>Can&rsquo;t be settled</span></label>
+          </div>
+          <div class="r-panel" data-ex="right">
+            <p class="r-q">Special limit on theft of jewelry &middot; ISO HO 00 03 with endorsement HO 00 15</p>
+            <p class="r-claim">Claim: the special limit for theft of jewelry is <b>$1,000</b>.</p>
+            <p class="r-ans green"><svg class="mark m-tick" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span class="st">The claim is right.</span></p>
+            <p class="r-why"><strong>HO 00 15 governs</strong> over the base form HO 00 03: an endorsement governs the form it amends.</p>
+            <blockquote class="r-quote says"><span class="ref">HO 00 15, page 2</span>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</blockquote>
+            <button type="button" class="r-run" data-sample="endorsement-replaces-limit">Run it and see the page</button>
+          </div>
+          <div class="r-panel" data-ex="wrong" hidden>
+            <p class="r-q">Special limit on theft of jewelry &middot; ISO HO 00 03 with endorsement HO 00 15</p>
+            <p class="r-claim">Claim: the special limit for theft of jewelry is <b>$1,500</b>.</p>
+            <p class="r-ans red"><svg class="mark m-circle" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg><span class="st">The claim is wrong.</span></p>
+            <p class="r-why"><strong>HO 00 15 governs and states $1,000.</strong> The claim says $1,500. Both amounts are shown, with the page.</p>
+            <blockquote class="r-quote says"><span class="ref">HO 00 15, page 2</span>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</blockquote>
+            <button type="button" class="r-run" data-sample="claim-is-wrong">Run it and see the page</button>
+          </div>
+          <div class="r-panel" data-ex="cant">
+            <p class="r-q">Corporate reimbursement retention &middot; Gillette D&amp;O program, 1996 SEC filing</p>
+            <p class="r-claim">Claim: the primary retention under FD960228 is <b>USD 1,000,000</b>.</p>
+            <p class="r-ans clash"><svg class="mark m-clash" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/></svg><span class="st">Can&rsquo;t be settled from these documents.</span></p>
+            <p class="r-why"><strong>They disagree, and no rule picks one.</strong> Three documents state 1,000,000. Reliance&rsquo;s binder states $500,000, each loss.</p>
+            <blockquote class="r-quote says"><span class="ref">Reliance binder</span>$500,000 Corporate Reimbursement, each loss</blockquote>
+            <button type="button" class="r-run" data-sample="documents-disagree">Run it and see the documents</button>
+          </div>
         </figure>
       </div>
+      <p class="wont"><strong>What it will not do:</strong> read document families it has not seen, check coverage at volume, answer a question outside its fixed list, or give a verdict on a wording claim.</p>
     </div>
 
-
-    <section class="band question" id="question">
-      <p class="big" data-rise>Most tools will answer whatever you paste. This one tells you which document wins, and tells you when it can&rsquo;t tell.</p>
-      <p class="q-sub" data-rise>The question is not &ldquo;what does this policy say.&rdquo; It is &ldquo;which document says that, and does anything override it.&rdquo; That second half is where people lose afternoons, and where an answer without a citation is worth nothing.</p>
-    </section>
-    <div class="rows">
-    <section class="row" id="see">
-      <header class="rail" data-rise><h2>What you see</h2><p>Every answer is a claim plus the assertions behind it. Each assertion carries its document, its place in it (a page, or character offsets in a text filing) and the exact quote, and a strength for every step: <strong>read</strong> straight off the page, <strong>derived</strong> by code from what was read, or <strong>judgment</strong>, from the model&rsquo;s reading or a person&rsquo;s identification. The weakest step is always named, so you know which part to check first.</p></header>
-      <div class="body steps-seq"><figure class="shot" data-rise><img class="frame-pic" src="/media/ho15-header.png" width="640" height="200" alt="The top of HO 00 15: This endorsement changes the policy. Special personal property coverage. Form HO 00 03 only."><figcaption><h3>A claim and its packet</h3><p>The claim states one value: a retention, a special limit. The packet is everything that could govern it: the policy form, its endorsements, binders and schedules.</p></figcaption></figure><figure class="shot" data-rise><img class="frame-pic" src="/media/ho03-limits.png" width="640" height="420" alt="HO 00 03, page 2, the special limits list, with item 5 boxed: $1000 for loss by theft of jewelry."><figcaption><h3>Each document is read where it applies</h3><p>Only the part of each document that describes the claim's policy is admitted. The model reads it and points at the value; code parses the amount and checks the quote against the file.</p></figcaption></figure><figure class="shot" data-rise><img class="frame-pic" src="/media/ho15-limits.png" width="640" height="420" alt="HO 00 15, page 2, deleting and replacing items 5 to 7, with item 5 boxed: $1,000 for loss by theft, misplacing or losing of jewelry."><figcaption><h3>A rule decides, or it refuses</h3><p>An endorsement governs its base form; a later effective date governs an earlier one. When no rule applies and the documents disagree, nothing is picked. Every value is shown boxed on its page.</p></figcaption></figure></div>
-    </section>
-    <section class="row" id="answers">
-      <header class="rail" data-rise><h2>How it decides</h2><p>Two documents speaking to the same thing get compared, not merged, and only on the same currency and basis. When a rule settles it, the rule is printed: an endorsement beats its base form, a later effective date beats an earlier one. When no rule applies, the answer is that it can&rsquo;t be settled from these documents, and every pair carries its reason.</p></header>
-      <div class="body">
-        <ul class="answers"><li data-rise><svg class="mark m-tick" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span><strong>Supported.</strong> One document states it and nothing disputes it, or a rule names the document that governs.</span></li><li data-rise><svg class="mark m-clash" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/></svg><span><strong>Can&rsquo;t be settled from these documents.</strong> They state different amounts and no rule decides, or the amounts match but can&rsquo;t be compared on the same terms.</span></li><li data-rise><svg class="mark m-bracket" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.4 3.6H8.6c-.7 0-1.1.3-1.1.9v15c0 .6.4.9 1.1.9h6.8"/></svg><span><strong>Not found.</strong> Nothing in the packet states a value for it.</span></li></ul>
-        <p class="three-note" data-rise>Every answer above is one of these three. There is no fourth kind of answer where it guesses.</p>
-        <figure class="exhibit" data-rise><img class="beyond-pic" src="/media/gillette-item7.png" width="1100" height="300" alt="Item VII of Endorsement 13 to the Gillette D&amp;O policy (SEC filing, 1996): the schedule of underlying insurance, with the Primary row boxed: London, 757/FD960228, $10M, retention NIL/NIL/1,000,000."></figure>
+    <section class="band why-band" id="why">
+      <p class="big" data-rise>Everyone else sells a better reader. A better reader still gives you an answer you cannot verify without re-reading. This sells an answer checkable in seconds, and a refusal when the documents cannot support one.</p>
+      <div class="for-two">
+        <div data-rise><h3>For the person answering</h3><p>The governing document, the clause and the page, in seconds, with a verdict on the amount or a named reason it cannot decide.</p></div>
+        <div data-rise><h3>For the person signing off</h3><p>Every answer carries its own evidence, so the file can be defended without re-reading it.</p></div>
       </div>
     </section>
-    <section class="row" id="refuses">
-      <header class="rail" data-rise><h2>What it refuses</h2></header>
-      <div class="body" data-rise><ul class="ruled">
-          <li>No answer without a citation: every value is a quote found, exactly, in the file.</li>
-          <li>No winner picked between documents that conflict, unless a rule decides.</li>
-          <li>No answer from outside the packet: if nothing in it states a value, the answer is not found.</li>
-        </ul></div>
+
+    <div class="rows">
+    <section class="row" id="answers">
+      <header class="rail" data-rise><h2>Three answers, no fourth</h2><p>Two documents speaking to the same amount are compared, not merged, and only on the same currency and basis. When a rule settles which one governs, the rule is printed: an endorsement beats the form it amends, a later effective date beats an earlier one.</p></header>
+      <div class="body">
+        <ul class="answers">
+          <li data-rise><svg class="mark m-tick" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span><strong>The claim is right.</strong> A document governs this line and states the same amount.</span></li>
+          <li data-rise><svg class="mark m-circle" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg><span><strong>The claim is wrong.</strong> A document governs this line and states a different amount. Both amounts are shown.</span></li>
+          <li data-rise><svg class="mark m-clash" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/></svg><span><strong>This can&rsquo;t be settled from these documents,</strong> with one named reason:
+            <ul class="reasons"><li>two documents state different amounts and no rule picks a winner;</li><li>the amounts cannot be compared, and the mismatch is named;</li><li>the document that would govern is missing from the packet;</li><li>no document addresses the question.</li></ul></span></li>
+        </ul>
+        <p class="three-note" data-rise>A wording claim (&ldquo;the endorsement covers misplacing or losing jewelry&rdquo;) gets the governing clause quoted with its page, marked quoted, not checked. Nothing is guessed.</p>
+      </div>
     </section>
-    <section class="row" id="limits">
-      <header class="rail" data-rise><h2>What it can&rsquo;t do yet</h2></header>
+    <section class="row" id="checked">
+      <header class="rail" data-rise><h2>Every answer can be checked</h2><p>Each answer rests on assertions. Each assertion carries its document, its place in it (a page, or character offsets in a text filing) and the exact quote, and a strength for every step: <strong>read</strong> straight off the page, <strong>derived</strong> by code from what was read, or <strong>judgment</strong>, from the model&rsquo;s reading or a person&rsquo;s identification. The weakest step is always named, so you know which part to check first.</p></header>
+      <div class="body steps-seq"><figure class="shot" data-rise><img class="frame-pic" src="/media/ho15-header.png" width="640" height="200" alt="The top of HO 00 15: This endorsement changes the policy. Special personal property coverage. Form HO 00 03 only."><figcaption><h3>A claim and its packet</h3><p>The claim states one value: a retention, a special limit. The packet is everything that could govern it: the policy form, its endorsements, binders and schedules.</p></figcaption></figure><figure class="shot" data-rise><img class="frame-pic" src="/media/ho03-limits.png" width="640" height="420" alt="HO 00 03, page 2, the special limits list, with item 5 boxed: $1000 for loss by theft of jewelry."><figcaption><h3>Each document is read where it applies</h3><p>Only the part of each document that describes the claim's policy is admitted. The model reads it and points at the value; code parses the amount and checks the quote against the file.</p></figcaption></figure><figure class="shot" data-rise><img class="frame-pic" src="/media/ho15-limits.png" width="640" height="420" alt="HO 00 15, page 2, deleting and replacing items 5 to 7, with item 5 boxed: $1,000 for loss by theft, misplacing or losing of jewelry."><figcaption><h3>A rule decides, or it refuses</h3><p>An endorsement governs its base form; a later effective date governs an earlier one. When no rule applies and the documents disagree, nothing is picked. Every value is shown boxed on its page.</p></figcaption></figure></div>
+    </section>
+    <section class="row" id="refuses">
+      <header class="rail" data-rise><h2>What it refuses</h2><p>Every refusal is a result with its reason, styled like a verdict, because it is one.</p></header>
       <div class="body" data-rise><ul class="ruled">
-          <li>Small samples: one D&amp;O program from an SEC filing, and eight homeowners packets.</li>
-          <li>Your own documents. They&rsquo;d have to guess which policy each document describes, and a wrong guess produces a confident wrong answer instead of saying so.</li>
-          <li>Tell you a claim is wrong. Comparing the governing value with the claim&rsquo;s own value isn&rsquo;t built.</li>
-          <li>Notice a missing document. If the policy that governs isn&rsquo;t in the packet, it doesn&rsquo;t say so yet.</li>
-          <li>Prove the endorsement rule on a packet found in the wild. It has fired on two real ISO forms paired under a specimen policy, since ISO forms carry no policy number.</li>
-        </ul><p class="spec-note">The results are in the repo, including the predictions it got wrong.</p></div>
+        <li>A document with no readable text layer.</li>
+        <li>A document it cannot identify, which the person cannot place either.</li>
+        <li>A question that is not on its list.</li>
+        <li>A packet where an endorsement amends a document that is not in the packet.</li>
+      </ul></div>
     </section>
     </div>
     <section class="band check row" id="check">
       <header class="rail" data-rise><h2>Check a claim</h2>
-      <p class="check-lede">Three steps, and nothing to type. What can be decided is a fixed list of questions, so a question it cannot decide never gets asked.</p></header>
-      <form id="start" class="body start steps3" autocomplete="off">
+      <p class="check-lede">Two ways in. A worked packet runs in seconds with nothing to type. Your own documents go through one extra step: the system proposes what each one is, and you confirm it before anything runs.</p></header>
+      <div class="body doors-body">
+      <div class="d-tabs" role="tablist" aria-label="Ways in">
+        <button type="button" role="tab" id="tab-worked" aria-controls="start" aria-selected="true">Worked packets</button>
+        <button type="button" role="tab" id="tab-upload" aria-controls="upload" aria-selected="false">Your documents</button>
+      </div>
+      <form id="start" class="start steps3" role="tabpanel" aria-labelledby="tab-worked" autocomplete="off">
         <fieldset class="step3">
           <legend><span class="n">1</span>Packet</legend>
           <div id="pk" class="choices"></div>
-          <label class="choice off"><input type="radio" name="packet" disabled><span class="c-t">Your own files</span><span class="c-s">Off. It would have to guess which policy each document describes, and a wrong guess produces a confident wrong answer instead of saying so.</span></label>
         </fieldset>
         <fieldset class="step3">
           <legend><span class="n">2</span>What each document is, and which policy it describes</legend>
@@ -103,6 +128,28 @@
         <button class="btn inv" type="submit" id="go">Decide this</button>
         <p id="problem" class="problem" role="alert" hidden></p>
       </form>
+      <form id="upload" class="start steps3" role="tabpanel" aria-labelledby="tab-upload" autocomplete="off" hidden>
+        <fieldset class="step3">
+          <legend><span class="n">1</span>Upload</legend>
+          <p class="c-note">PDFs of the policy form, its endorsements and declarations. A file with no readable text is refused with that reason.</p>
+          <label class="drop"><input type="file" id="files" accept="application/pdf" multiple><span id="files-label">Choose PDF files</span></label>
+          <button class="btn inv" type="button" id="up-go">Read the documents</button>
+        </fieldset>
+        <fieldset class="step3" id="up-confirm" hidden>
+          <legend><span class="n">2</span>Confirm what each document is</legend>
+          <p class="c-note">Proposed from the form number, edition and title printed on each document. Correct anything wrong. Nothing runs until you confirm, and your confirmation is recorded with the run.</p>
+          <div class="map-wrap"><table class="map"><thead><tr><th>Document</th><th>Printed on it</th><th>Kind</th><th>Policy it describes</th><th>How we know</th></tr></thead><tbody id="up-rows"></tbody></table></div>
+          <label class="field narrow"><span>Confirmed by</span><input id="up-who" type="text" autocomplete="name" required></label>
+          <button class="btn inv" type="button" id="up-ok">Confirm</button>
+        </fieldset>
+        <fieldset class="step3" id="up-question" hidden>
+          <legend><span class="n">3</span>Question</legend>
+          <div id="up-qs" class="choices"></div>
+          <button class="btn inv" type="submit" id="up-run">Decide this</button>
+        </fieldset>
+        <p id="up-problem" class="problem" role="alert" hidden></p>
+      </form>
+      </div>
     </section>
     <section class="row faq" id="faq">
       <header class="rail" data-rise><h2>Questions</h2></header>
@@ -166,10 +213,7 @@
   </section>
 
   <section id="result" class="result" aria-labelledby="answer-title" hidden>
-    <header class="sec-head">
-      <h2 id="answer-title" tabindex="-1"><span class="num">3</span>The answer</h2>
-      <p class="sec-lede">The verdict, the rule that decided it, and each value boxed on its page.</p>
-    </header>
+    <h2 id="answer-title" class="sr" tabindex="-1">The answer</h2>
     <p id="opening" class="opening" role="status" hidden>Opening the review…</p>
     <iframe id="review" title="Review: the answer, the evidence and how it was checked"></iframe>
     <nav id="after" class="after" aria-label="Next" hidden>
@@ -179,7 +223,7 @@
     </nav>
   </section>
 </div>
-<script src="/web/app.js?v=9"></script>
+<script src="/web/app.js?v=11"></script>
 <script src="/web/motion.js?v=3"></script>
 </body>
 </html>
