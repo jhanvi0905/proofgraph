@@ -76,9 +76,11 @@ def verified_amends(mappings: DocumentMappingFile, doc_ids: list[str], raw: Path
     return tuple(out)
 
 
-def run_packet(packet_id: str, claim: Claim, doc_ids: list[str], mappings: DocumentMappingFile,
-               data: Path, trace: Trace, policies: tuple[str, ...] | None = None) -> PacketRun:
-    """`policies`: the question's policy set (D9); None means the slot key's first segment."""
+def gather(packet_id: str, claim: Claim, doc_ids: list[str], mappings: DocumentMappingFile,
+           data: Path, trace: Trace) -> tuple[PacketRun, tuple[DocumentMapping, ...]]:
+    """Everything before the decision: admission, atomize, retrieval, the for and against reads, and
+    every quote verified and turned into an assertion (amount) or clause (wording) on `claim.slot`.
+    No verdict. D11 runs this under a run-local key, then re-keys the lines a person confirms."""
     manifest = SourceManifest.model_validate_json((data / "instruments.json").read_text(encoding="utf-8"))
     policy = claim.slot.split(".", 1)[0]
     run = PacketRun(claim=claim, atom_text=None)
@@ -87,7 +89,7 @@ def run_packet(packet_id: str, claim: Claim, doc_ids: list[str], mappings: Docum
     atoms = atomize(claim, load_predicate_set(data / "predicates.json"), trace)
     if not atoms.atoms:
         run.failure = f"the claim could not be split into atoms: {[e.code.value for e in atoms.errors]}"
-        return run
+        return run, checked
     atom = atoms.atoms[0]
     run.atom_text = atom.subject
 
@@ -109,7 +111,15 @@ def run_packet(packet_id: str, claim: Claim, doc_ids: list[str], mappings: Docum
                     continue
                 a = assert_from_evidence(ev, by_doc[ev.doc_id], claim.slot, trace)
                 (run.assertions if isinstance(a, Assertion) else run.invalid).append(a)
+    return run, checked
 
+
+def run_packet(packet_id: str, claim: Claim, doc_ids: list[str], mappings: DocumentMappingFile,
+               data: Path, trace: Trace, policies: tuple[str, ...] | None = None) -> PacketRun:
+    """`policies`: the question's policy set (D9); None means the slot key's first segment."""
+    run, checked = gather(packet_id, claim, doc_ids, mappings, data, trace)
+    if run.failure:
+        return run
     if claim.kind == "wording":
         run.verdict = arbitrate_wording(claim, tuple(run.clauses), tuple(doc_ids), checked, policies)
     else:
