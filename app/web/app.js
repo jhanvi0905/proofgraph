@@ -341,7 +341,9 @@
   $("up-ok").addEventListener("click", function () {
     var who = $("up-who").value.trim(); if (!who) { upSay("Enter your name: who is confirming what these documents are."); $("up-who").focus(); return; }
     var split = $("up-split").checked, shared = $("up-policy").value.trim(), why = $("up-why").value.trim();
-    if (!split && !shared) { upSay("Name the policy or provision these documents belong to."); $("up-policy").focus(); return; }
+    // No name given: the uploads are one set. The label only groups them; the result says it was grouped by default.
+    var defaulted = !split && !shared;
+    if (defaulted) { shared = "Uploaded set"; if (!why || why === "Uploaded together as one set of documents.") why = "Uploaded together as one set; no policy named, so they are treated as one."; }
     var bad = 0;
     var rows = Array.prototype.map.call($("up-rows").querySelectorAll("tr[data-row]"), function (tr) {
       var o = { row_id: tr.dataset.row };
