@@ -276,7 +276,7 @@ def test_the_figure_picked_at_confirmation_is_compared_and_recorded(monkeypatch,
         assert d.record["value_set"] == [{"line_id": c.line_id, "doc_id": "doc", "line": TWO, "figure": c.figures[index],
                                           "index": index, "figures": ["USD 5,000", "USD 10,000"]}]
     rec = {**d.record, "confirmed_on": None, "dropped": [], "nothing_found": []}
-    assert "Figure: picked at confirmation by a person, not read by code (USD 10,000 in" in _record_line(rec)
+    assert "<dt>Figure</dt><dd>picked at confirmation by a person, not read by code (USD 10,000 in" in _record_line(rec)
     assert "The figure USD 10,000 was picked at confirmation" in _how_set(rec)
 
 

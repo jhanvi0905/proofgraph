@@ -73,8 +73,6 @@ html, body { overflow-x: clip; }
 .plist .st { display: inline-flex; align-items: center; font-weight: 700; margin-right: .5rem; }
 .plist .sub { display: block; font-size: var(--t-16); }
 .notes li.error { outline: 2px solid var(--pen-red); border: 0; padding: .6rem .8rem; margin: .4rem 0; border-radius: 4px; font-weight: 700; }
-.result { margin-top: 1.5rem; }
-.result { margin-top: 2.5rem; }
 .result iframe { display: block; width: 100%; height: calc(100vh - 3.5rem); min-height: 32rem; border: 0; background: transparent; }
 .result.auto iframe { min-height: 0; }
 
@@ -133,7 +131,7 @@ html.running { scroll-padding-top: calc(var(--bar-h, 4rem) + .5rem); }
 
 
 /* Real document pictures in "How it works": the page itself, never a stand-in. */
-.frame-pic { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: contain; object-position: center top; background: var(--paper); padding: .75rem; margin-bottom: 1rem; }
+.frame-pic { display: block; width: 100%; height: 14rem; object-fit: contain; object-position: center top; background: var(--paper); padding: .75rem; margin-bottom: 1rem; }
 /* The wordmark close sits apart from the sign-off above it. */
 .bigname { margin-top: 7rem; }
 
@@ -166,14 +164,14 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 .step3 .n { display: inline-grid; place-items: center; width: 1.8rem; height: 1.8rem; background: #fff; color: var(--stamp); font-size: var(--t-16); }
 .choices { display: grid; gap: .5rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
 .step3 > .choice.off { margin-top: .5rem; }
-.choice { position: relative; display: grid; gap: .2rem; padding: .8rem 1rem .8rem 2.6rem; border: 2px solid rgba(255,255,255,.55); cursor: pointer; }
+.choice { position: relative; display: grid; gap: .2rem; min-height: 44px; align-content: center; padding: .8rem 1rem .8rem 2.6rem; border: 2px solid rgba(255,255,255,.55); cursor: pointer; }
 .choice input { position: absolute; left: 1rem; top: 1.05rem; accent-color: #fff; width: 1rem; height: 1rem; margin: 0; }
 .choice:has(input:checked), .choice.on { border-color: #fff; background: rgba(255,255,255,.12); }
 .choice .c-t { font-weight: 700; }
 .choice .c-k { font: var(--t-13)/1.4 ui-monospace, "SF Mono", Menlo, monospace; opacity: .85; overflow-wrap: break-word; } /* taste-skill-ignore: the frozen registry key, shown as code on purpose */
 .choice .c-s { font-size: var(--t-13); opacity: .9; }
 .choice.off { cursor: not-allowed; border-style: dashed; opacity: .7; }
-.c-note { margin: 0 0 .75rem !important; font-size: var(--t-13); max-width: 46rem; opacity: .9; }
+.c-note { margin: 0 0 .75rem !important; font-size: .875rem; line-height: 1.45; max-width: 46rem; opacity: 1; }
 .map-wrap { overflow-x: auto; }
 .map { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: var(--t-13); }
 .map th, .map td { text-align: left; padding: .5rem .75rem .5rem 0; border-bottom: 1px solid rgba(255,255,255,.35); vertical-align: top; }
@@ -196,10 +194,16 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 .map.adm tr.out .num-cell { font-weight: 400; }
 
 /* Two examples in the hero; after each answer, the next step. */
-.after { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.25rem; margin: 2rem 0 0; padding: 1.25rem 0 0; border-top: 2px solid var(--ink); }
+.after { display: grid; gap: .9rem; margin: 2rem 0 0; padding: 1.25rem 0 0; border-top: 2px solid var(--ink); }
+.after-main { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; }
+.after-more { margin: 0; }
+.after-more a { display: inline-flex; align-items: center; min-height: 44px; }
+.copy-fallback { flex: 1 1 18rem; min-height: 44px; padding: .4rem .6rem; border: 2px solid var(--ink); background: #fff; color: var(--ink); font: inherit; border-radius: 0; }
+.copy-status { font-weight: 700; }
 .after[hidden] { display: none; }
 .after #after-btns { display: contents; }
 .after a { font-weight: 700; }
+.after-main .btn { justify-self: start; }
 
 /* One rail for the whole middle of the page. Every row shares the same two grid lines: the heading and its
    argument on the left, held in place while the evidence scrolls past on the right. One axis, one rhythm:
@@ -262,7 +266,7 @@ html.js [data-rise].in { opacity: 1; transform: none; }
 .r-tabs { display: flex; margin: 0 -1.4rem 1.1rem; border-bottom: 2px solid var(--ink); }
 .r-tabs label { flex: 1; position: relative; }
 .r-tabs input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
-.r-tabs span { display: block; padding: .75rem .5rem; text-align: center; font-weight: 700; font-size: var(--t-16); color: var(--grey); border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.r-tabs span { display: block; min-height: 44px; box-sizing: border-box; padding: .75rem .5rem; text-align: center; font-weight: 700; font-size: var(--t-16); color: var(--grey); border-bottom: 3px solid transparent; margin-bottom: -2px; }
 .r-tabs input:checked + span { color: var(--ink); border-bottom-color: var(--stamp); }
 .r-tabs input:focus-visible + span { outline: 3px solid var(--stamp); outline-offset: -3px; }
 .r-tabs label[hidden] { display: none; }
@@ -319,9 +323,9 @@ html.running .steps-nav { visibility: hidden; }
 .tc-list { list-style: none; margin: .6rem 0; padding: 0; display: grid; gap: .8rem; }
 .tc-line { border-top: 1px solid rgba(255,255,255,.4); padding-top: .7rem; display: grid; gap: .45rem; }
 .tc-where { margin: 0; font-size: var(--t-13); }
-.tc-line .says { margin: 0; padding: .5rem .7rem; background: #fff; color: var(--ink); font-size: var(--t-13); line-height: 1.45; }
+.tc-line .says { margin: 0; padding: .5rem .7rem; background: #fff; color: var(--ink); font-size: var(--t-16); line-height: 1.45; }
 .tc-pick { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; align-items: center; }
-.tc-pick label { display: inline-flex; gap: .35rem; align-items: center; }
+.tc-pick label { display: inline-flex; gap: .5rem; align-items: center; min-height: 44px; padding-right: .5rem; cursor: pointer; }
 .tc-pick .tc-why { flex: 1 1 14rem; min-width: 0; padding: .45rem .6rem; border: 2px solid #fff; background: #fff; color: var(--ink); font: inherit; }
 .close .code-note { margin: .6rem 0 0; }
 
@@ -341,6 +345,7 @@ html.running .steps-nav { visibility: hidden; }
 .check .steps3 { max-width: none; }
 .check .typed textarea { max-width: 48rem; }
 .check .choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: .75rem; }
+.map-fold summary, .worked-qs > summary { min-height: 44px; display: flex; align-items: center; }
 .map-fold summary { cursor: pointer; font-weight: 700; text-decoration: underline; text-underline-offset: .2em; }
 .map-fold[open] summary { margin-bottom: .75rem; }
 .tc-row { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem 1rem; }
@@ -360,7 +365,7 @@ html.running .steps-nav { visibility: hidden; }
 .up-shared .field span { font-weight: 700; }
 .up-shared input, .up-table input, .up-table select { width: 100%; padding: .5rem .6rem; border: 2px solid #fff; border-radius: 0; background: #fff; color: var(--ink); font: inherit; }
 .up-shared input:disabled { opacity: .55; }
-.up-split { display: inline-flex; gap: .5rem; align-items: center; font-size: var(--t-13); }
+.up-split { display: inline-flex; gap: .6rem; align-items: center; min-height: 44px; font-size: var(--t-16); cursor: pointer; }
 .up-table { min-width: 0; }
 .up-table td { font-size: var(--t-16); }
 .up-table .printed { display: block; opacity: .85; font-size: var(--t-13); margin: .2rem 0 .35rem; }
@@ -371,3 +376,33 @@ html.running .steps-nav { visibility: hidden; }
   .up-table td { border: 0; padding: 0; }
 }
 #up-confirm > .field.narrow { max-width: 20rem; }
+
+/* Merged refusals: the end of "Three answers". */
+.refuse-list { margin-top: 2rem; }
+.refuse-list h3 { font-size: var(--t-20); margin: 0 0 .6rem; }
+.refuse-list .ruled li { font-size: var(--t-16); padding: .7rem 0; }
+
+/* "Every answer can be checked": the heading across the top, the three figures in one row. */
+#checked.row { grid-template-columns: minmax(0, 1fr); }
+#checked.row > .rail { position: static; }
+#checked .rail p { max-width: 46rem; }
+@media (min-width: 760px) { #checked .steps-seq { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2rem; } }
+#checked .shot p { font-size: var(--t-16); }
+
+/* Phone nav: the wordmark and one way in; the rest sit in a disclosure. Desktop shows the full row. */
+.nav-narrow { display: none; }
+.nav-menu { position: relative; }
+.nav-menu > summary { min-height: 44px; display: flex; align-items: center; padding: 0 .9rem; border: 2px solid #fff; font-weight: 700; cursor: pointer; list-style: none; }
+.nav-menu > summary::-webkit-details-marker { display: none; }
+.nav-menu[open] > summary { background: #fff; color: var(--stamp); }
+.nav-menu > nav { position: absolute; right: 0; top: calc(100% + .4rem); z-index: 30; display: flex; flex-direction: column; gap: 0; min-width: 13rem; padding: .4rem 1rem; background: var(--stamp); border: 2px solid #fff; overflow: visible; }
+.nav-menu > nav a { display: flex; align-items: center; min-height: 44px; padding: 0; white-space: nowrap; }
+@media (max-width: 640px) {
+  .topnav { flex-wrap: nowrap; justify-content: space-between; }
+  .nav-wide { display: none !important; }
+  .nav-narrow { display: flex; align-items: center; gap: .6rem; }
+  .nav-go { display: inline-flex; align-items: center; min-height: 44px; color: #fff; font-weight: 700; text-decoration: underline; text-underline-offset: .2em; }
+  .map td a { display: inline-block; padding: .8rem 0; }
+  .code-link, .code-note a { display: inline-flex; align-items: center; min-height: 44px; }
+  .frame-pic { height: 12rem; }
+}

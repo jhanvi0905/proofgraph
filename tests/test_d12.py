@@ -372,7 +372,7 @@ def test_the_currency_set_at_confirmation_is_recorded_and_then_compared(usd_line
     from app.result import _record_line
 
     line = _record_line({**d.record, "confirmed_on": None})
-    assert "Currency: set at confirmation, not written by the claimant (USD)" in line
+    assert "<dt>Currency</dt><dd>set at confirmation, not written by the claimant (USD)</dd>" in line
     g, c = _usd_gathered(usd_line)
     assert decide_typed(g, {c.line_id}, {}, confirmed_by="t", policy_source="chosen", currency_set="XYZ").refusal == \
         "currency_not_known"

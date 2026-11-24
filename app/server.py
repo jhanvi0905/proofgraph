@@ -145,7 +145,14 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
     """`complete` is the model call the proposer uses (tests pass a fake). `limit` caps live runs and `upload_limit`
     caps uploads (each upload calls the model once per file); examples replay recorded responses and are never limited."""
     app = FastAPI(title="ProofGraph")
-    reviews: OrderedDict[str, str] = OrderedDict()
+    reviews: OrderedDict[str, dict] = OrderedDict()  # id -> {"html", "args" (to re-render), "approval"}
+
+    def keep(rid: str, run, data: Path, title: str, **kw) -> None:
+        entry = {"run": run, "data": data, "title": title, "kw": kw, "approval": None}
+        entry["html"] = render(run, data, title, review_id=rid, **kw)
+        reviews[rid] = entry
+        while len(reviews) > KEEP:
+            reviews.popitem(last=False)
     limit = limit or LiveRunLimit()
     upload_limit = upload_limit or LiveRunLimit()
     uploads = UploadStore(uploads_dir or DATA / "uploads", DATA / "predicates.json", complete)
@@ -181,9 +188,7 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
             if run.verdict and run.verdict.unresolved_reason:
                 yield _sse("disagreement", {"part_id": "a0", "text": _reason(run, named)})
             rid = uuid.uuid4().hex[:12]
-            reviews[rid] = render(run, data, f"ProofGraph: {sample['title']}", question=QUESTION.get(claim.slot, claim.slot), rerun=sample.get("rerun"))
-            while len(reviews) > KEEP:
-                reviews.popitem(last=False)
+            keep(rid, run, data, f"ProofGraph: {sample['title']}", question=QUESTION.get(claim.slot, claim.slot), rerun=sample.get("rerun"))
             yield _sse("done", {"review_id": rid, "status": status,
                                 "banners": ["The claim and which policy each document describes are written by a person; the rest is the pipeline."]})
         except Exception as exc:  # report, never guess
@@ -418,9 +423,7 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
         d.record["dropped"] = [{**x, "doc": _doc_name(x["doc_id"], named)} for x in d.record["dropped"]]
         d.record["nothing_found"] = [_doc_name(x, named) for x in d.record["nothing_found"]]
         rid = uuid.uuid4().hex[:12]
-        reviews[rid] = render(d.run, folder, "ProofGraph: a typed claim", question=("A typed claim on these documents" if d.record["policy"] == "Uploaded set" else f"A typed claim on policy {d.record['policy']}"), record=d.record)
-        while len(reviews) > KEEP:
-            reviews.popitem(last=False)
+        keep(rid, d.run, folder, "ProofGraph: a typed claim", question=("A typed claim on these documents" if d.record["policy"] == "Uploaded set" else f"A typed claim on policy {d.record['policy']}"), record=d.record)
         status = STATUS.get(d.run.verdict.verdict.value, "error")
         return {"review_id": rid, "status": status, "reason": _reason(d.run, named)}
 
@@ -435,8 +438,25 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
 
     @app.get("/api/review/{review_id}", response_class=HTMLResponse)
     def review_page(review_id: str):
-        page = reviews.get(review_id)
+        entry = reviews.get(review_id)
+        page = entry["html"] if entry else None
         return HTMLResponse(page or "<p>That result is no longer here. Run the example again.</p>", status_code=200 if page else 404)
+
+    @app.post("/api/review/{review_id}/approve")
+    async def approve(review_id: str, request: Request):
+        entry = reviews.get(review_id)
+        if entry is None:
+            return JSONResponse({"refusal": "That result is no longer here."}, status_code=404)
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        name = " ".join(str(body.get("approved_by", "") if isinstance(body, dict) else "").split())
+        if not name:
+            return JSONResponse({"refusal": "Enter your name to approve this result."}, status_code=400)
+        entry["approval"] = {"approved_by": name, "approved_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
+        entry["html"] = render(entry["run"], entry["data"], entry["title"], review_id=review_id, approval=entry["approval"], **entry["kw"])
+        return {"approved_by": name, "approved_at": entry["approval"]["approved_at"]}
 
     # Real crops of the documents, rendered from the PDFs in data/raw at request time (never committed).
     media = {

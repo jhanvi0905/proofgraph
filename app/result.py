@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import html
 import io
+import json
 import threading
 from pathlib import Path
 from urllib.parse import urlparse
@@ -52,7 +53,7 @@ STRENGTH = {"read": "read in the document", "derived": "derived mechanically", "
 
 
 def render(run: PacketRun, data: Path, title: str, question: str | None = None, rerun: str | None = None,
-           record: dict | None = None) -> str:
+           record: dict | None = None, review_id: str | None = None, approval: dict | None = None) -> str:
     """One screen, read like a report: question, claim, answer, why. The chain sits collapsed below it."""
     manifest = SourceManifest.model_validate_json((data / "instruments.json").read_text(encoding="utf-8"))
     info = {i.doc_id: (s, i) for s in manifest.sources for i in s.instruments}
@@ -73,7 +74,7 @@ def render(run: PacketRun, data: Path, title: str, question: str | None = None, 
   <h1>{E(question or run.claim.slot)}</h1>
   <p class="claim"><span class="q-label">Claim</span> {claim}</p>
 </header>"""
-    rows = "".join(_assertion(a, v, names[a.assertion_id], info, data) for a in run.assertions) or \
+    rows = "".join(_assertion(a, v, names[a.assertion_id], info, data, record is not None) for a in run.assertions) or \
         ('<p class="empty">This claim is about wording, so no amount was read. The clauses are quoted below.</p>'
          if v.verdict.value == "quoted" else '<p class="empty">None of these documents states an amount for this. Nothing was cited.</p>')
     chain = f"""<details class="chain">
@@ -85,11 +86,11 @@ def render(run: PacketRun, data: Path, title: str, question: str | None = None, 
   {_pairs(v, names, {a.assertion_id: a for a in run.assertions}) if v.verdict.value != "quoted" else _clauses(v, info)}
 </details>"""
     body = f"""{head}
-{_answer(run, v, names, info, data)}
+{_answer(run, v, names, info, data, record is not None)}
 {_how_set(record) if record else ""}
 {chain}
-{_footer(run, info, rerun, record)}"""
-    return _page(title, body)
+{_footer(run, info, rerun, record, review_id, approval)}"""
+    return _page(title, body, review_id)
 
 
 # ---------------------------------------------------------------- the answer, then why
@@ -105,7 +106,7 @@ RULE_WHY = {"endorsement_over_base": "an endorsement overrides the form it chang
             "later_effective_date": "a later effective date overrides an earlier one"}
 
 
-def _answer(run, v, names, info, data: Path) -> str:
+def _answer(run, v, names, info, data: Path, confirmed: bool = False) -> str:
     cls, mark, word = ANSWER[v.verdict.value]
     gov = next((a for a in run.assertions if a.assertion_id == v.governing_assertion), None)
     gov_name = _doc_name(v.governing_doc_id, info) if v.governing_doc_id else None
@@ -143,10 +144,15 @@ def _answer(run, v, names, info, data: Path) -> str:
                          for a in run.assertions)
         why = f'<p class="why-line"><strong>{E(head)}</strong> {E(detail)}</p>' + (f'<ul class="states">{states}</ul>' if states else "")
     shown = gov
+    if shown is None and verdict in ("unresolved", "not_found") and run.assertions:
+        shown = run.assertions[0]  # a lead quote here too: the first cited page
     if verdict == "quoted" and v.quoted:
         shown = next((a for a in run.assertions if a.instrument.doc_id == v.quoted.doc_id), None)
     pane = ""
-    if shown is not None:
+    pair = _precedence_pair(run, v, names, info, data) if verdict in ("supported", "contradicted") else ""
+    if pair:
+        pane = pair
+    elif shown is not None:
         pane = f'<figure class="src lead-src">{_source(shown, info, data)}</figure>'
     elif verdict == "quoted" and v.quoted and info[v.quoted.doc_id][0].file.endswith(".pdf"):
         q = v.quoted
@@ -159,9 +165,39 @@ def _answer(run, v, names, info, data: Path) -> str:
     return f"""<section class="verdict {cls}" aria-labelledby="vd">
   <h2 id="vd"><span class="st">{_mark(mark)}{E(word)}</span></h2>
   {why}
+  {_attack_line(run, names) if verdict != "quoted" else ""}
   {pane}
   <p class="not-opinion">{"A quotation of the controlling clause" if verdict == "quoted" else "A comparison of the amounts the documents state"}, not a coverage opinion or legal advice.</p>
 </section>"""
+
+
+def _attack_line(run, names) -> str:
+    found = [a for a in run.assertions if a.assertion_id.startswith("attack:")]
+    if not found:
+        return '<p class="check-line">The check against the claim found nothing that disagrees.</p>'
+    items = "; ".join(f"{E(names[a.assertion_id])} states {E(a.value.text)}" for a in found)
+    return f'<p class="check-line">The check against the claim found {len(found)} line{"" if len(found) == 1 else "s"}: {items}.</p>'
+
+
+def _precedence_pair(run, v, names, info, data: Path) -> str:
+    """When a precedence rule fired: the governing page and the overridden page, side by side, each captioned."""
+    if not v.governing_rule or v.governing_rule.value not in RULE_WORDS:
+        return ""
+    gov = next((a for a in run.assertions if a.assertion_id == v.governing_assertion), None)
+    if gov is None:
+        return ""
+    over = next((a for a in run.assertions if a.assertion_id != gov.assertion_id and a.instrument.doc_id != gov.instrument.doc_id
+                 and a.assertion_id in v.in_scope), None)
+    if over is None:
+        return ""
+
+    def cap(a, word):
+        loc = a.citation.locator
+        page = f", page {loc.page}" if isinstance(loc, PageQuote) else ""
+        return f"{word}: {E(names[a.assertion_id])}{page}"
+    return (f'<div class="precedence" aria-label="The proof of precedence">'
+            f'<figure class="src lead-src"><p class="pc-cap controls">{cap(gov, "Controls")}</p>{_source(gov, info, data)}</figure>'
+            f'<figure class="src lead-src"><p class="pc-cap overridden">{cap(over, "Overridden")}</p>{_source(over, info, data)}</figure></div>')
 
 
 def _human(text: str, names: dict) -> str:
@@ -229,7 +265,7 @@ def _admitted(run, v, info) -> str:
 {f'<ul class="skipped">{note}</ul>' if note else ''}</section>"""
 
 
-def _footer(run, info, rerun, record=None) -> str:
+def _footer(run, info, rerun, record=None, review_id=None, approval=None) -> str:
     docs = [d for d, _ in run.documents] or [a.instrument.doc_id for a in run.assertions]
     files = []
     for d in dict.fromkeys(docs):
@@ -243,8 +279,23 @@ def _footer(run, info, rerun, record=None) -> str:
   <p><strong>Who wrote what.</strong> A person: the claim, and which policy each document belongs to. The model: quotes from the passages it was shown. Code: amounts, comparisons, rules, and checking every quote against the file.</p>
   <ul class="files">{''.join(files)}</ul>
   {_record_line(record) if record else ""}
-  <p>Commit <code>{E(_COMMIT)}</code>.{again}</p>
+  {_approval(review_id, approval)}
+  <p>Commit <code>{E(_commit())}</code>.{again}</p>
+  <p class="keep">Reviews are kept in memory: this link works while this server runs, and not after it restarts.</p>
 </footer>"""
+
+
+def _approval(review_id, approval) -> str:
+    if approval:
+        return f'<p class="approved"><strong>Approved by {E(approval["approved_by"])}, {E(approval["approved_at"])}.</strong></p>'
+    if not review_id:
+        return ""
+    return """<form class="approve" id="approve-form" novalidate>
+  <label for="approver"><strong>Approved by</strong></label>
+  <input id="approver" name="approved_by" type="text" autocomplete="name" placeholder="Your name">
+  <button class="btn" type="submit">Approve</button>
+  <p class="approve-msg" id="approve-msg" role="status"></p>
+</form>"""
 
 
 GROUPING = {"person": "confirmed by a person", "prefilled_from_mapping": "pre-filled from a mapping row"}
@@ -254,18 +305,23 @@ BASIS_SOURCE = {"claimant": "written in the claim", "set_at_confirmation": "set 
 
 
 def _record_line(r: dict) -> str:
-    """D11: how this question was set, recorded on every typed-claim run."""
+    """D11: how this question was set, recorded on every typed-claim run. A short definition list; every fact kept."""
     mode = GROUPING.get(r["grouping_mode"], r["grouping_mode"]) + (f" (row {r['mapping_row']})" if r.get("mapping_row") else "")
     pol = (f"found in the claim (&ldquo;{E(r['policy'])}&rdquo;), shown and accepted" if r["policy_source"] == "matched_in_claim"
            else "the only one in these documents" if r["policy_source"] == "only_in_packet" else "chosen by the person")
-    return (f'<p class="record"><strong>How this question was set.</strong> Grouping: {E(mode)}, by {E(r["confirmed_by"])}'
-            f'{", " + E(r["confirmed_on"]) if r.get("confirmed_on") else ""}. '
-            f'{"Documents: uploaded and checked as one set. " if r["policy"] == "Uploaded set" else "Policy " + E(r["policy"]) + ": " + pol + ". "}'
-            f'Basis: {E(BASIS_SOURCE.get(r["basis_source"], r["basis_source"]))}. '
-            f'Currency: {E(CURRENCY_SOURCE.get(r.get("currency_source", "claimant"), r.get("currency_source", "")))}'
-            f'{" (" + E(r["currency_set"]) + ")" if r.get("currency_set") else ""}. '
-            f'Figure: {E(VALUE_SOURCE.get(r.get("value_source", "verified_quote"), r.get("value_source", "")))}'
-            f'{"".join(" (" + E(x["figure"]) + " in &ldquo;" + E(x["line"]) + "&rdquo;)" for x in r.get("value_set", []))}. Question key <code>{E(r["question"])}</code>, from the printed line &ldquo;{E(r["label_from"])}&rdquo;.</p>')
+    docs = ("Documents", "uploaded and checked as one set") if r["policy"] == "Uploaded set" else (f"Policy {E(r['policy'])}", pol)
+    figure = (E(VALUE_SOURCE.get(r.get("value_source", "verified_quote"), r.get("value_source", "")))
+              + "".join(" (" + E(x["figure"]) + " in &ldquo;" + E(x["line"]) + "&rdquo;)" for x in r.get("value_set", [])))
+    cur = (E(CURRENCY_SOURCE.get(r.get("currency_source", "claimant"), r.get("currency_source", "")))
+           + (" (" + E(r["currency_set"]) + ")" if r.get("currency_set") else ""))
+    rows = [("Grouping", E(mode)),
+            ("Confirmed by", E(r["confirmed_by"]) + (", " + E(r["confirmed_on"]) if r.get("confirmed_on") else "")),
+            (docs[0], docs[1]),
+            ("Basis", E(BASIS_SOURCE.get(r["basis_source"], r["basis_source"]))),
+            ("Currency", cur), ("Figure", figure),
+            ("Question key", f"<code>{E(r['question'])}</code>, from the printed line &ldquo;{E(r['label_from'])}&rdquo;")]
+    return ('<div class="record"><p><strong>How this question was set.</strong></p><dl class="record-dl">'
+            + "".join(f"<dt>{k}</dt><dd>{v}</dd>" for k, v in rows) + "</dl></div>")
 
 
 def _how_set(r: dict) -> str:
@@ -287,16 +343,26 @@ def _how_set(r: dict) -> str:
 </section>"""
 
 
+_COMMIT_CACHE: tuple[float, str] = (0.0, "")
+
+
 def _commit() -> str:
+    """The commit at render time, plus " (with uncommitted changes)" when the tree is dirty. Cached a few seconds."""
     import subprocess
+    import time
+    global _COMMIT_CACHE
+    now = time.monotonic()
+    if _COMMIT_CACHE[1] and now - _COMMIT_CACHE[0] < 5:
+        return _COMMIT_CACHE[1]
+    cwd = Path(__file__).parent
     try:
-        return subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=2,
-                              cwd=Path(__file__).parent).stdout.strip() or "unknown"
+        sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=2, cwd=cwd).stdout.strip()
+        dirty = bool(subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, timeout=2, cwd=cwd).stdout.strip()) if sha else False
+        out = (sha + (" (with uncommitted changes)" if dirty else "")) if sha else "unknown"
     except Exception:
-        return "unknown"
-
-
-_COMMIT = _commit()
+        out = "unknown"
+    _COMMIT_CACHE = (now, out)
+    return out
 
 
 def _rules(v, info, names) -> str:
@@ -329,13 +395,16 @@ def _rules(v, info, names) -> str:
 </section>"""
 
 
-def _weakest_label(a: Assertion) -> str:
+def _weakest_label(a: Assertion, confirmed: bool = False) -> str:
     r = next(r for r in a.routes if r.strength is a.weakest)
-    which = "which policy" if r.mapping_id.startswith("identify") else "which figure"
+    policy = r.mapping_id.startswith("identify")
+    if policy and confirmed:  # a person confirmed the policy: not an unreviewed judgment
+        return "Which policy: confirmed by a person"
+    which = "which policy" if policy else "which figure"
     return f"{which}, {STRENGTH[r.strength.value]}"
 
 
-def _assertion(a: Assertion, v, name: str, info, data: Path) -> str:
+def _assertion(a: Assertion, v, name: str, info, data: Path, confirmed: bool = False) -> str:
     governs = a.assertion_id == v.governing_assertion
     side = "Cited against the claim" if a.assertion_id.startswith("attack:") else "Cited for the claim"
     cur = _currency(a.amount.currency)
@@ -353,7 +422,7 @@ def _assertion(a: Assertion, v, name: str, info, data: Path) -> str:
       <dt>Basis <small>(each loss, each claim, aggregate)</small></dt><dd class="{'ns' if basis == 'not stated' else ''}">{E(basis)}</dd>
     </dl>
     <ul class="routes" aria-label="How it reaches the claim">{routes}</ul>
-    <p class="weakest">Weakest step: {E(_weakest_label(a))}. Check this one first.</p>
+    <p class="weakest">{"Weakest step: " if not _weakest_label(a, confirmed).startswith("Which policy:") else ""}{E(_weakest_label(a, confirmed))}. Check this one first.</p>
   </div>
   <figure class="src">{_source(a, info, data)}</figure>
 </article>"""
@@ -458,7 +527,7 @@ def _doc_name(doc_id: str | None, info) -> str:
 def _mark(kind: str) -> str:
     paths = {
         "tick": '<path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/>',
-        "clash": '<path class="c1" d="M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6"/><path class="c2" d="M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"/>',
+        "clash": '<path d="M5 9h14M5 15h14M15 5L9 19"/>',
         "caret": '<path d="M5 15l7-8 7 8"/>',
         "bracket": '<path d="M9 4H5v16h4M15 4h4v16h-4"/>',
         "circle": '<path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/>',
@@ -467,7 +536,7 @@ def _mark(kind: str) -> str:
             f'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{paths[kind]}</svg>')
 
 
-def _page(title: str, body: str) -> str:
+def _page(title: str, body: str, review_id: str | None = None) -> str:
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{E(title)}</title>
 <link rel="stylesheet" href="/web/tokens.css"><link rel="stylesheet" href="/web/result.css">
@@ -476,5 +545,16 @@ def _page(title: str, body: str) -> str:
 (function () {{
   function post() {{ parent.postMessage({{ type: "proofgraph-layout", height: document.documentElement.scrollHeight, sections: [] }}, location.origin); }}
   addEventListener("load", post); addEventListener("resize", post);
+  addEventListener("beforeprint", function () {{ document.querySelectorAll("details").forEach(function (d) {{ d.open = true; }}); }});
+  var f = document.getElementById("approve-form");
+  if (f) f.addEventListener("submit", function (e) {{
+    e.preventDefault();
+    var msg = document.getElementById("approve-msg"), name = document.getElementById("approver").value;
+    fetch("/api/review/" + {json.dumps(review_id)} + "/approve", {{ method: "POST", headers: {{ "Content-Type": "application/json" }},
+      body: JSON.stringify({{ approved_by: name }}) }})
+      .then(function (r) {{ return r.json().then(function (j) {{ return [r.ok, j]; }}); }})
+      .then(function (x) {{ if (x[0]) location.reload(); else msg.textContent = x[1].refusal || "Could not record the approval."; }})
+      .catch(function () {{ msg.textContent = "Could not reach the server."; }});
+  }});
 }})();
 </script></body></html>"""

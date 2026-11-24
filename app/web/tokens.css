@@ -39,11 +39,11 @@ button { font: inherit; color: inherit; }
 .mark { flex: none; vertical-align: -.2em; margin-right: .35em; overflow: visible; }
 .m-tick { color: var(--pen-green); } .m-circle { color: var(--pen-red); } .m-caret { color: var(--amber); }
 .m-bracket { color: var(--slate); } .m-question { color: var(--grey); }
-.m-clash .c1 { stroke: var(--pen-green); } .m-clash .c2 { stroke: var(--pen-red); }
+.m-clash { color: var(--amber); } .m-clash path { stroke: var(--amber); }
 .u, .st { text-decoration-line: underline; text-decoration-thickness: 2px; text-underline-offset: .22em; text-decoration-skip-ink: none; }
 .u.green, .green .st, .st.green { text-decoration-style: solid; text-decoration-color: var(--pen-green); }
 .u.red, .red .st, .st.red { text-decoration-style: solid; text-decoration-color: var(--pen-red); }
 .u.amber, .amber .st, .st.amber { text-decoration-style: wavy; text-decoration-color: var(--amber); }
 .u.slate, .slate .st, .st.slate { text-decoration-style: dashed; text-decoration-color: var(--slate); }
 .u.grey, .grey .st, .st.grey { text-decoration-style: dotted; text-decoration-color: var(--grey); }
-.u.clash, .clash .st, .st.clash { text-decoration-style: double; text-decoration-color: var(--pen-red); }
+.u.clash, .clash .st, .st.clash { text-decoration-style: double; text-decoration-color: var(--amber); }

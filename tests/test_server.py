@@ -47,7 +47,7 @@ def test_rule_one_page_names_the_rule_the_governing_form_and_boxes_the_lines(cli
     assert "Supported, decided by a rule" not in page and "Rule applied: endorsement over base form" in page
     assert "HO 00 15 (endorsement)" in page and "Governs" in page
     assert "The claim is right." in page and "<b>$1,000</b>" in page  # answer first, the claim's amount in bold
-    assert page.count("data:image/png;base64,") == 3  # the governing page up front, then both pages in the chain
+    assert page.count("data:image/png;base64,") == 4  # the governing and overridden pages up front, then both in the chain
     assert page.index("The claim is right.") < page.index("How this was decided")  # conclusion before mechanism
     assert "Re-run this check" in page and "sha256" in page and "Commit" in page
     assert "compared: same amount; same currency; neither states a basis" in page  # the pair's reason in plain words

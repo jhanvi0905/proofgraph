@@ -13,7 +13,7 @@
     caret: "M3.8 19.6C7.2 14 9.6 9.6 12 5.4c2.6 4.6 5.2 9.2 8.2 14.2",
     bracket: "M15.4 3.6H8.6c-.7 0-1.1.3-1.1.9v15c0 .6.4.9 1.1.9h6.8",
     question: "M8.4 9.2C8.2 5.6 15.8 5.4 15.6 9.4c-.1 2.8-3.7 3-3.6 6.2M12 19.6v.1",
-    clash: "M4.6 4.8c4.6 4.4 9.6 9.6 14.6 14.6M19.2 4.6C14.6 9.2 9.6 14.4 4.8 19.4"
+    clash: "M5 9h14M5 15h14M15 5L9 19"
   };
   var ANSWER = {
     supported: { word: "The claim is right", cls: "green", m: "tick" },
@@ -35,6 +35,18 @@
     s.appendChild(p); return s;
   }
   function esc(x) { var d = document.createElement("div"); d.textContent = x == null ? "" : x; return d.innerHTML; }
+  // A problem message tied to its field: described-by, and focus moves to the field.
+  function unflag(p) {
+    if (!p._f) return;
+    var ids = (p._f.getAttribute("aria-describedby") || "").split(" ").filter(function (i) { return i && i !== p.id; });
+    if (ids.length) p._f.setAttribute("aria-describedby", ids.join(" ")); else p._f.removeAttribute("aria-describedby");
+    p._f = null;
+  }
+  function flag(p, field, text) {
+    unflag(p); p.textContent = text; p.hidden = false; say(text);
+    if (field) { field.setAttribute("aria-describedby", ((field.getAttribute("aria-describedby") || "") + " " + p.id).trim()); p._f = field; field.focus(); }
+  }
+  var NET = "The server didn\u2019t answer. Nothing was decided; try again.";
   function say(text) { $("status").textContent = text; }
   function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
   function note(key, text, cls) {
@@ -125,8 +137,10 @@
     if (runner) { runner.abort(); runner = null; }
     $("review").removeAttribute("src"); $("opening").hidden = true; state.reviewId = null; $("after").hidden = true;
     bar.hidden = true; document.documentElement.classList.remove("running"); $("entrance").hidden = false; $("live").hidden = true; $("result").hidden = true;
-    go.disabled = false; go.textContent = "Check this claim"; window.scrollTo(0, 0);
-    if (text) { problem.textContent = text; problem.hidden = false; say(text); problem.scrollIntoView({ block: "center" }); }
+    go.disabled = false; go.textContent = "Check this claim";
+    if (/[?&]review=/.test(location.search)) history.replaceState(history.state, "", "/");
+    if (text) { flag(problem, go, text); problem.scrollIntoView({ block: "center" }); }
+    else { unflag(problem); var c = $("check"); if (c) c.scrollIntoView(); else window.scrollTo(0, 0); }
   }
   function reset(claim) {
     ["adm", "parts", "notes"].forEach(function (id) { $(id).textContent = ""; });
@@ -137,7 +151,7 @@
     bar.hidden = false; document.documentElement.classList.add("running"); paint(1);
     state.parts = {};
     var c = $("claim-line"); c.textContent = claim; c.className = "claim reading";
-    problem.hidden = true; $("entrance").hidden = true; $("live").hidden = false; $("result").hidden = true;
+    problem.hidden = true; unflag(problem); $("entrance").hidden = true; $("live").hidden = false; $("result").hidden = true;
     window.scrollTo(0, 0);
   }
   function underline(parts) {
@@ -188,6 +202,14 @@
     disagreement: function (d) { note("n" + d.part_id, d.text); },
     done: function (d) {
       state.reviewId = d.review_id;
+      ["tc", "utc"].forEach(function (pre) {   // the typed panels start clean next time
+        $(pre + "-out").textContent = ""; $(pre + "-out").hidden = true; $(pre + "-problem").hidden = true;
+        var rb = $(pre + "-read"); rb.disabled = false; rb.textContent = "Find the lines";
+      });
+      var ru = "/?review=" + encodeURIComponent(d.review_id);
+      if (location.pathname + location.search !== ru) {
+        if (history.state && history.state.run) history.replaceState({ run: 1 }, "", ru); else history.pushState({ run: 1 }, "", ru);
+      }
       (d.banners || []).forEach(function (b, i) { note("b" + i, b); });
       $("live").classList.add("done");
       trip.finished = true; phase(3); $("opening").hidden = false;
@@ -288,7 +310,7 @@
 
   // Your documents: upload, the system proposes what each one is, a person confirms, then run.
   var up = { id: null, view: null, slot: null, claim: "" };
-  function upSay(t) { var p = $("up-problem"); p.textContent = t || ""; p.hidden = !t; if (t) say(t); }
+  function upSay(t, f) { var p = $("up-problem"); if (!t) { unflag(p); p.textContent = ""; p.hidden = true; return; } flag(p, f || null, t); }
   $("files").addEventListener("change", function () {
     var n = this.files.length; $("files-label").textContent = n ? plural(n, "file") + " chosen" : "Choose PDF files";
   });
@@ -334,21 +356,21 @@
     Array.prototype.forEach.call($("up-rows").querySelectorAll(".row-policy"), function (i) { i.hidden = !on; });
   });
   $("up-go").addEventListener("click", function () {
-    var f = $("files").files; if (!f.length) { upSay("Choose at least one PDF first."); return; }
+    var f = $("files").files; if (!f.length) { upSay("Choose at least one PDF first.", $("files")); return; }
     var fd = new FormData(); Array.prototype.forEach.call(f, function (x) { fd.append("files", x); });
     upSay(""); this.disabled = true; this.textContent = "Reading…"; var btn = this;
     fetch("/api/upload", { method: "POST", body: fd }).then(function (r) { return r.json().then(function (j) { return [r.ok, j]; }); })
-      .then(function (x) { if (!x[0]) upSay(x[1].refusal || "The upload could not be read."); else showProposal(x[1]); })
-      .catch(function () { upSay("The upload did not reach the server."); })
+      .then(function (x) { if (!x[0]) upSay(x[1].refusal || "The upload could not be read.", $("files")); else showProposal(x[1]); })
+      .catch(function () { upSay("The upload did not reach the server.", $("files")); })
       .then(function () { btn.disabled = false; btn.textContent = "Read the documents"; });
   });
   $("up-ok").addEventListener("click", function () {
-    var who = $("up-who").value.trim(); if (!who) { upSay("Enter your name: who is confirming what these documents are."); $("up-who").focus(); return; }
+    var who = $("up-who").value.trim(); if (!who) { upSay("Enter your name: who is confirming what these documents are.", $("up-who")); return; }
     var split = $("up-split").checked, shared = $("up-policy").value.trim(), why = $("up-why").value.trim();
     // No name given: the uploads are one set. The label only groups them; the result says it was grouped by default.
     // Default: the uploads are one set. A proposed policy number is kept as the label; otherwise "Uploaded set".
     if (!split) { shared = shared || "Uploaded set"; why = "Uploaded together and checked as one set."; }
-    else if (!why) { upSay("Say why each document belongs where you put it."); $("up-why").focus(); return; }
+    else if (!why) { upSay("Say why each document belongs where you put it.", $("up-why")); return; }
     var bad = 0;
     var rows = Array.prototype.map.call($("up-rows").querySelectorAll("tr[data-row]"), function (tr) {
       var o = { row_id: tr.dataset.row };
@@ -360,22 +382,22 @@
       if (o.effective_date && o.effective_date !== tr.dataset.proposedDate && !o.effective_reason) bad++;
       return o;
     });
-    if (split && rows.some(function (o) { return !o.policy; })) { upSay("Name the contract or rule for each document."); return; }
-    if (rows.some(function (o) { return !o.kind; })) { upSay("Choose what kind each document is: it decides which rule can apply."); return; }
-    if (bad) { upSay("Say why for each date you typed or changed."); return; }
-    if (rows.some(function (o) { return o.how === "judgment"; }) && !why) { upSay("Say why these documents belong to that policy."); $("up-why").focus(); return; }
+    if (split && rows.some(function (o) { return !o.policy; })) { upSay("Name the contract or rule for each document.", $("up-rows").querySelector(".row-policy:not([hidden])")); return; }
+    if (rows.some(function (o) { return !o.kind; })) { upSay("Choose what kind each document is: it decides which rule can apply.", $("up-rows").querySelector("[data-f=kind]")); return; }
+    if (bad) { upSay("Say why for each date you typed or changed.", $("up-rows").querySelector("[data-f=effective_reason]:not([hidden])")); return; }
+    if (rows.some(function (o) { return o.how === "judgment"; }) && !why) { upSay("Say why these documents belong to that policy.", $("up-why")); return; }
     try { localStorage.setItem("pg-who", who); } catch (e) {}
     fetch("/api/upload/" + up.id + "/confirm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed_by: who, rows: rows }) })
       .then(function (r) { return r.json().then(function (j) { return [r.ok, j]; }); })
       .then(function (x) {
-        if (!x[0]) { upSay((x[1].refusal || "Not confirmed.") + (x[1].errors ? " " + x[1].errors.join(" ") : "")); return; }
+        if (!x[0]) { upSay((x[1].refusal || "Not confirmed.") + (x[1].errors ? " " + x[1].errors.join(" ") : ""), $("up-who")); return; }
         upSay(""); var pol = {}; x[1].rows.forEach(function (r) { if (r.policy) pol[r.policy] = 1; });
         var qs = [], seen = {}; packs.forEach(function (p) { p.questions.forEach(function (q) { if (pol[q.slot.split(".")[0]] && !seen[q.slot]) { seen[q.slot] = 1; qs.push(q); } }); });
         $("up-qs").innerHTML = qs.length ? qs.map(function (q, i) { return choice("upslot", q.slot, q.label, q.claim ? "Claim: " + q.claim : "No claim written for this question yet.", q.slot, i === 0, !q.claim); }).join("")
           : '<p class="c-note">No question on the list is about the policies you confirmed (' + esc(Object.keys(pol).join(", ") || "none") + '). That is a refusal, not an error: the list is fixed, and nothing runs outside it.</p>';
         $("up-run").hidden = !qs.length; $("up-question").hidden = false; $("utc").hidden = false; $("up-confirm").querySelector("#up-ok").disabled = true;
         if (qs.length) { up.slot = qs[0].slot; up.claim = qs[0].claim || ""; }
-      });
+      }).catch(function () { upSay(NET, $("up-who")); });
   });
   $("up-qs").addEventListener("change", function (e) {
     if (e.target.name !== "upslot") return; up.slot = e.target.value;
@@ -392,7 +414,7 @@
 
   function runSample(s) {
     state.passcode = $("passcode").value;
-    if (state.needPass && !state.passcode) { $("passcode").focus(); problem.textContent = "Enter the passcode to run a check."; problem.hidden = false; return; }
+    if (state.needPass && !state.passcode) { flag(problem, $("passcode"), "Enter the passcode to run a check."); return; }
     var fd = new FormData(); fd.append("passcode", state.passcode);
     current = s.id;
     run("/api/sample/" + s.id, fd, s.claim);
@@ -439,12 +461,30 @@
 
   function showAfter() {
     var box = $("after-btns"); box.textContent = "";
-    samples.filter(function (s) { return s.id !== current; }).forEach(function (s) {
-      var b = sampleButton(s, "btn"); b.textContent = "Run " + b.textContent; box.appendChild(b);
+    var others = samples.filter(function (s) { return s.id !== current; });
+    others.forEach(function (s, i) {
+      if (i) box.appendChild(document.createTextNode(" \u00b7 "));
+      var a = el("a", null, LABEL[s.id] || s.title); a.href = "/?sample=" + encodeURIComponent(s.id); a.title = s.title;
+      a.addEventListener("click", function (e) { e.preventDefault(); runSample(s); }); box.appendChild(a);
     });
+    $("after-more").hidden = !others.length;
+    $("copy-status").textContent = ""; $("copy-fallback").hidden = true;
     $("after").hidden = false;
   }
-  $("again").addEventListener("click", function () { showStart(); var c = $("check"); if (c) c.scrollIntoView(); });
+  $("again").addEventListener("click", function () { showStart(); });
+  $("copy-link").addEventListener("click", function () {
+    if (!state.reviewId) return;
+    var url = location.origin + "/api/review/" + state.reviewId, fb = $("copy-fallback"), st = $("copy-status");
+    function manual() { fb.value = url; fb.hidden = false; fb.focus(); fb.select(); st.textContent = "Copy this link"; }
+    if (!navigator.clipboard || !navigator.clipboard.writeText) return manual();
+    navigator.clipboard.writeText(url).then(function () { fb.hidden = true; st.textContent = "Copied"; }, manual);
+  });
+  // A shared link: show that review directly.
+  (function () {
+    var m = /^\?review=([\w-]+)$/.exec(location.search);
+    if (!m) return;
+    reset(""); on.done({ review_id: m[1] });
+  })();
 
   window.addEventListener("message", function (e) {
     if (e.origin !== location.origin || !e.data) return;
@@ -459,9 +499,10 @@
     var out = $(pre + "-out"), problem = $(pre + "-problem"), state = {};
     function post(url, body) {
       return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-        .then(function (r) { return r.json().then(function (j) { return [r.ok, j]; }); });
+        .then(function (r) { return r.json().then(function (j) { return [r.ok, j]; }); })
+        .catch(function () { return [false, { refusal: NET }]; });
     }
-    function fail(t) { problem.textContent = t; problem.hidden = false; }
+    function fail(t, field) { flag(problem, field || $(pre + "-text"), t); }
     function readBlock(r) {
       var bits = r.kind === "amount"
         ? "An amount. You wrote <b>" + esc(r.written) + "</b>; code read <b>" + esc(r.value) + "</b>. Basis: " + esc(r.basis || "not stated") + "."
@@ -472,7 +513,7 @@
     function remember(v) { try { localStorage.setItem("pg-who", v); } catch (e) {} }
     // One click: code reads the claim, the policy is settled without a question when it can be, and the reads run.
     $(pre + "-read").addEventListener("click", function () {
-      problem.hidden = true; out.hidden = true;
+      problem.hidden = true; unflag(problem); out.hidden = true;
       var text = $(pre + "-text").value, key = packetKey();
       if (!key) return fail("Choose the documents first.");
       post("/api/claim/read", { packet: key, text: text }).then(function (x) {
@@ -488,13 +529,13 @@
           r.policies.map(function (p) { return '<option value="' + esc(p) + '">' + esc(p) + "</option>"; }).join("") +
           '</select><button type="button" class="btn inv" id="' + pre + '-find">Find the lines</button></div>';
         $(pre + "-find").addEventListener("click", function () {
-          var pol = $(pre + "-policy").value; if (!pol) return fail("Choose the policy the claim is about.");
+          var pol = $(pre + "-policy").value; if (!pol) return fail("Choose the policy the claim is about.", $(pre + "-policy"));
           find(pol, "chosen");
         });
-      });
+      }).catch(function () { fail(NET); });
     });
     function find(pol, src) {
-      problem.hidden = true;
+      problem.hidden = true; unflag(problem);
       var go = $(pre + "-read"); go.disabled = true; go.textContent = "Reading the documents…";
       var why = { matched_in_claim: "named in your claim", only_in_packet: "the only one in these documents", chosen: "chosen by you" }[src];
       $(pre + "-scope").innerHTML = pol === "Uploaded set" ? '<p class="tc-match">Checking against all the documents you uploaded.</p>'
@@ -502,7 +543,7 @@
       post("/api/claim/gather", { packet: state.key, text: state.text, policy: pol, policy_source: src }).then(function (x) {
         go.disabled = false; go.textContent = "Find the lines";
         var ok = x[0], g = x[1];
-        if (!ok || g.refusal) return fail(g.refusal || "The documents could not be read.");
+        if (!ok || g.refusal) return fail(g.refusal || "The documents could not be read.", $(pre + "-text"));
         state.gid = g.gather_id;
         var rows = g.lines.map(function (l, i) {
           return '<li class="tc-line"><p class="tc-where"><b>' + esc(l.doc) + "</b>, " + esc(l.where) + ' &middot; ' + (l.side === "against" ? "may count against the claim" : "may support the claim") +
@@ -533,10 +574,10 @@
           if (why) { why.hidden = e.target.checked; if (!e.target.checked) why.focus(); }
         });
         $(pre + "-decide").addEventListener("click", decide);
-      });
+      }).catch(function () { go.disabled = false; go.textContent = "Find the lines"; fail(NET); });
     }
     function decide() {
-      problem.hidden = true;
+      problem.hidden = true; unflag(problem);
       var confirmed = [], dropped = {}, missing = 0;
       Array.prototype.forEach.call($(pre + "-lines").querySelectorAll(".tc-line"), function (li) {
         var c = li.querySelector("input[type=checkbox]");
@@ -545,21 +586,23 @@
         if (!r) missing++;
         dropped[c.dataset.line] = r;
       });
-      if (missing) return fail("Say why each unticked line is set aside (" + missing + " without a reason).");
+      if (missing) return fail("Say why each unticked line is set aside (" + missing + " without a reason).", $(pre + "-lines").querySelector(".tc-why:not([hidden])"));
       var name = $(pre + "-who").value.trim();
-      if (!name) { $(pre + "-who").focus(); return fail("Add your name: the check records who confirmed the lines."); }
+      if (!name) return fail("Add your name: the check records who confirmed the lines.", $(pre + "-who"));
       remember(name);
       var b = $(pre + "-basis"), cu = $(pre + "-currency"), figures = {};
       Array.prototype.forEach.call($(pre + "-lines").querySelectorAll("select[data-figure]"), function (s) {
         if (s.value !== "" && confirmed.indexOf(s.dataset.figure) >= 0) figures[s.dataset.figure] = parseInt(s.value, 10);
       });
+      var dbtn = $(pre + "-decide"); dbtn.disabled = true; dbtn.textContent = "Checking\u2026";
+      function unbusy() { dbtn.disabled = false; dbtn.textContent = "Check this claim"; }
       post("/api/claim/" + state.gid + "/decide", { confirmed: confirmed, dropped: dropped, confirmed_by: $(pre + "-who").value, basis: b ? b.value : "",
         currency: cu ? cu.value : "", figures: figures })
         .then(function (x) {
           var ok = x[0], d = x[1];
-          if (!ok || d.refusal) return fail(d.refusal || "The check could not run.");
+          if (!ok || d.refusal) { unbusy(); return fail(d.refusal || "The check could not run.", dbtn); }
           current = null; reset(state.text); on.done({ review_id: d.review_id, status: d.status });
-        });
+        }).catch(function () { unbusy(); fail(NET, dbtn); });
     }
   }
   typed("tc", function () { return pick.packet; });

@@ -1,11 +1,5 @@
 /* The result page: one workpaper. Grotesk for what ProofGraph says, serif for what documents say,
    white paper only for the documents themselves. */
-@media (prefers-color-scheme: dark) {
-  :root { --sheet: #0F1621; --ink: #E7ECF3; --cyan: #1E3144; --stamp: #8EA2FF; --pen-green: #55C793;
-    --pen-red: #FF7A7A; --amber: #E3A94A; --slate: #A7B3C3; --grey: #A2ACBA; }
-  ::selection { background: var(--stamp); color: #0F1621; }
-  .gov-mark { color: #0F1621; }  /* dark ink on the lightened stamp: 8.1:1 */
-}
 main { max-width: 72rem; margin: 0 auto; padding: 2rem 1.25rem 3rem; }
 h1, h2, h3 { line-height: 1.2; text-wrap: balance; margin: 0; }
 h2 { font-size: var(--t-20); margin-top: 2.5rem; margin-bottom: .75rem; }
@@ -102,3 +96,32 @@ dt small { font-size: var(--t-13); }
 .how-set ul { margin: .4rem 0 0; padding-left: 1.1rem; display: grid; gap: .5rem; }
 .how-set blockquote { margin: .3rem 0 0; }
 .record { font-size: var(--t-13); }
+
+/* the proof of precedence: governing page and overridden page, side by side */
+.precedence { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1.25rem; }
+.precedence .lead-src { margin-top: 0; }
+.pc-cap { margin: 0 0 .5rem !important; font-size: var(--t-16) !important; font-weight: 700; font-family: var(--ui); }
+.pc-cap.controls { color: var(--stamp); }
+.pc-cap.overridden { color: var(--grey); }
+.check-line { margin: .6rem 0 0 !important; font-size: var(--t-16) !important; color: var(--grey); }
+@media (max-width: 760px) { .precedence { grid-template-columns: 1fr; } }
+
+/* the record as a definition list */
+.record-dl { grid-template-columns: max-content 1fr; font-size: var(--t-13); margin: .3rem 0 .6rem; }
+.record-dl dd { font-weight: 400; }
+
+/* sign-off */
+.approve { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin: 1rem 0; }
+.approve input { min-height: 44px; padding: 0 .7rem; border: 2px solid var(--ink); background: var(--paper); color: #0E1A2B; font: inherit; min-width: 14rem; }
+.approve-msg { flex-basis: 100%; margin: 0; color: var(--pen-red); }
+.approved { color: var(--ink); }
+
+@media print {
+  .approve, .btn, footer a[target="_top"] { display: none !important; }
+  .chain > summary { list-style: none; }
+  .chain > summary::-webkit-details-marker { display: none; }
+  .chain > * { display: block !important; }
+  .precedence { grid-template-columns: 1fr 1fr; }
+  .src, .as { break-inside: avoid; }
+  main { padding: 0; }
+}
