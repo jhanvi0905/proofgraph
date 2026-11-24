@@ -60,7 +60,7 @@ def test_cant_settle_page_has_a_lead_crop_and_no_precedence_pair(client):
 def test_approve_route(client):
     rid = _rid(client, "claim-is-wrong")
     assert "Approved by" in client.get(f"/api/review/{rid}").text  # the control
-    assert "kept in memory" in client.get(f"/api/review/{rid}").text
+    assert "saved on the server that ran it" in client.get(f"/api/review/{rid}").text
     bad = client.post(f"/api/review/{rid}/approve", json={"approved_by": "   "})
     assert bad.status_code == 400 and "name" in bad.json()["refusal"]
     assert client.post("/api/review/nope/approve", json={"approved_by": "A"}).status_code == 404
@@ -104,3 +104,17 @@ def test_confirmed_policy_is_not_called_a_judgment():
     a.weakest = RouteStrength.JUDGMENT
     assert _weakest_label(a, True) == "Which policy: confirmed by a person"
     assert "a judgment" in _weakest_label(a, False)
+
+
+def test_a_result_survives_a_restart_when_the_app_has_a_reviews_folder(tmp_path):
+    import re
+
+    from fastapi.testclient import TestClient
+
+    from app.server import create_app
+    first = TestClient(create_app(reviews_dir=tmp_path))
+    rid = re.search(r'"review_id": "([0-9a-f]+)"', first.post("/api/sample/endorsement-replaces-limit").text).group(1)
+    first.post(f"/api/review/{rid}/approve", json={"approved_by": "A. Manager"})
+    again = TestClient(create_app(reviews_dir=tmp_path))  # a new process: memory is empty, the folder is not
+    page = again.get(f"/api/review/{rid}").text
+    assert "The claim is right." in page and "Approved by A. Manager" in page

@@ -281,7 +281,7 @@ def _footer(run, info, rerun, record=None, review_id=None, approval=None) -> str
   {_record_line(record) if record else ""}
   {_approval(review_id, approval)}
   <p>Commit <code>{E(_commit())}</code>.{again}</p>
-  <p class="keep">Reviews are kept in memory: this link works while this server runs, and not after it restarts.</p>
+  <p class="keep">This result is saved on the server that ran it; the link works for as long as that server keeps it.</p>
 </footer>"""
 
 

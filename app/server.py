@@ -141,16 +141,38 @@ def _reason(run: PacketRun, named: dict) -> str:
 
 
 def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: LiveRunLimit | None = None,
-               upload_limit: LiveRunLimit | None = None) -> FastAPI:
+               upload_limit: LiveRunLimit | None = None, reviews_dir: Path | None = None) -> FastAPI:
     """`complete` is the model call the proposer uses (tests pass a fake). `limit` caps live runs and `upload_limit`
     caps uploads (each upload calls the model once per file); examples replay recorded responses and are never limited."""
     app = FastAPI(title="ProofGraph")
     reviews: OrderedDict[str, dict] = OrderedDict()  # id -> {"html", "args" (to re-render), "approval"}
 
+    def save(rid: str, entry: dict) -> None:
+        """Results survive a restart when the app is given a folder (the served app is; tests are not). Local files only."""
+        if reviews_dir is None:
+            return
+        import pickle
+        reviews_dir.mkdir(parents=True, exist_ok=True)
+        (reviews_dir / f"{rid}.pkl").write_bytes(pickle.dumps(entry))
+
+    def load(rid: str) -> dict | None:
+        if rid in reviews:
+            return reviews[rid]
+        if reviews_dir is None or not rid.isalnum():
+            return None
+        f = reviews_dir / f"{rid}.pkl"
+        if not f.exists():
+            return None
+        import pickle
+        entry = pickle.loads(f.read_bytes())
+        reviews[rid] = entry
+        return entry
+
     def keep(rid: str, run, data: Path, title: str, **kw) -> None:
         entry = {"run": run, "data": data, "title": title, "kw": kw, "approval": None}
         entry["html"] = render(run, data, title, review_id=rid, **kw)
         reviews[rid] = entry
+        save(rid, entry)
         while len(reviews) > KEEP:
             reviews.popitem(last=False)
     limit = limit or LiveRunLimit()
@@ -438,13 +460,13 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
 
     @app.get("/api/review/{review_id}", response_class=HTMLResponse)
     def review_page(review_id: str):
-        entry = reviews.get(review_id)
+        entry = load(review_id)
         page = entry["html"] if entry else None
         return HTMLResponse(page or "<p>That result is no longer here. Run the example again.</p>", status_code=200 if page else 404)
 
     @app.post("/api/review/{review_id}/approve")
     async def approve(review_id: str, request: Request):
-        entry = reviews.get(review_id)
+        entry = load(review_id)
         if entry is None:
             return JSONResponse({"refusal": "That result is no longer here."}, status_code=404)
         try:
@@ -456,6 +478,7 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
             return JSONResponse({"refusal": "Enter your name to approve this result."}, status_code=400)
         entry["approval"] = {"approved_by": name, "approved_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
         entry["html"] = render(entry["run"], entry["data"], entry["title"], review_id=review_id, approval=entry["approval"], **entry["kw"])
+        save(review_id, entry)
         return {"approved_by": name, "approved_at": entry["approval"]["approved_at"]}
 
     # Real crops of the documents, rendered from the PDFs in data/raw at request time (never committed).
@@ -518,4 +541,4 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
     return app
 
 
-app = create_app()
+app = create_app(reviews_dir=DATA / "reviews")
