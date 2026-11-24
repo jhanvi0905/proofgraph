@@ -1,0 +1,200 @@
+{
+ "5c86f56cc81a": {
+  "proposal_rows": [
+   {
+    "file": "USCODE-2023-sec168_p16-17.pdf",
+    "sha256": "cec9a79221bb155a60f95f95b978ec1deb44c7a9cee764bc076892d23a4de4c4",
+    "status": "proposed",
+    "kind": "",
+    "form_number": "",
+    "title": "\u00a7168 TITLE 26\u2014INTERNAL REVENUE CODE Page 798",
+    "amends": "",
+    "effective_date": "",
+    "effective_phrase": "",
+    "rejected": [],
+    "reason": ""
+   },
+   {
+    "file": "PLAW-119publ21_p118-120.pdf",
+    "sha256": "d10772a4d3ca383d177ffab0babd5085bb72939f3cd44c9b0a35119e9b82e531",
+    "status": "typed",
+    "kind": "endorsement",
+    "form_number": "",
+    "title": "",
+    "amends": "",
+    "effective_date": "",
+    "effective_phrase": "",
+    "rejected": [],
+    "reason": ""
+   }
+  ],
+  "confirmed": [
+   {
+    "doc_id": "168_title_26_internal_revenue_code_page_798",
+    "file": "USCODE-2023-sec168_p16-17.pdf",
+    "sha256": "cec9a79221bb155a60f95f95b978ec1deb44c7a9cee764bc076892d23a4de4c4",
+    "kind": "policy_form",
+    "policy": "IRC 168(k)",
+    "how": "judgment",
+    "reason": "Title 26 section 168 as printed (header '\u00a7168'); subsection (k)(6) on page 2.",
+    "effective_date": null,
+    "effective_source": "none",
+    "effective_reason": null
+   },
+   {
+    "doc_id": "plaw_119publ21_p118_120",
+    "file": "PLAW-119publ21_p118-120.pdf",
+    "sha256": "d10772a4d3ca383d177ffab0babd5085bb72939f3cd44c9b0a35119e9b82e531",
+    "kind": "endorsement",
+    "policy": "IRC 168(k)",
+    "how": "judgment",
+    "reason": "Sec. 70301 amends section 168(k), as printed on page 1.",
+    "effective_date": "2025-01-19",
+    "effective_source": "typed_at_confirmation",
+    "effective_reason": "Sec. 70301(c)(1), page 3: 'shall apply to property acquired after January 19, 2025.' The proposer quoted nothing on this file."
+   }
+  ],
+  "confirmed_at": "2026-11-23T21:56:13Z"
+ },
+ "7ae086963c22": {
+  "proposal_rows": [
+   {
+    "file": "USCODE-2023-sec164.pdf",
+    "sha256": "4af64ff784ac172f01d15d4846657c6dbc5ecad39eb709b12b2fa1f305d3804e",
+    "status": "proposed",
+    "kind": "",
+    "form_number": "",
+    "title": "\u00a7164. Taxes",
+    "amends": "",
+    "effective_date": "",
+    "effective_phrase": "",
+    "rejected": [],
+    "reason": ""
+   },
+   {
+    "file": "PLAW-119publ21_p99-100.pdf",
+    "sha256": "55032917596ab43546e8f8ea01f81daa515a8dda0088e9e9aed530bf66f63011",
+    "status": "proposed",
+    "kind": "",
+    "form_number": "",
+    "title": "PUBLIC LAW 119\u201321\u2014JULY 4, 2025 139 STAT. 169",
+    "amends": "",
+    "effective_date": "",
+    "effective_phrase": "",
+    "rejected": [],
+    "reason": ""
+   }
+  ],
+  "confirmed": [
+   {
+    "doc_id": "164_taxes",
+    "file": "USCODE-2023-sec164.pdf",
+    "sha256": "4af64ff784ac172f01d15d4846657c6dbc5ecad39eb709b12b2fa1f305d3804e",
+    "kind": "policy_form",
+    "policy": "IRC 164(b)(6)",
+    "how": "judgment",
+    "reason": "Title 26 section 164 as printed (header '\u00a7164', page 1); paragraph (b)(6) is on page 2.",
+    "effective_date": null,
+    "effective_source": "none",
+    "effective_reason": null
+   },
+   {
+    "doc_id": "public_law_119_21_july_4_2025_139_stat_169",
+    "file": "PLAW-119publ21_p99-100.pdf",
+    "sha256": "55032917596ab43546e8f8ea01f81daa515a8dda0088e9e9aed530bf66f63011",
+    "kind": "endorsement",
+    "policy": "IRC 164(b)(6)",
+    "how": "judgment",
+    "reason": "Sec. 70120 amends section 164(b)(6) and adds 164(b)(7), as printed on page 1.",
+    "effective_date": "2024-12-31",
+    "effective_source": "typed_at_confirmation",
+    "effective_reason": "Sec. 70120(c), page 2: 'shall apply to taxable years beginning after December 31, 2024.' The proposer quoted no effective-date line."
+   }
+  ],
+  "confirmed_at": "2026-11-23T21:56:12Z"
+ },
+ "f9dd0b20bdb1": {
+  "proposal_rows": [
+   {
+    "file": "USCODE-2023-sec6050W.pdf",
+    "sha256": "b8208bfe5fcc494f3022e66aa987c28b75d2ed2722f4ba5503051f4f2811f763",
+    "status": "proposed",
+    "kind": "",
+    "form_number": "",
+    "title": "\u00a76050W. Returns relating to payments made in",
+    "amends": "",
+    "effective_date": "",
+    "effective_phrase": "Section applicable to returns for calendar years be-",
+    "rejected": [
+     "effective_date: the printed line 'Section applicable to returns for calendar years be-' holds no single date code can read, so no date is proposed"
+    ],
+    "reason": ""
+   },
+   {
+    "file": "n-24-85.pdf",
+    "sha256": "c5b2933aafe27a839e52aa782532d2b3721c7c4382d3ee8d0a0c1645c2c12ccf",
+    "status": "proposed",
+    "kind": "",
+    "form_number": "Notice 2024-85",
+    "title": "Revised Timeline Regarding Implementation of Amended Section 6050W(e)",
+    "amends": "",
+    "effective_date": "",
+    "effective_phrase": "",
+    "rejected": [],
+    "reason": ""
+   },
+   {
+    "file": "PLAW-119publ21_p173.pdf",
+    "sha256": "9db0f696ad0b3b4b7bea32231aa47c1f5d898e7924bebf7cb26e429b76c747ab",
+    "status": "typed",
+    "kind": "endorsement",
+    "form_number": "",
+    "title": "",
+    "amends": "",
+    "effective_date": "",
+    "effective_phrase": "",
+    "rejected": [],
+    "reason": ""
+   }
+  ],
+  "confirmed": [
+   {
+    "doc_id": "6050w_returns_relating_to_payments_made_in",
+    "file": "USCODE-2023-sec6050W.pdf",
+    "sha256": "b8208bfe5fcc494f3022e66aa987c28b75d2ed2722f4ba5503051f4f2811f763",
+    "kind": "policy_form",
+    "policy": "IRC 6050W(e)",
+    "how": "judgment",
+    "reason": "Title 26 section 6050W as printed (header '\u00a76050W', page 1); subsection (e) is on pages 2-3.",
+    "effective_date": null,
+    "effective_source": "none",
+    "effective_reason": null
+   },
+   {
+    "doc_id": "notice_2024_85",
+    "file": "n-24-85.pdf",
+    "sha256": "c5b2933aafe27a839e52aa782532d2b3721c7c4382d3ee8d0a0c1645c2c12ccf",
+    "kind": "correspondence",
+    "policy": "IRC 6050W(e)",
+    "how": "judgment",
+    "reason": "IRS notice on section 6050W(e), title printed on page 1.",
+    "effective_date": null,
+    "effective_source": "none",
+    "effective_reason": null
+   },
+   {
+    "doc_id": "plaw_119publ21_p173",
+    "file": "PLAW-119publ21_p173.pdf",
+    "sha256": "9db0f696ad0b3b4b7bea32231aa47c1f5d898e7924bebf7cb26e429b76c747ab",
+    "kind": "endorsement",
+    "policy": "IRC 6050W(e)",
+    "how": "judgment",
+    "reason": "Sec. 70432 amends section 6050W(e), as printed on page 1.",
+    "effective_date": null,
+    "effective_source": "none",
+    "effective_reason": null
+   }
+  ],
+  "confirmed_at": "2026-11-23T21:56:13Z"
+ }
+}

@@ -1,0 +1,181 @@
+{
+  "note": "Family B labels: the correct answer per packet, written with the system not running, committed before the first family B run (D8). 8 packets. contradicted and governing_instrument_absent are not produced by the frozen code, so no packet expects them.",
+  "packets": [
+    {
+      "packet_id": "B-money-base",
+      "claim_id": "fb_money",
+      "instruments": [
+        "ho_00_03"
+      ],
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": null,
+        "governing_doc_id": null
+      },
+      "gold": [
+        {
+          "doc_id": "ho_00_03",
+          "line": "1. $200 on money, bank notes, bullion, gold other"
+        }
+      ],
+      "why": "One instrument states the limit; nothing disputes it."
+    },
+    {
+      "packet_id": "B-jewelry-base",
+      "claim_id": "fb_jewelry",
+      "instruments": [
+        "ho_00_03"
+      ],
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": null,
+        "governing_doc_id": null
+      },
+      "gold": [
+        {
+          "doc_id": "ho_00_03",
+          "line": "5. $1000 for loss by theft of jewelry, watches, furs,"
+        }
+      ],
+      "why": "One instrument states the limit; nothing disputes it."
+    },
+    {
+      "packet_id": "B-firearms-base",
+      "claim_id": "fb_firearms",
+      "instruments": [
+        "ho_00_03"
+      ],
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": null,
+        "governing_doc_id": null
+      },
+      "gold": [
+        {
+          "doc_id": "ho_00_03",
+          "line": "6. $2000 for loss by theft of firearms."
+        }
+      ],
+      "why": "One instrument states the limit; nothing disputes it."
+    },
+    {
+      "packet_id": "B-silverware-base",
+      "claim_id": "fb_silverware",
+      "instruments": [
+        "ho_00_03"
+      ],
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": null,
+        "governing_doc_id": null
+      },
+      "gold": [
+        {
+          "doc_id": "ho_00_03",
+          "line": "7. $2500 for loss by theft of silverware, silver-plated"
+        }
+      ],
+      "why": "One instrument states the limit; nothing disputes it."
+    },
+    {
+      "packet_id": "B-money-endorsed",
+      "claim_id": "fb_money",
+      "instruments": [
+        "ho_00_03",
+        "ho_00_15"
+      ],
+      "expected": {
+        "verdict": "supported",
+        "reason": "no_conflict",
+        "rule": null,
+        "governing_doc_id": null
+      },
+      "gold": [
+        {
+          "doc_id": "ho_00_03",
+          "line": "1. $200 on money, bank notes, bullion, gold other"
+        }
+      ],
+      "why": "HO 00 15 replaces items 5-7 only; item 1 (money) is untouched, so no rule has anything to decide. Tests that rule 1 does not fire spuriously."
+    },
+    {
+      "packet_id": "B-jewelry-endorsed",
+      "claim_id": "fb_jewelry",
+      "instruments": [
+        "ho_00_03",
+        "ho_00_15"
+      ],
+      "expected": {
+        "verdict": "supported",
+        "reason": "resolved_by_rule",
+        "rule": "endorsement_over_base",
+        "governing_doc_id": "ho_00_15"
+      },
+      "gold": [
+        {
+          "doc_id": "ho_00_03",
+          "line": "5. $1000 for loss by theft of jewelry, watches, furs,"
+        },
+        {
+          "doc_id": "ho_00_15",
+          "line": "5. $1,000 for loss by theft, misplacing or losing of"
+        }
+      ],
+      "why": "HO 00 15 deletes and replaces this item. The amounts are equal, but neither line states a basis, so the pair cannot be compared; endorsement_over_base picks HO 00 15 (D3 scope: both bind SPECIMEN-HO3)."
+    },
+    {
+      "packet_id": "B-firearms-endorsed",
+      "claim_id": "fb_firearms",
+      "instruments": [
+        "ho_00_03",
+        "ho_00_15"
+      ],
+      "expected": {
+        "verdict": "supported",
+        "reason": "resolved_by_rule",
+        "rule": "endorsement_over_base",
+        "governing_doc_id": "ho_00_15"
+      },
+      "gold": [
+        {
+          "doc_id": "ho_00_03",
+          "line": "6. $2000 for loss by theft of firearms."
+        },
+        {
+          "doc_id": "ho_00_15",
+          "line": "6. $2,000 for loss by theft, misplacing or losing of"
+        }
+      ],
+      "why": "HO 00 15 deletes and replaces this item. The amounts are equal, but neither line states a basis, so the pair cannot be compared; endorsement_over_base picks HO 00 15 (D3 scope: both bind SPECIMEN-HO3)."
+    },
+    {
+      "packet_id": "B-silverware-endorsed",
+      "claim_id": "fb_silverware",
+      "instruments": [
+        "ho_00_03",
+        "ho_00_15"
+      ],
+      "expected": {
+        "verdict": "supported",
+        "reason": "resolved_by_rule",
+        "rule": "endorsement_over_base",
+        "governing_doc_id": "ho_00_15"
+      },
+      "gold": [
+        {
+          "doc_id": "ho_00_03",
+          "line": "7. $2500 for loss by theft of silverware, silver-plated"
+        },
+        {
+          "doc_id": "ho_00_15",
+          "line": "7. $2,500 for loss by theft, misplacing or losing of"
+        }
+      ],
+      "why": "HO 00 15 deletes and replaces this item. The amounts are equal, but neither line states a basis, so the pair cannot be compared; endorsement_over_base picks HO 00 15 (D3 scope: both bind SPECIMEN-HO3)."
+    }
+  ]
+}

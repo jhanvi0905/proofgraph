@@ -3,115 +3,206 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ProofGraph: check any claim against the documents</title>
-<meta name="description" content="Paste a claim and drop in the documents behind it. ProofGraph tells you whether they support it, contradict it or say nothing, and shows the exact words on the page.">
+<title>ProofGraph: a coverage check that shows its work</title>
+<meta name="description" content="A coverage check that shows its work: whether a claim about a policy is right, which document decided it, which clause and which page, or a named reason it cannot be settled.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
-<link rel="stylesheet" href="/web/tokens.css">
-<link rel="stylesheet" href="/web/app.css">
+<link rel="stylesheet" href="/web/tokens.css?v=3">
+<link rel="stylesheet" href="/web/app.css?v=32">
+<script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
 <div class="shell">
   <section id="entrance" class="entrance">
     <header class="topnav" id="top">
       <a class="wordmark" href="#top">ProofGraph</a>
-      <nav aria-label="Sections"><a href="#claim">Check a claim</a><a href="#how">How it works</a><a href="#answers">What the answers mean</a><a href="#faq">Questions</a></nav>
+      <nav aria-label="Sections" class="nav-wide"><a href="#answers">The answers</a><a href="#checked">How to check one</a><a href="#check">Check a claim</a><a href="#faq">Questions</a><a class="ext" href="https://github.com/jhanvi0905/proofgraph/tree/x/proofgraph-v2-arbiter">Code</a></nav>
+      <div class="nav-narrow"><a class="nav-go" href="#check">Check a claim</a>
+        <details class="nav-menu"><summary>Menu</summary><nav aria-label="Sections (menu)"><a href="#answers">The answers</a><a href="#checked">How to check one</a><a href="#faq">Questions</a><a class="ext" href="https://github.com/jhanvi0905/proofgraph/tree/x/proofgraph-v2-arbiter">Code</a></nav></details></div>
     </header>
     <div class="hero">
       <div class="hero-in">
         <div class="hero-copy">
-          <h1>Check any claim against the documents behind it.</h1>
-          <p class="lede">Paste what you were told and drop in the documents it rests on. ProofGraph tells you whether they support it, contradict it or say nothing, and shows the exact words on the page, including the clause that disagrees.</p>
-          <p id="try" class="try" hidden><span class="try-q">No documents to hand?</span> <button type="button" class="try-btn" id="try-btn">Run an example</button> <span id="try-what"></span></p>
-          <form id="start" class="start" autocomplete="off">
-            <div class="field">
-              <label for="claim">The claim</label>
-              <textarea id="claim" name="claim" rows="3" required placeholder="Paste the sentence you've been asked to trust"></textarea>
-            </div>
-            <div class="field">
-              <label for="files">The documents</label>
-              <div class="drop" id="drop">
-                <input id="files" name="files" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" multiple required>
-                <p id="drop-text">Drop contracts, bylaws, resolutions or memos here, or choose files. PDF, PNG or JPG, up to 10.</p>
-              </div>
-            </div>
-            <div class="field narrow" id="passcode-field" hidden>
-              <label for="passcode">Passcode, needed to run a check</label>
-              <input id="passcode" name="passcode" type="password" autocomplete="current-password">
-            </div>
-            <button class="btn inv" type="submit" id="go">Check claim</button>
-            <p id="problem" class="problem" role="alert" hidden></p>
-          </form>
+          <h1>A coverage check that shows its work.</h1>
+          <p class="lede">Give it a claim (&ldquo;the jewelry theft limit is $1,000&rdquo;) and the policy documents. It says whether the claim is right, and shows the document, clause and page that decided it. If the documents can&rsquo;t settle it, it says why instead of guessing.</p>
+          <div class="doors">
+            <a class="door door-main" href="#check" data-door="worked">Run a worked packet</a>
+            <a class="door" href="#check" data-door="upload">Upload your documents</a>
+          </div>
         </div>
-        <figure class="sheet" aria-label="A synthetic example of a checked claim">
-          <p class="sheet-tag"><span>Synthetic example, not a real packet</span><button type="button" class="sheet-run" id="sheet-run" hidden>Run a worked example<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></p>
-          <p class="sheet-claim">The supplier may subcontract the work <span class="u red">without the customer's consent.</span></p>
-          <p class="sheet-answer"><svg class="mark m-circle" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg><span class="st red">Contradicted</span></p>
-          <p class="sheet-quote says"><span class="ref">A-1</span><q>Supplier shall not subcontract any part of the Services without the Customer's prior written consent.</q></p>
-          <p class="sheet-part"><svg class="mark m-tick" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span class="st green">Supported</span> Payment is due within 30 days.</p>
-          <ul class="sheet-signoff" aria-label="Sign-off"><li><span>Prepared by ProofGraph</span><span>Synthetic</span></li><li><span>Re-checked by a second reader</span><span>Synthetic</span></li></ul>
-          <ul class="sheet-legend" aria-label="Marks">
-            <li><svg class="mark m-tick" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg>Supported</li>
-            <li><svg class="mark m-circle" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg>Contradicted</li>
-            <li><svg class="mark m-caret" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 19.6C7.2 14 9.6 9.6 12 5.4c2.6 4.6 5.2 9.2 8.2 14.2"/></svg>Qualified</li>
-          </ul>
+        <figure class="report" aria-label="Three real results">
+          <div class="r-tabs" role="radiogroup" aria-label="Pick a result">
+            <label><input type="radio" name="ex" value="right" checked><span>Right</span></label>
+            <label data-needs="wrong"><input type="radio" name="ex" value="wrong"><span>Wrong</span></label>
+            <label><input type="radio" name="ex" value="cant"><span>Can&rsquo;t settle</span></label>
+          </div>
+          <div class="r-panel" data-ex="right">
+            <p class="r-q">Special limit on theft of jewelry &middot; ISO HO 00 03 with endorsement HO 00 15</p>
+            <p class="r-claim">Claim: the special limit for theft of jewelry is <b>$1,000</b>.</p>
+            <p class="r-ans green"><svg class="mark m-tick" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span class="st">The claim is right.</span></p>
+            <p class="r-why"><strong>HO 00 15 controls:</strong> an endorsement overrides the form it changes (HO 00 03).</p>
+            <blockquote class="r-quote says"><span class="ref">HO 00 15, page 2</span>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</blockquote>
+            <button type="button" class="r-run" data-sample="endorsement-replaces-limit">See the full evidence</button>
+          </div>
+          <div class="r-panel" data-ex="wrong" hidden>
+            <p class="r-q">Special limit on theft of jewelry &middot; ISO HO 00 03 with endorsement HO 00 15</p>
+            <p class="r-claim">Claim: the special limit for theft of jewelry is <b>$1,500</b>.</p>
+            <p class="r-ans red"><svg class="mark m-circle" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg><span class="st">The claim is wrong.</span></p>
+            <p class="r-why"><strong>HO 00 15 controls, and it says $1,000.</strong> The claim says $1,500.</p>
+            <blockquote class="r-quote says"><span class="ref">HO 00 15, page 2</span>5. $1,000 for loss by theft, misplacing or losing of jewelry, watches, furs, precious and semi-precious stones.</blockquote>
+            <button type="button" class="r-run" data-sample="claim-is-wrong">See the full evidence</button>
+          </div>
+          <div class="r-panel" data-ex="cant">
+            <p class="r-q">Corporate reimbursement retention &middot; Gillette D&amp;O program, 1996 SEC filing</p>
+            <p class="r-claim">Claim: the primary retention under FD960228 is <b>USD 1,000,000</b>.</p>
+            <p class="r-ans clash"><svg class="mark m-clash" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14M5 15h14M15 5L9 19"/></svg><span class="st">Can&rsquo;t be settled from these documents.</span></p>
+            <p class="r-why"><strong>They disagree, and no rule says which one controls.</strong> Three documents state 1,000,000 (one without a currency). Reliance&rsquo;s binder states $500,000, each loss.</p>
+            <blockquote class="r-quote says"><span class="ref">Reliance binder</span>$500,000 Corporate Reimbursement, each loss</blockquote>
+            <button type="button" class="r-run" data-sample="documents-disagree">See the full evidence</button>
+          </div>
         </figure>
       </div>
+      <p class="wont"><strong>What it will not do:</strong> judge wording, answer questions about a date, read scans, or run claims in bulk.</p>
     </div>
 
-    <section class="band how" id="how">
-      <h2>How it works</h2>
-      <div class="frames">
-        <div><h3>Add the claim and the documents</h3><p>Paste the sentence you were asked to trust. Drop in everything it rests on: contracts, amendments, bylaws, memos, even scans.</p></div>
-        <div><h3>Every part is checked against every page</h3><p>A claim often says more than one thing. ProofGraph splits it into parts and checks each one against all of your documents, not only the first one that mentions it.</p></div>
-        <div><h3>Each answer comes with its proof</h3><p>Each part is marked supported, contradicted, qualified or not in these documents, after weighing exceptions, amendments and dates. Select an answer to open the exact words on their page and check it yourself.</p></div>
+    <section class="band why-band" id="why">
+      <h2 class="sr">Why it is different</h2>
+      <div class="versus" data-rise>
+        <p class="vs-them">Most document AI sells a better reader. You still re-read the documents to trust its answer.</p>
+        <p class="vs-us">ProofGraph gives an answer you can check in seconds, or a refusal with its reason.</p>
+      </div>
+      <div class="for-two">
+        <div data-rise><h3>For the person answering</h3><p>The controlling document, clause and page in seconds, with a verdict or a named reason.</p></div>
+        <div data-rise><h3>For the person signing off</h3><p>Every answer carries its evidence. The file can be defended without re-reading it.</p></div>
       </div>
     </section>
 
-    <section class="band states" id="answers">
-      <h2>What the answers mean</h2>
-      <ul class="cases">
-        <li><span class="st green"><svg class="mark m-tick" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg>Supported</span><p>The documents say it, and nothing attached to it cuts it back.</p></li>
-        <li><span class="st red"><svg class="mark m-circle" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg>Contradicted</span><p>A document says the opposite. The clause is shown, with the page it sits on.</p></li>
-        <li><span class="st amber"><svg class="mark m-caret" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 19.6C7.2 14 9.6 9.6 12 5.4c2.6 4.6 5.2 9.2 8.2 14.2"/></svg>Qualified</span><p>The claim holds, but an exception or condition is attached to it.</p></li>
-        <li><span class="st slate"><svg class="mark m-bracket" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.4 3.6H8.6c-.7 0-1.1.3-1.1.9v15c0 .6.4.9 1.1.9h6.8"/></svg>Not in these documents</span><p>These documents discuss payment terms but never set a late fee.</p></li>
-        <li><span class="st grey"><svg class="mark m-question" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.4 9.2C8.2 5.6 15.8 5.4 15.6 9.4c-.1 2.8-3.7 3-3.6 6.2M12 19.6v.1"/></svg>Can't tell</span><p>Two documents clash and nothing decides which one wins. The reason is written beside the answer.</p></li>
-      </ul>
+    <div class="rows">
+    <section class="row" id="answers">
+      <header class="rail" data-rise><h2>Three answers, and no guessing</h2><p>Amounts are compared only on the same currency and basis (per loss, per claim, in total). Two rules decide which document controls, and the one used is shown: an endorsement overrides the form it changes; a later effective date overrides an earlier one.</p></header>
+      <div class="body">
+        <ul class="answers">
+          <li data-rise><svg class="mark m-tick" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.2C5.6 15 7.2 16.8 8.6 19.6 11.4 12.6 15.4 7.2 20.8 3.8"/></svg><span><strong>The claim is right.</strong> The document that controls states the same amount.</span></li>
+          <li data-rise><svg class="mark m-circle" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 3.1C6.8 2.4 2.7 7 3.3 12.5c.6 5.5 6.2 8.7 11.2 7.5 5-1.2 7.1-6 6-10.4-1-4-4.8-6.3-9.4-5.8"/></svg><span><strong>The claim is wrong.</strong> The document that controls states a different amount. Both amounts are shown.</span></li>
+          <li data-rise><svg class="mark m-clash" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14M5 15h14M15 5L9 19"/></svg><span><strong>This can&rsquo;t be settled from these documents,</strong> with one named reason:
+            <ul class="reasons"><li>documents disagree, and no rule picks one;</li><li>amounts can&rsquo;t be compared (say, per loss vs in total);</li><li>a needed document is missing (an endorsement without its form);</li><li>no document addresses the question.</li></ul></span></li>
+        </ul>
+        <p class="three-note" data-rise>Wording claims aren&rsquo;t judged: the controlling clause is quoted with its page, marked &ldquo;quoted, not checked&rdquo;.</p>
+        <div class="refuse-list" data-rise><h3>It also refuses before running:</h3><ul class="ruled">
+          <li>A scan with no readable text.</li>
+          <li>A document neither the system nor the person checking can identify.</li>
+          <li>A claim it can&rsquo;t read as one amount or one wording claim.</li>
+          <li>An endorsement without the form it changes: the final terms can&rsquo;t be known, so it names the missing form.</li>
+        </ul></div>
+      </div>
+    </section>
+    <section class="row" id="checked">
+      <header class="rail" data-rise><h2>Every answer can be checked</h2><p>Every answer is built from quotes: document, page, exact words. Each step is marked <strong>read</strong> (off the page), <strong>derived</strong> (by code) or <strong>judgment</strong> (the model&rsquo;s or a person&rsquo;s call), so you know what to check first.</p></header>
+      <div class="body steps-seq"><figure class="shot" data-rise><img class="frame-pic" src="/media/ho15-header.png" width="640" height="200" alt="The top of HO 00 15: This endorsement changes the policy. Special personal property coverage. Form HO 00 03 only."><figcaption><h3>A claim and its documents</h3><p>One amount, such as a special limit or a retention (what the insured pays first). The packet: every document that could control it.</p></figcaption></figure><figure class="shot" data-rise><img class="frame-pic" src="/media/ho03-limits.png" width="640" height="420" alt="HO 00 03, page 2, the special limits list, with item 5 boxed: $1000 for loss by theft of jewelry."><figcaption><h3>Each document is read where it applies</h3><p>The model sees only documents for the claim&rsquo;s policy and quotes the amount. Code checks the quote is on the page.</p></figcaption></figure><figure class="shot" data-rise><img class="frame-pic" src="/media/ho15-limits.png" width="640" height="420" alt="HO 00 15, page 2, deleting and replacing items 5 to 7, with item 5 boxed: $1,000 for loss by theft, misplacing or losing of jewelry."><figcaption><h3>A rule decides, or it refuses</h3><p>A stated rule picks the controlling document. No rule applies? It doesn&rsquo;t pick. Every amount is boxed on its page.</p></figcaption></figure></div>
+    </section>
+    </div>
+    <section class="band check row" id="check">
+      <header class="rail" data-rise><h2>Check a claim</h2>
+      <p class="check-lede">Run a worked packet in seconds, or upload your own: it proposes what each document is, and you confirm before anything runs. Web app and command line today; no public API yet.</p></header>
+      <div class="body doors-body">
+      <div class="d-tabs" role="tablist" aria-label="Ways in">
+        <button type="button" role="tab" id="tab-worked" aria-controls="start" aria-selected="true">Worked packets</button>
+        <button type="button" role="tab" id="tab-upload" aria-controls="upload" aria-selected="false">Your documents</button>
+      </div>
+      <form id="start" class="start steps3" role="tabpanel" aria-labelledby="tab-worked" autocomplete="off">
+        <fieldset class="step3">
+          <legend><span class="n">1</span>Pick the documents</legend>
+          <div id="pk" class="choices"></div>
+          <details class="map-fold"><summary>What each document is, and which policy it belongs to</summary>
+          <p class="c-note">Written by a person. Only the question&rsquo;s policy reaches the model. Click a name to open the original.</p>
+          <div class="map-wrap"><table class="map"><thead><tr><th>Document</th><th>Kind</th><th>Policy it describes</th><th>How we know</th></tr></thead><tbody id="pmap"></tbody></table></div>
+          </details>
+        </fieldset>
+        <fieldset class="step3 typed" id="tc">
+          <legend><span class="n">2</span>Type your claim</legend>
+          <p class="c-note">Any amount or wording claim about these documents. You see every line it finds before anything is compared.</p>
+          <label class="field"><span>Claim</span><span class="c-note" id="tc-help">For example: The special limit for theft of jewelry is $1,000.</span><textarea id="tc-text" rows="2" placeholder="" aria-describedby="tc-help"></textarea></label>
+          <button type="button" class="btn inv" id="tc-read">Find the lines</button>
+          <div id="tc-out" class="typed-out" hidden></div>
+          <p id="tc-problem" class="problem" role="alert" hidden></p>
+        </fieldset>
+        <details class="step3 worked-qs">
+          <summary>Or try a pre-written question</summary>
+          <p class="c-note">The worked questions, the examples this page was tested on.</p>
+          <div id="qs" class="choices"></div>
+        <div class="field narrow" id="passcode-field" hidden>
+          <label for="passcode">Passcode, needed to run a check</label>
+          <input id="passcode" name="passcode" type="password" autocomplete="current-password">
+        </div>
+        <button class="btn inv" type="submit" id="go">Check this claim</button>
+        <p id="problem" class="problem" role="alert" hidden></p>
+        </details>
+</form>
+      <form id="upload" class="start steps3" role="tabpanel" aria-labelledby="tab-upload" autocomplete="off" hidden>
+        <fieldset class="step3">
+          <legend><span class="n">1</span>Upload</legend>
+          <p class="c-note">PDFs: policy form, endorsements, declarations. Scans without text are refused. Files stay on this server. Each check makes a few model calls (a few cents).</p>
+          <label class="drop"><input type="file" id="files" accept="application/pdf" multiple><span id="files-label">Choose PDF files</span></label>
+          <button class="btn inv" type="button" id="up-go">Read the documents</button>
+        </fieldset>
+        <fieldset class="step3" id="up-confirm" hidden>
+          <legend><span class="n">2</span>Confirm what each document is</legend>
+          <p class="c-note">Proposed from what is printed on each. Correct anything wrong; your confirmation is recorded with the run.</p>
+          <label class="up-split"><input type="checkbox" id="up-split"> These documents are about different contracts or rules</label>
+          <div class="up-shared" hidden>
+            <p class="c-note">Name the contract or rule each document belongs to, so a later document only overrides one about the same thing.</p>
+            <label class="field"><span>Why each belongs where you put it</span><input id="up-why" type="text"></label>
+            <input id="up-policy" type="hidden">
+          </div>
+          <div class="map-wrap"><table class="map up-table"><thead><tr><th>Document</th><th>What it is</th><th>Effective date</th></tr></thead><tbody id="up-rows"></tbody></table></div>
+          <label class="field narrow"><span>Your name</span><input id="up-who" type="text" autocomplete="name" required></label>
+          <button class="btn inv" type="button" id="up-ok">Confirm</button>
+        </fieldset>
+        <fieldset class="step3 typed" id="utc" hidden>
+          <legend><span class="n">3</span>Type your claim</legend>
+          <p class="c-note">Any amount or wording claim about these documents. You see every line it finds before anything is compared.</p>
+          <label class="field"><span>Claim</span><span class="c-note" id="utc-help">For example: The special limit for theft of jewelry is $1,000.</span><textarea id="utc-text" rows="2" placeholder="" aria-describedby="utc-help"></textarea></label>
+          <button type="button" class="btn inv" id="utc-read">Find the lines</button>
+          <div id="utc-out" class="typed-out" hidden></div>
+          <p id="utc-problem" class="problem" role="alert" hidden></p>
+        </fieldset>
+        <fieldset class="step3" id="up-question" hidden>
+          <legend><span class="n">4</span>Or pick a pre-written question</legend>
+          <div id="up-qs" class="choices"></div>
+          <button class="btn inv" type="submit" id="up-run">Check this claim</button>
+        </fieldset>
+        <p id="up-problem" class="problem" role="alert" hidden></p>
+      </form>
+      </div>
+    </section>
+    <section class="row faq" id="faq">
+      <header class="rail" data-rise><h2>Questions</h2></header>
+      <div class="body">
+      <details data-rise><summary>Is this another chatbot?</summary><p>No. It checks one claim. The model only quotes; code compares and applies the rules.</p></details>
+      <details data-rise><summary>What if an answer is wrong?</summary><p>Every value is boxed on its page. A quote not found exactly on its page is rejected.</p></details>
+      <details data-rise><summary>Which documents work?</summary><p>Five sets so far: a 1996 D&amp;O program (SEC filing), ISO homeowners forms, a Chubb cyber policy, US tax statutes and IRS limit notices. On the tax statutes, run as a holdout with answers written first, it got 5 of 12 right, none wrong, and refused 7 with a reason (<a href="https://github.com/jhanvi0905/proofgraph/blob/x/proofgraph-v2-arbiter/results/family_tax.md">results</a>). On the Chubb policy it first matched 2 of 5, then 5 of 5 after fixes that followed its output, so that one is not a clean holdout (<a href="https://github.com/jhanvi0905/proofgraph/blob/x/proofgraph-v2-arbiter/results/family_c.md">results</a>).</p></details>
+      <details data-rise><summary>Is this a coverage opinion?</summary><p>No. It compares stated amounts and names the controlling document by a stated rule. Not a coverage determination, not legal advice.</p></details>
+      </div>
     </section>
 
-    <section class="band beyond" id="beyond">
-      <h2>Beyond a citation</h2>
-      <p class="big">A citation points at text that agrees with a claim. ProofGraph shows the text that decides it, including the clause that disagrees, which document overrides which, and what the documents do not say.</p>
-      <ul class="pillars">
-        <li><strong>See the clause.</strong> An answer that rests on a quote opens it on its page.</li>
-        <li><strong>Know which document wins.</strong> Amendments, bylaws and dates are applied, and the override is shown.</li>
-        <li><strong>Trust the silence.</strong> When the documents don't say, ProofGraph says so, and says what is missing.</li>
-      </ul>
-    </section>
-
-    <section class="band faq" id="faq">
-      <h2>Questions</h2>
-      <details><summary>Is this another chatbot?</summary><p>No. You paste a claim, not a question. ProofGraph answers each part of the claim and shows where in the documents it comes from.</p></details>
-      <details><summary>What if an answer is wrong?</summary><p>An answer that rests on a quote opens it on its page so you can check it yourself. Quotes that cannot be placed on a page are marked and never decide an answer.</p></details>
-      <details><summary>Which documents work?</summary><p>PDF, PNG or JPG, up to 10 files. Pages without a text layer are transcribed by the model and shown with approximate boxes.</p></details>
-      <details><summary>Does it replace my lawyer?</summary><p>No. It checks a claim against the documents you give it. It does not give legal advice.</p></details>
-    </section>
-
-    <section class="band close">
-      <p class="big">Check the claim, not the summary.</p>
-      <a class="btn inv-dark" href="#claim">Check a claim</a>
-      <ul class="signoff trust" aria-label="Who did what"><li><span>Prepared by</span><span>Muse Spark reads the documents.</span></li><li><span>Re-checked by</span><span>A second model, Muse Spark Open, re-checks some of the passages an answer rests on. The review lists how many it did not.</span></li><li><span>Quotes</span><span>They open on their page. Any that cannot be placed are marked and never decide an answer.</span></li></ul>
+    <section class="row close">
+      <header class="rail"><p class="big">Check which document controls, not the summary.</p>
+      <a class="btn inv-dark" href="#check">Check a claim</a>
+      <a class="code-link" href="https://github.com/jhanvi0905/proofgraph/tree/x/proofgraph-v2-arbiter">Read the code, the design decisions and the preregistered results, including the predictions it got wrong</a></header>
+      <p class="code-note"><a href="https://github.com/jhanvi0905/proofgraph/blob/x/proofgraph-v2-arbiter/results/family_c.md">The third document set: 2 of 5, the fixes, then 5 of 5</a></p>
+      <p class="code-note">A selected and accepted submission at the Meta hackathon; won Baseten and Fireworks innovation credits for development.</p>
+      <ul class="body signoff trust" aria-label="Who did what"><li><span>Read by</span><span>The model reads only the passages it is allowed to see, and quotes the values.</span></li><li><span>Decided by</span><span>Code: amounts, comparisons, which document controls, and checking every quote against the file.</span></li><li><span>Written by a person</span><span>The claim, and which documents belong together.</span></li></ul>
     </section>
     <footer class="bigname" aria-hidden="true">ProofGraph</footer>
   </section>
 
   <header id="runbar" class="runbar" hidden>
     <div class="j-top">
-      <button type="button" class="btn quiet" id="back"><svg class="arrow" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg><span>New check</span></button>
+      <button type="button" class="btn quiet" id="back" aria-label="New check"><svg class="arrow" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg><span>New check</span></button>
       <nav class="steps-nav" aria-label="Steps in this check">
         <ol class="steps">
-          <li><button type="button" class="step" id="st1" data-go="sec-read"><span class="num">1</span><span class="t">Documents<small>How each page was read</small></span></button></li>
-          <li><button type="button" class="step" id="st2" data-go="sec-parts" aria-disabled="true"><span class="num">2</span><span class="t">Claim<small>Each part, checked</small></span></button></li>
+          <li><button type="button" class="step" id="st1" data-go="sec-read"><span class="num">1</span><span class="t">Allowed in<small>What the model saw</small></span></button></li>
+          <li><button type="button" class="step" id="st2" data-go="sec-parts" aria-disabled="true"><span class="num">2</span><span class="t">Claim<small>Evidence for and against</small></span></button></li>
           <li><button type="button" class="step" id="st3" data-go="result" aria-disabled="true"><span class="num">3</span><span class="t">Answer<small>Verdict and proof</small></span></button></li>
         </ol>
       </nav>
@@ -124,30 +215,20 @@
     <div id="status" class="sr" role="status" aria-live="polite"></div>
     <section id="sec-read" class="sec" aria-labelledby="read-title">
       <header class="sec-head">
-        <h2 id="read-title" tabindex="-1"><span class="num">1</span><span id="read-name">Documents</span></h2>
+        <h2 id="read-title" tabindex="-1"><span class="num">1</span>What the model was allowed to see</h2>
         <button type="button" class="linkish sec-toggle" aria-expanded="true" aria-controls="sec-read-body">Hide details</button>
-        <p class="sec-lede">ProofGraph reads every page once and writes down who must, may or must not do what, keeping the words it quoted. Each column below is one document: what kind it is, how much was kept from it, and how the quotes were checked against the page.</p>
+        <p class="sec-lede">Set by code before the model runs: only this policy&rsquo;s documents, only the parts that apply.</p>
         <p class="sec-sum" id="read-sum"></p>
       </header>
       <div class="sec-body" id="sec-read-body">
-        <div id="readgrid" class="readgrid">
-          <aside class="checklist" aria-label="Pages read"><h3>Pages</h3><ul id="ticks"></ul></aside>
-          <div class="map" id="map" aria-label="Packet map">
-            <div class="cols" id="cols"></div>
-            <svg class="threads" id="threads" aria-hidden="true"></svg>
-            <ul class="labels shared" id="shared" aria-label="Found in the packet"></ul>
-            <p class="map-key" id="map-key" hidden><span class="pencil">Name</span> a person, office, section or term found in a document. A line joins the same one across documents. <span class="pencil on">Name</span> it is on the path that decided the claim, listed under step 2.</p>
-            <p class="latest" id="latest"></p>
-          </div>
-        </div>
-        <p id="receipt" class="receipt" hidden></p>
+        <div class="map-wrap"><table class="map adm"><thead><tr><th>Document</th><th>Kind</th><th>Policy it describes</th><th>How we know</th><th>Passages it could see</th></tr></thead><tbody id="adm"></tbody></table></div>
       </div>
     </section>
     <section id="sec-parts" class="sec" aria-labelledby="parts-title" hidden>
       <header class="sec-head">
-        <h2 id="parts-title" tabindex="-1"><span class="num">2</span>Your claim, part by part</h2>
+        <h2 id="parts-title" tabindex="-1"><span class="num">2</span>The claim, checked</h2>
         <button type="button" class="linkish sec-toggle" aria-expanded="true" aria-controls="sec-parts-body">Hide details</button>
-        <p class="sec-lede">A claim often says more than one thing. It is split into parts, and each part gets its own answer.</p>
+        <p class="sec-lede">Two separate checks, one for and one against. The model quotes; code compares and applies the rules.</p>
         <p class="sec-sum" id="parts-sum"></p>
       </header>
       <div class="sec-body" id="sec-parts-body">
@@ -158,14 +239,21 @@
   </section>
 
   <section id="result" class="result" aria-labelledby="answer-title" hidden>
-    <header class="sec-head">
-      <h2 id="answer-title" tabindex="-1"><span class="num">3</span>The answer</h2>
-      <p class="sec-lede">The verdict on your claim, the quotes it rests on, shown on their pages, and how it was checked.</p>
-    </header>
+    <h2 id="answer-title" class="sr" tabindex="-1">The answer</h2>
     <p id="opening" class="opening" role="status" hidden>Opening the review…</p>
     <iframe id="review" title="Review: the answer, the evidence and how it was checked"></iframe>
+    <nav id="after" class="after" aria-label="Next" hidden>
+      <div class="after-main">
+        <button type="button" class="btn primary" id="again">Check another claim</button>
+        <button type="button" class="btn quiet" id="copy-link">Copy link to this result</button>
+        <input type="text" id="copy-fallback" class="copy-fallback" readonly hidden aria-label="Link to this result">
+        <span id="copy-status" class="copy-status" role="status"></span>
+      </div>
+      <p class="after-more" id="after-more" hidden>Other worked examples: <span id="after-btns"></span></p>
+    </nav>
   </section>
 </div>
-<script src="/web/app.js"></script>
+<script src="/web/app.js?v=28"></script>
+<script src="/web/motion.js?v=3"></script>
 </body>
 </html>

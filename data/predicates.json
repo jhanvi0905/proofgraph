@@ -1,0 +1,66 @@
+{
+  "predicate_set_version": "1.1.2",
+  "frozen": "2026-11-22",
+  "note": "Closed set. schema.py validates atoms against this file; it does not define predicates. Adding one is a change to the problem: bump predicate_set_version and say why in the commit. 1.1.0 added 'states': the ten 1.0.0 predicates are relations between documents, and none states a fact. 1.1.1 changed only the states example to a non-insurance one, so the text shown to the model carries no family's vocabulary. 1.1.2: the states meaning no longer describes the slot format. The model does not name slots (the claim file does), and describing the format made it write one into the subject.",
+  "predicates": [
+    {
+      "name": "states",
+      "meaning": "A claim states a value for something, such as an amount, a limit or a period. Disagreement between documents is computed by the arbiter; no predicate declares it.",
+      "kinds": []
+    },
+    {
+      "name": "covers",
+      "meaning": "The instrument grants coverage for the subject.",
+      "kinds": []
+    },
+    {
+      "name": "excludes",
+      "meaning": "The instrument removes coverage for the subject.",
+      "kinds": []
+    },
+    {
+      "name": "defines",
+      "meaning": "The instrument gives a defined term its meaning.",
+      "kinds": []
+    },
+    {
+      "name": "exceeds",
+      "meaning": "A stated quantity is greater than another (limit, retention, premium). Comparison is done in code, never by the model.",
+      "kinds": []
+    },
+    {
+      "name": "attaches_above",
+      "meaning": "A layer attaches excess of a stated amount or underlying layer (the 'xs' value).",
+      "kinds": []
+    },
+    {
+      "name": "amends",
+      "meaning": "One instrument changes a provision of another while leaving the rest in force.",
+      "kinds": []
+    },
+    {
+      "name": "replaces_in_entirety",
+      "meaning": "One instrument deletes a provision of another and substitutes its own text.",
+      "kinds": []
+    },
+    {
+      "name": "endorsed_only",
+      "meaning": "Changes to an instrument bind only if endorsed on it (self-stated precedence rule).",
+      "kinds": []
+    },
+    {
+      "name": "subject_to",
+      "meaning": "The subject is contingent on another instrument or event. The kind of contingency is an argument, not a separate predicate.",
+      "kinds": [
+        "follow_form",
+        "acceptance_pending",
+        "condition_precedent"
+      ]
+    },
+    {
+      "name": "effective_during",
+      "meaning": "The subject is in force for a stated period or from a stated date.",
+      "kinds": []
+    }
+  ]
+}

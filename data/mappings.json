@@ -1,0 +1,292 @@
+{
+  "note": "Hand-labelled routes from cited text to slot parts (DECISIONS.md D2), and the three assertions on FD960228.corp_reimbursement.retention. Citations use typed locators: raw_offsets into the raw file (ASCII, exact) for text sources, page_quote for PDFs. Each assertion rests on one citation; currency and basis may come only from inside it (D1).",
+  "records": [
+    {
+      "mapping_id": "item7_primary_policy_number",
+      "method": "policy_number",
+      "instrument_doc_id": "coda_end13",
+      "cited": {
+        "source_file": "gillette_10k405_1996.txt",
+        "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 68422,
+          "end": 68434
+        },
+        "text": "757/FD960228"
+      },
+      "position": null,
+      "produces": "FD960228",
+      "strength": "derived",
+      "reasoning": null,
+      "justified_by": [
+        {
+          "source_file": "gillette_10k405_1996.txt",
+          "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 73898,
+            "end": 73922
+          },
+          "text": "POLICY NO:      FD960228"
+        }
+      ],
+      "note": "The FD960228 cover note writes the policy number without the '757/' prefix. Nothing in the packet explains the prefix; it is dropped by this record, not by a rule."
+    },
+    {
+      "mapping_id": "item7_primary_retention_position3",
+      "method": "cell_position",
+      "instrument_doc_id": "coda_end13",
+      "cited": {
+        "source_file": "gillette_10k405_1996.txt",
+        "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 68460,
+          "end": 68477
+        },
+        "text": "NIL/NIL/1,000,000"
+      },
+      "position": 3,
+      "produces": "corp_reimbursement.retention",
+      "strength": "derived",
+      "reasoning": null,
+      "justified_by": [
+        {
+          "source_file": "gillette_10k405_1996.txt",
+          "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 68182,
+            "end": 68255
+          },
+          "text": "Layer        Carrier      Number          Year      Limits      Retention"
+        },
+        {
+          "source_file": "gillette_10k405_1996.txt",
+          "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 81246,
+            "end": 81307
+          },
+          "text": "$0                        Each Director or Officer, each loss"
+        },
+        {
+          "source_file": "gillette_10k405_1996.txt",
+          "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 81326,
+            "end": 81387
+          },
+          "text": "$0                        All Directors & Officers, each loss"
+        },
+        {
+          "source_file": "gillette_10k405_1996.txt",
+          "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 81406,
+            "end": 81466
+          },
+          "text": "$500,000                  Corporate Reimbursement, each loss"
+        }
+      ],
+      "note": "The column header gives 'retention'. Item VII never labels the three parts. Their meaning (each D&O / all D&O / corporate reimbursement) comes from the Reliance binder's labelled triple, in the same order. Caution: the route borrows labels from Reliance, the document this assertion will be compared with. It borrows the structure only, not the value."
+    },
+    {
+      "mapping_id": "cover_policy_number",
+      "method": "label",
+      "instrument_doc_id": "london_fd960228",
+      "cited": {
+        "source_file": "gillette_10k405_1996.txt",
+        "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 73898,
+          "end": 73922
+        },
+        "text": "POLICY NO:      FD960228"
+      },
+      "position": null,
+      "produces": "FD960228",
+      "strength": "read",
+      "reasoning": null,
+      "justified_by": [],
+      "note": "The cover note's own policy number. A route only so that every asserter's path to the policy part is written down."
+    },
+    {
+      "mapping_id": "cover_ib_corp_reimbursement",
+      "method": "judgment",
+      "instrument_doc_id": "london_fd960228",
+      "cited": {
+        "source_file": "gillette_10k405_1996.txt",
+        "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 75074,
+          "end": 75094
+        },
+        "text": "Insuring Clause I.B."
+      },
+      "position": null,
+      "produces": "corp_reimbursement.retention",
+      "strength": "judgment",
+      "reasoning": "In standard D&O wording, Insuring Clause I.B is the company reimbursement clause (Side B); I.A covers the directors and officers. This packet does not contain the GS-212C or FD960228 wording ('Manuscript Wording to be agreed by Underwriters'), so no span here labels I.B. What the packet does show is consistent with that reading: TYPE names exactly two coverages (D&O and company reimbursement), and the I.A line carries the D&O retentions. Consistency is not proof; the route rests on outside convention.",
+      "justified_by": [
+        {
+          "source_file": "gillette_10k405_1996.txt",
+          "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 74751,
+            "end": 74762
+          },
+          "text": "RETENTIONS:"
+        },
+        {
+          "source_file": "gillette_10k405_1996.txt",
+          "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 73940,
+            "end": 73989
+          },
+          "text": "DIRECTORS AND OFFICERS AND COMPANY REIMBURSEMENT."
+        },
+        {
+          "source_file": "gillette_10k405_1996.txt",
+          "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 74991,
+            "end": 75025
+          },
+          "text": "Oficers under Insuring Clause I.A."
+        }
+      ],
+      "note": "Judgment, not a read: see reasoning. Weakest route on the cover note's assertion. If it breaks, the verdict still holds (test_unresolved_conflict_survives_without_the_cover_note_judgment_route)."
+    },
+    {
+      "mapping_id": "reliance_corp_reimbursement_label",
+      "method": "label",
+      "instrument_doc_id": "reliance_binder",
+      "cited": {
+        "source_file": "gillette_10k405_1996.txt",
+        "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 81432,
+          "end": 81466
+        },
+        "text": "Corporate Reimbursement, each loss"
+      },
+      "position": null,
+      "produces": "corp_reimbursement.retention",
+      "strength": "read",
+      "reasoning": null,
+      "justified_by": [
+        {
+          "source_file": "gillette_10k405_1996.txt",
+          "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 81217,
+            "end": 81227
+          },
+          "text": "Retention:"
+        }
+      ],
+      "note": "Reliance names the part in its own words, under its 'Retention:' heading."
+    },
+    {
+      "mapping_id": "reliance_primary_carrier_to_fd960228",
+      "method": "cross_reference",
+      "instrument_doc_id": "reliance_binder",
+      "cited": {
+        "source_file": "gillette_10k405_1996.txt",
+        "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 81115,
+          "end": 81147
+        },
+        "text": "Primary Carrier:  Lloyd's London"
+      },
+      "position": null,
+      "produces": "FD960228",
+      "strength": "judgment",
+      "reasoning": "Reliance never writes FD960228. It names 'Primary Carrier: Lloyd's London' with limits of $20,000,000. Item VII names London twice, Primary 757/FD960228 ($10M) and 1st Excess 757/FD960229 ($10M). Taking Reliance's 'primary' to be FD960228 is a choice: Reliance may be describing both London layers as one $20M primary (see DEFERRED.md, London limits). The retention is attributed to FD960228 because Reliance's retention triple matches the primary's NIL/NIL structure, not because Reliance says so.",
+      "justified_by": [
+        {
+          "source_file": "gillette_10k405_1996.txt",
+          "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+          "locator": {
+            "kind": "raw_offsets",
+            "start": 68399,
+            "end": 68434
+          },
+          "text": "Primary      London    757/FD960228"
+        }
+      ],
+      "note": "Judgment, not a read: see reasoning. The headline verdict depends on this route: without Reliance on the slot, the remaining asserters agree (test_without_reliance_the_slot_is_unresolved_not_supported)."
+    }
+  ],
+  "assertions": [
+    {
+      "assertion_id": "item7_primary_retention",
+      "instrument_doc_id": "coda_end13",
+      "citation": {
+        "source_file": "gillette_10k405_1996.txt",
+        "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 68460,
+          "end": 68477
+        },
+        "text": "NIL/NIL/1,000,000"
+      },
+      "route_ids": [
+        "item7_primary_policy_number",
+        "item7_primary_retention_position3"
+      ]
+    },
+    {
+      "assertion_id": "cover_note_ib_retention",
+      "instrument_doc_id": "london_fd960228",
+      "citation": {
+        "source_file": "gillette_10k405_1996.txt",
+        "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 75043,
+          "end": 75094
+        },
+        "text": "USD 1,000,000 each Claim under Insuring Clause I.B."
+      },
+      "route_ids": [
+        "cover_policy_number",
+        "cover_ib_corp_reimbursement"
+      ]
+    },
+    {
+      "assertion_id": "reliance_corp_reimbursement_retention",
+      "instrument_doc_id": "reliance_binder",
+      "citation": {
+        "source_file": "gillette_10k405_1996.txt",
+        "sha256_of_file": "66bb7e76bba9ff46a0797e61bf7210b4349b52e55ba81c47f62e56ccaddf1db4",
+        "locator": {
+          "kind": "raw_offsets",
+          "start": 81406,
+          "end": 81466
+        },
+        "text": "$500,000                  Corporate Reimbursement, each loss"
+      },
+      "route_ids": [
+        "reliance_primary_carrier_to_fd960228",
+        "reliance_corp_reimbursement_label"
+      ]
+    }
+  ]
+}

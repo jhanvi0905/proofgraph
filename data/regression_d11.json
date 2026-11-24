@@ -1,0 +1,154 @@
+{
+  "note": "D11 regression fixture, written from the replayed runs at the D9/D10 freeze before any D11 code changed. Each typed claim (no question key) must give the same verdict and reason, the same governing document and value, and cite the same documents and pages (offsets for the raw SEC filing). A mismatch is a recorded finding (DECISIONS.md D11, fix 3).",
+  "written_on": "2026-11-23",
+  "claims": [
+    {
+      "claim_id": "retention",
+      "claim_text": "The primary corporate reimbursement retention under FD960228 is USD 1,000,000.",
+      "packet": "gillette",
+      "docs": [
+        "london_fd960228",
+        "london_fd960229",
+        "coda_end13",
+        "reliance_binder",
+        "ace_binder",
+        "cna_binder"
+      ],
+      "verdict": "unresolved",
+      "reason": "documents_disagree",
+      "governing_doc_id": null,
+      "governing_value": null,
+      "cited": [
+        {
+          "doc_id": "coda_end13",
+          "start": 68399,
+          "end": 68477,
+          "value": "1,000,000"
+        },
+        {
+          "doc_id": "london_fd960228",
+          "start": 75043,
+          "end": 75094,
+          "value": "USD 1,000,000"
+        },
+        {
+          "doc_id": "london_fd960229",
+          "start": 79877,
+          "end": 79923,
+          "value": "USD 1,000,000"
+        },
+        {
+          "doc_id": "reliance_binder",
+          "start": 81406,
+          "end": 81466,
+          "value": "$500,000"
+        }
+      ],
+      "supported_reason": null,
+      "governing_rule": null
+    },
+    {
+      "claim_id": "fb_money",
+      "claim_text": "Under the specimen policy SPECIMEN-HO3, the special limit of liability on money is $200.",
+      "packet": "homeowners",
+      "docs": [
+        "ho_00_03",
+        "ho_00_15"
+      ],
+      "verdict": "supported",
+      "reason": null,
+      "governing_doc_id": "ho_00_03",
+      "governing_value": "$200",
+      "cited": [
+        {
+          "doc_id": "ho_00_03",
+          "page": 2,
+          "value": "$200"
+        }
+      ],
+      "supported_reason": "no_conflict",
+      "governing_rule": null
+    },
+    {
+      "claim_id": "fb_jewelry",
+      "claim_text": "Under the specimen policy SPECIMEN-HO3, the special limit of liability for loss by theft of jewelry is $1,000.",
+      "packet": "homeowners",
+      "docs": [
+        "ho_00_03",
+        "ho_00_15"
+      ],
+      "verdict": "supported",
+      "reason": null,
+      "governing_doc_id": "ho_00_15",
+      "governing_value": "$1,000",
+      "cited": [
+        {
+          "doc_id": "ho_00_03",
+          "page": 2,
+          "value": "$1000"
+        },
+        {
+          "doc_id": "ho_00_15",
+          "page": 2,
+          "value": "$1,000"
+        }
+      ],
+      "supported_reason": "no_conflict",
+      "governing_rule": "endorsement_over_base"
+    },
+    {
+      "claim_id": "fb_firearms",
+      "claim_text": "Under the specimen policy SPECIMEN-HO3, the special limit of liability for loss by theft of firearms is $2,000.",
+      "packet": "homeowners",
+      "docs": [
+        "ho_00_03",
+        "ho_00_15"
+      ],
+      "verdict": "supported",
+      "reason": null,
+      "governing_doc_id": "ho_00_15",
+      "governing_value": "$2,000",
+      "cited": [
+        {
+          "doc_id": "ho_00_03",
+          "page": 2,
+          "value": "$2000"
+        },
+        {
+          "doc_id": "ho_00_15",
+          "page": 2,
+          "value": "$2,000"
+        }
+      ],
+      "supported_reason": "no_conflict",
+      "governing_rule": "endorsement_over_base"
+    },
+    {
+      "claim_id": "fb_silverware",
+      "claim_text": "Under the specimen policy SPECIMEN-HO3, the special limit of liability for loss by theft of silverware is $2,500.",
+      "packet": "homeowners",
+      "docs": [
+        "ho_00_03",
+        "ho_00_15"
+      ],
+      "verdict": "supported",
+      "reason": null,
+      "governing_doc_id": "ho_00_15",
+      "governing_value": "$2,500",
+      "cited": [
+        {
+          "doc_id": "ho_00_03",
+          "page": 2,
+          "value": "$2500"
+        },
+        {
+          "doc_id": "ho_00_15",
+          "page": 2,
+          "value": "$2,500"
+        }
+      ],
+      "supported_reason": "no_conflict",
+      "governing_rule": "endorsement_over_base"
+    }
+  ]
+}

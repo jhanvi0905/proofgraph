@@ -1,0 +1,30 @@
+{
+  "note": "Domain-layer freeze (DECISIONS.md D8, re-taken at D9). Each file must stay byte-identical until a new decision supersedes the freeze. tests/test_freeze.py checks the hashes. D9 (2026-11-23, post-freeze, approved by the user) changed the arbiter, numbers, assertions, claims, schema, family A's claims and document mappings, and added family B's records, so the hashes below are the D9 freeze; the D8 hashes are in git history at domain-freeze (b353e20). D11 (2026-11-23, accepted by the user) added data/regression_d11.json, the five typed-claim expectations written before any D11 code; no existing hash changed, because D11 lives outside the frozen files. D12 (2026-11-24, accepted by the user) changed checker.py, assertions.py, atomize.py, numbers.py, passes.py and schema.py, and added proofgraph/geometry.py, data/currencies.json and data/basis_phrases.json, which the checker and the comparator read; re-hashed once after all five D12 items. The arbiter and every data file hashed before D12 are unchanged. D13 (2026-11-24, accepted by the user) changed only files outside the freeze: the upload proposer reads the printed effective-date line and code parses its date (propose.py, upload.py; the edition is no longer an effective date), and a person may pick the figure in a multi-amount line at confirmation (grouping.py, pipeline.py, server, result, page); re-hashed once after both items, and every hash is unchanged.",
+  "frozen_on": "2026-11-24",
+  "files": {
+    "proofgraph/arbiter.py": "7450f056636e1d0998e17d892e4215ff0b2ae95501dd7fad67f493de77fa33b0",
+    "proofgraph/numbers.py": "f1e137a2a5301e78799900737e6f2f6372211d391cce8652bab272a05ba6544e",
+    "proofgraph/assertions.py": "35a1db34d3e0d4471eb5c3b4e0e70156d8e214b86c0b6139e36d69c224b8b361",
+    "proofgraph/claims.py": "5c2ea830b168156b8f218dfe7a3f4aea069b8170c192f5b7ab05db1fb7de9d80",
+    "proofgraph/checker.py": "476cfbd54c5f82107c57eeb7c54d06479d6e7464995b900f179d170426005867",
+    "proofgraph/passes.py": "d8470666dedce6e20e46e5b1c06e512563c73378f4071ca1531373289933d856",
+    "proofgraph/schema.py": "0aec5316562357cd10ea8db78847e45b47ca7a1ecd3279bcfa5e90fc6dadf93e",
+    "proofgraph/atomize.py": "1a22018e6ad98a59ed4d73e13ff02d6b397c9e41dd1e2e26def40bdac6d35e39",
+    "data/predicates.json": "a793a7893a37fcf58d7c19f517fc985cde877e1bc7308eb6d54a76dcb1a20d5c",
+    "data/slots.json": "2b17babd1a62af16954b648e288f786942fc8ba46a9a08dac8f8b73760be6b00",
+    "data/claims.json": "b78dcb182c942a3ad116a9c0e93aaa184cb7208b42fdfa6561bd51733cad4181",
+    "data/mappings.json": "287b1f9ef673c7d4d21b33b4440b9888bc435211507bd40b9e490a874c605bc5",
+    "data/document_mappings.json": "e2a513161168c16972dcc20d5c4b73fafa365531f0b6da9ab71020393ae26564",
+    "data/family_b/claims.json": "863b229b66a543db592b59f0502f1cc39c4cf8729d973be4f4864d09024d3ec0",
+    "data/family_b/slots.json": "d170acf99f8dd686bd342eecdbb52c2e29d570d9fd02384fea2cc77a7d079609",
+    "data/family_b/document_mappings.json": "9e15f64b278336800a6c69b7d94d4b9bd29b2b5f076bf6da5d43b56258d47c5a",
+    "data/family_b/labels.json": "b9fe078c760dc995bd15321c0566314906e76ced74f449a027a70490da356cb6",
+    "data/family_b/labels_d9.json": "3412c805c0526434eb3af3dfea0623e6f16fcaadceccf857f50793ea6fe8e6e7",
+    "data/regression_d11.json": "e14f7923b055ea1c941182dc2459f6cc2b8460d05a49ac3d375938580a9b92d4",
+    "proofgraph/geometry.py": "ff145ed03d5a250beffc2c79b586281269531054ce640b52a51d2bf9a59f005c",
+    "data/currencies.json": "e30f40999b573e26f62227a4a0123235eaa8c3037cb66e44c7c00a5f2cfa89b5",
+    "data/basis_phrases.json": "7c19063ee473f3dfd58835cb3cc232c55409a85c76b9a22e1702f6dff9f9c0ad"
+  },
+  "d8_frozen_on": "2026-11-22",
+  "d9_frozen_on": "2026-11-23"
+}

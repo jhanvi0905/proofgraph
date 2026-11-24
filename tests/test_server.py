@@ -1,222 +1,162 @@
-"""app/server.py: gate, streamed events, review page, ask again. Offline, scripted model answers."""
+"""The front end over the v2 pipeline: examples replay with no key; uploads are refused honestly."""
 
-import base64
-import json
+from __future__ import annotations
+
+import os
 import re
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
-from app.auth import passcode_ok, passcode_refusal
-from app.server import create_app, externalize
-from tests.test_review_run import CLAIM, DOC_ID, GOOD, PDF, SPLIT1, FakeTransport, _muse
-
-
-def events(text: str) -> list[tuple[str, dict]]:
-    out = []
-    for block in text.strip().split("\n\n"):
-        name, data = block.split("\n", 1)
-        out.append((name.removeprefix("event: "), json.loads(data.removeprefix("data: "))))
-    return out
+ROOT = Path(__file__).resolve().parent.parent
+pytestmark = pytest.mark.skipif(
+    not all((ROOT / "data" / "raw" / f).exists() for f in ("gillette_10k405_1996.txt", "ho_00_03_04_91.pdf", "ho_00_15_04_91.pdf")),
+    reason="sources absent")
 
 
-@pytest.fixture
-def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("APP_PASSCODE", "open-sesame")
-    monkeypatch.delenv("PROOFGRAPH_GRAPH", raising=False)
-    calls = []
+@pytest.fixture(scope="module")
+def client():
+    from fastapi.testclient import TestClient
 
-    def make():
-        calls.append(1)
-        return _muse(tmp_path, FakeTransport(SPLIT1, GOOD, SPLIT1, GOOD))
+    os.environ.pop("ANTHROPIC_API_KEY", None)  # must replay from data/recorded/model
+    from app.server import create_app
 
-    c = TestClient(create_app(make))
-    c.calls = calls
-    return c
+    return TestClient(create_app())
 
 
-def post(c, claim=CLAIM, passcode="open-sesame", files=True, path="/api/review"):
-    data = {"claim": claim, "passcode": passcode}
-    up = {"files": ("rate.pdf", PDF.read_bytes(), "application/pdf")} if files else None
-    return c.post(path, data=data, files=up)
+def _run(client, sample):
+    body = client.post(f"/api/sample/{sample}").text
+    rid = re.search(r'"review_id": "([0-9a-f]+)"', body)
+    assert rid, body[-400:]
+    return body, client.get(f"/api/review/{rid.group(1)}").text
 
 
-def test_passcode_helper():
-    assert passcode_ok("a-b", "a-b") and not passcode_ok("a", None) and not passcode_ok("", "")
-    assert passcode_refusal("x", None).startswith("Live checks are off")
-    assert passcode_refusal("x", "y").startswith("Enter the passcode")
-    assert passcode_refusal("y", "y") is None
-
-
-@pytest.mark.parametrize("kw,code", [({"passcode": "nope"}, 401), ({"claim": " "}, 400), ({"files": False}, 400)])
-def test_refusals_build_no_client(client, kw, code):
-    r = post(client, **kw)
-    assert r.status_code == code and r.json()["refusal"]
-    assert client.calls == []
-
-
-def test_config_says_whether_the_blind_second_reader_can_run(client, monkeypatch):
-    monkeypatch.setenv("BASETEN_API_KEY", "k")
-    assert client.get("/api/config").json()["second_reader"] is True
-    monkeypatch.setenv("BASETEN_API_KEY", "  ")
-    assert client.get("/api/config").json()["second_reader"] is False
-    monkeypatch.delenv("BASETEN_API_KEY")
-    assert client.get("/api/config").json()["second_reader"] is False  # no key: support would pass with no second read
-
-
-def test_no_configured_passcode_means_open_and_the_page_is_told(client, monkeypatch):
-    assert client.get("/api/config").json()["passcode_required"] is True
-    monkeypatch.delenv("APP_PASSCODE")
+def test_config_needs_no_passcode(client):
     assert client.get("/api/config").json()["passcode_required"] is False
-    r = post(client, passcode="")
-    assert r.status_code == 200 and events(r.text)[-1][0] == "done"
-    assert post(client, claim=" ", passcode="").status_code == 400  # input checks still apply
 
 
-def test_stream_ends_on_a_review_page(client):
-    r = post(client)
-    assert r.headers["content-type"].startswith("text/event-stream")
-    evs = events(r.text)
-    names = [n for n, _ in evs]
-    assert names[0] == "files" and names[-1] == "done"
-    assert names.index("parts") < names.index("partdone") < names.index("done")
-    assert evs[0][1]["files"] == [{"name": "rate.pdf", "id": DOC_ID, "ok": True, "pages": 1, "note": None}]
-    done = evs[-1][1]
-    assert done["status"] == "contradicted"
-    page = client.get(f"/api/review/{done['review_id']}")
-    assert page.status_code == 200 and CLAIM in page.text and "<!doctype html>" in page.text.lower()
+def test_the_first_example_is_the_decision(client):
+    assert client.get("/api/samples").json()[0]["id"] == "endorsement-replaces-limit"
 
 
-def test_ask_reuses_the_stored_files(client):
-    first = events(post(client).text)[-1][1]["review_id"]
-    r = post(client, path=f"/api/review/{first}/ask", files=False)
-    evs = events(r.text)
-    assert evs[-1][0] == "done" and evs[-1][1]["review_id"] != first
-    assert post(client, path="/api/review/nope/ask", files=False).status_code == 404
+def test_rule_one_page_names_the_rule_the_governing_form_and_boxes_the_lines(client):
+    stream, page = _run(client, "endorsement-replaces-limit")
+    assert '"status": "supported"' in stream
+    # D9: $1000 and $1,000 are now compared (neither states a basis) and equal, so the rule names the
+    # governing form over agreeing values: no_conflict, not "decided by a rule".
+    assert "Supported, decided by a rule" not in page and "Rule applied: endorsement over base form" in page
+    assert "HO 00 15 (endorsement)" in page and "Governs" in page
+    assert "The claim is right." in page and "<b>$1,000</b>" in page  # answer first, the claim's amount in bold
+    assert page.count("data:image/png;base64,") == 4  # the governing and overridden pages up front, then both in the chain
+    assert page.index("The claim is right.") < page.index("How this was decided")  # conclusion before mechanism
+    assert "Re-run this check" in page and "sha256" in page and "Commit" in page
+    assert "compared: same amount; same currency; neither states a basis" in page  # the pair's reason in plain words
+    # each document links out to its published original; the ISO PDFs are not served from here (NOTICE.md)
+    assert 'href="https://www.independentagent.com/' in page and "Open the original" in page
 
 
-def test_model_failure_is_one_plain_line(tmp_path, monkeypatch):
-    monkeypatch.setenv("APP_PASSCODE", "p")
-
-    def boom():
-        raise RuntimeError("secret detail")
-
-    r = post(TestClient(create_app(boom)), passcode="p")
-    name, data = events(r.text)[-1]
-    assert name == "failed" and "secret" not in data["text"]
+def test_disagreement_page_says_neither_rule_fired_and_why(client):
+    stream, page = _run(client, "documents-disagree")
+    assert '"status": "unresolved"' in stream
+    assert "This can’t be settled from these documents." in page and "no rule says which one controls" in page
+    assert "Neither rule applied" in page
+    assert "Only Underwriters at Lloyd" in page and "<mark>" in page  # raw-text pane marks the cited characters
+    assert "in scope: [" not in page and "support:" not in page  # no internal ids on the screen
 
 
-def test_bad_upload_type_and_page_served(client):
-    r = client.post("/api/review", data={"claim": "x", "passcode": "open-sesame"},
-                    files={"files": ("a.docx", b"PK", "application/octet-stream")})
-    assert r.status_code == 400
-    home = client.get("/")
-    assert home.status_code == 200 and 'aria-live="polite"' in home.text
-    assert client.get("/web/app.js").status_code == 200 and client.get("/web/app.css").status_code == 200
-    assert client.get("/api/review/none").status_code == 404
+def test_uploads_are_refused_with_a_reason(client):
+    r = client.post("/api/review")
+    assert r.status_code == 400 and "guess which policy" in r.json()["refusal"]
 
 
-def test_samples_listed_and_run_from_a_manifest(client, tmp_path, monkeypatch):
-    (tmp_path / "rate.pdf").write_bytes(PDF.read_bytes())
-    manifest = tmp_path / "samples.json"
-    manifest.write_text(json.dumps({"samples": [{"id": "a", "title": "Rate", "claim": CLAIM, "files": ["rate.pdf"]},
-                                                {"id": "b", "title": "Gone", "claim": CLAIM, "files": ["nope.pdf"]}]}))
-    assert client.get("/api/samples").json() == []
-    monkeypatch.setenv("PROOFGRAPH_SAMPLES", str(manifest))
-    assert client.get("/api/samples").json() == [{"id": "a", "title": "Rate", "claim": CLAIM, "docs": ["rate"]}]
-    r = client.post("/api/sample/a", data={"passcode": "open-sesame"})
-    assert events(r.text)[-1][0] == "done"
-    assert client.post("/api/sample/b", data={"passcode": "open-sesame"}).status_code == 404
-    assert client.post("/api/sample/a", data={"passcode": "bad"}).status_code == 401
+def test_form_lists_each_packet_with_its_mapping_and_its_claims(client):
+    packs = {p["id"]: p for p in client.get("/api/packets").json()}
+    assert set(packs) == {"homeowners", "endorsement-alone", "gillette"}
+    home = packs["homeowners"]
+    assert [d["kind"] for d in home["docs"]] == ["Base form", "Endorsement"]
+    ids = [q["id"] for q in home["questions"] if q["claim"]]
+    assert ids[:3] == ["fb_jewelry", "fb_jewelry_wrong", "fb_jewelry_wording"] and len(ids) == 6
+    assert [d["kind"] for d in packs["endorsement-alone"]["docs"]] == ["Endorsement"]
+    gil = packs["gillette"]
+    assert [q["slot"] for q in gil["questions"] if q["claim"]] == ["FD960228.corp_reimbursement.retention"]
+    assert {d["strength"] for d in gil["docs"]} == {"read", "derived", "judgment"}
+    # every worked document links to its published original (linked, not served: NOTICE.md)
+    assert all(d["source"].startswith("https://") for p in packs.values() for d in p["docs"])
+    assert {d["source"] for d in gil["docs"]} == {"https://www.sec.gov/Archives/edgar/data/0000041499/000095013597001269/0000950135-97-001269.txt"}
 
 
-def test_graph_events_pass_through_with_doc_ids(client, monkeypatch):
-    from proofgraph.review import graph_run
-    from proofgraph.review.run import AllDone
-
-    def fake(claim, paths, muse):
-        yield graph_run.DocStarted("d1", "rate.pdf", 1)
-        yield graph_run.EntityFound("Board", "office", 2, ("d1", "d2"))
-        raise RuntimeError("stop")
-
-    monkeypatch.setattr("app.server.run_review", fake)
-    evs = events(post(client).text)
-    assert ("docstarted", {"doc": "d1", "name": "rate.pdf", "pages": 1}) in evs
-    assert ("entity", {"name": "Board", "type": "office", "docs": 2, "doc_ids": ["d1", "d2"]}) in evs
+def test_each_hero_example_gives_its_answer_and_names_why(client):
+    """The three answers, the missing-document refusal and the quoted wording claim, each with its plain reason."""
+    want = {"endorsement-replaces-limit": ("supported", "HO 00 15 (endorsement) controls"),
+            "claim-is-wrong": ("contradicted", "the claim says $1,500"),
+            "documents-disagree": ("unresolved", "different amounts, and no rule says which one controls"),
+            "base-form-missing": ("unresolved", "changes HO 00 03, and HO 00 03 is not among these documents"),
+            "wording-quoted": ("quoted", "Quoted, not checked")}
+    for sid, (status, words) in want.items():
+        body = client.post(f"/api/sample/{sid}").text
+        assert f'"status": "{status}"' in body and words in body, (sid, body[-600:])
+        assert "support:" not in body and "attack:" not in body and "_mismatch" not in body  # no internal ids in the reason line
 
 
-def test_review_is_saved_and_shared_read_only(client, tmp_path, monkeypatch):
-    monkeypatch.setenv("CACHE_DIR", str(tmp_path / "c"))
-    rid = events(post(client).text)[-1][1]["review_id"]
-    saved = tmp_path / "c" / "reviews"
-    assert (saved / f"{rid}.json").is_file() and list(saved.glob(f"{rid}-*.png"))
-    page = client.get(f"/r/{rid}")
-    assert page.status_code == 200 and CLAIM in page.text  # flag off: the old page; the graph page adds the share footer
-    # the shared link survives a restart: a fresh app reads the saved file
-    fresh = TestClient(create_app(lambda: None))
-    assert fresh.get(f"/r/{rid}").status_code == 200
-    assert fresh.get(f"/api/review/{rid}").status_code == 200
+def test_every_question_with_a_claim_replays_to_its_label(client):
+    for slot in ("SPECIMEN-HO3.money.special_limit", "SPECIMEN-HO3.firearms_theft.special_limit",
+                 "SPECIMEN-HO3.silverware_theft.special_limit"):
+        assert '"status": "supported"' in client.post(f"/api/run/homeowners/{slot}").text
+    assert '"status": "contradicted"' in client.post("/api/run/homeowners/fb_jewelry_wrong").text
 
 
-@pytest.mark.parametrize("bad", ["nope", "..%2f..%2fetc", "0" * 12, "ABCDEF123456"])
-def test_share_route_rejects_unknown_and_unsafe_ids(client, bad):
-    assert client.get(f"/r/{bad}").status_code == 404
+def test_questions_outside_the_registry_or_without_a_claim_are_refused_before_running(client):
+    r = client.post("/api/run/gillette/not.a.slot")
+    assert r.status_code == 400 and "not on the fixed list" in r.json()["refusal"]
+    r = client.post("/api/run/gillette/81385411.d_and_o.limit")
+    assert r.status_code == 400 and "No claim has been written" in r.json()["refusal"]
 
 
-PNG = b"\x89PNG\r\n\x1a\nfake"
+def test_the_run_shows_what_the_model_was_allowed_to_see(client):
+    body = client.post("/api/sample/endorsement-replaces-limit").text
+    assert "event: admitted" in body and "event: files" not in body
+    assert '"name": "HO 00 15 (endorsement)"' in body and '"in_scope": true' in body
+    # D9: the governing form is named on the page (see the rule-one test); the stream's one-line reason
+    # names it only for resolved_by_rule, which this sample no longer is (app/server.py _reason)
+    assert "ho_00_15 controls" not in body  # never an internal id
 
 
-def test_externalize_swaps_inline_page_images_for_urls():
-    html = f'<img alt="a" src="data:image/png;base64,{base64.b64encode(PNG).decode()}"><p>x</p>'
-    out, pics = externalize(html, "abcdef012345")
-    (name, data), = pics.items()
-    assert "data:image" not in out and "<p>x</p>" in out and data == PNG
-    assert f'src="/api/review/abcdef012345/img/{name}.png" loading="lazy"' in out  # a closed page does not load its images
-    assert externalize("<p>none</p>", "abcdef012345") == ("<p>none</p>", {})
+# ---- D11: a typed claim through the routes (replays the responses recorded on the regression run)
+
+JEWELRY = "Under the specimen policy SPECIMEN-HO3, the special limit of liability for loss by theft of jewelry is $1,000."
+RETENTION = "The primary corporate reimbursement retention under FD960228 is USD 1,000,000."
 
 
-def _images(page: str, rid: str) -> list[str]:
-    return re.findall(rf'src="(/api/review/{rid}/img/[0-9a-f]+\.png)"', page)
+def test_reading_a_claim_shows_the_policy_match_and_does_not_apply_it(client):
+    r = client.post("/api/claim/read", json={"packet": "gillette", "text": RETENTION}).json()
+    assert r["kind"] == "amount" and r["value"] == "USD 1,000,000" and r["policy_matches"] == ["FD960228"]
+    assert r["policies"] == ["FD960228"]  # the choices come from the packet's confirmed assignments
+    bad = client.post("/api/claim/read", json={"packet": "gillette", "text": "limit $1 and deductible $2"}).json()
+    assert "more than one amount" in bad["refusal"]
 
 
-def test_review_pages_serve_page_images_as_cacheable_files_not_inline(client, tmp_path, monkeypatch):
-    monkeypatch.setenv("CACHE_DIR", str(tmp_path / "c"))
-    rid = events(post(client).text)[-1][1]["review_id"]
-    for url in (f"/api/review/{rid}", f"/r/{rid}"):
-        page = client.get(url).text
-        assert "data:image/png;base64" not in page
-        urls = _images(page, rid)
-        assert urls
-        img = client.get(urls[0])
-        assert img.status_code == 200 and img.headers["content-type"] == "image/png"
-        assert "immutable" in img.headers["cache-control"] and img.content.startswith(b"\x89PNG")
+def test_a_typed_claim_is_confirmed_then_decided_and_the_result_says_how(client):
+    g = client.post("/api/claim/gather", json={"packet": "homeowners", "text": JEWELRY, "policy": "SPECIMEN-HO3",
+                                               "policy_source": "matched_in_claim"}).json()
+    assert len(g["lines"]) == 2 and not g["ask_basis"]
+    ids = [x["line_id"] for x in g["lines"]]
+    assert client.post(f"/api/claim/{g['gather_id']}/decide", json={"confirmed": ids[:1], "confirmed_by": "t"}).status_code == 400
+    d = client.post(f"/api/claim/{g['gather_id']}/decide", json={"confirmed": ids, "confirmed_by": "Test Person"}).json()
+    assert d["status"] == "supported"
+    page = client.get(f"/api/review/{d['review_id']}").text
+    assert "How this question was set" in page and "confirmed by a person" in page and "Test Person" in page
+    assert "found in the claim" in page and "Basis: written in the claim" not in page and "No line was set aside" in page
 
 
-def test_a_restarted_server_still_serves_a_saved_reviews_images(client, tmp_path, monkeypatch):
-    monkeypatch.setenv("CACHE_DIR", str(tmp_path / "c"))
-    rid = events(post(client).text)[-1][1]["review_id"]
-    fresh = TestClient(create_app(lambda: None))
-    urls = _images(fresh.get(f"/r/{rid}").text, rid)
-    assert urls and fresh.get(urls[0]).status_code == 200
-
-
-@pytest.mark.parametrize("name", ["nope.png", "..%2fx.png", "0123456789abcdef.png", "ABCDEF0123456789.png"])
-def test_image_route_rejects_unknown_and_unsafe_names(client, tmp_path, monkeypatch, name):
-    monkeypatch.setenv("CACHE_DIR", str(tmp_path / "c"))
-    rid = events(post(client).text)[-1][1]["review_id"]
-    assert client.get(f"/api/review/{rid}/img/{name}").status_code == 404
-    assert client.get(f"/api/review/nothing/img/{name}").status_code == 404
-
-
-def test_second_live_run_from_one_visitor_gets_429(tmp_path, monkeypatch):
-    monkeypatch.setenv("LIVE_RUNS_PER_HOUR", "1")
-    monkeypatch.delenv("APP_PASSCODE", raising=False)
-    monkeypatch.delenv("PROOFGRAPH_GRAPH", raising=False)
-    c = TestClient(create_app(lambda: _muse(tmp_path, FakeTransport(SPLIT1, GOOD, SPLIT1, GOOD))))
-    assert post(c, passcode="").status_code == 200
-    again = post(c, passcode="")
-    assert again.status_code == 429 and "live-run budget" in again.json()["refusal"]
-    other = c.post("/api/review", data={"claim": CLAIM}, files={"files": ("rate.pdf", PDF.read_bytes(), "application/pdf")},
-                   headers={"x-forwarded-for": "203.0.113.9"})
-    assert other.status_code == 200
+def test_a_basis_set_at_confirmation_is_shown_as_set_there(client):
+    g = client.post("/api/claim/gather", json={"packet": "gillette", "text": RETENTION, "policy": "FD960228",
+                                               "policy_source": "matched_in_claim"}).json()
+    assert g["ask_basis"] and "each claim" in g["basis_in_lines"] and g["nothing_found"]
+    ids = [x["line_id"] for x in g["lines"]]
+    reliance = next(x["line_id"] for x in g["lines"] if x["doc"].startswith("Reliance"))
+    keep = [i for i in ids if i != reliance]
+    d = client.post(f"/api/claim/{g['gather_id']}/decide", json={"confirmed": keep, "dropped": {reliance: "different policy's binder"},
+                                                                 "confirmed_by": "T", "basis": "each_claim"}).json()
+    page = client.get(f"/api/review/{d['review_id']}").text
+    assert "set at confirmation, not written by the claimant" in page
+    assert "set aside by a person" in page and "different policy" in page and "nothing found" in page

@@ -1,272 +1,182 @@
 # ProofGraph
 
-**Where does it say that?** ProofGraph checks a claim against every document in the packet and opens the clause that decides it, on its page.
+Selected submission, Meta Global AI Developer Hackathon. Baseten and Fireworks credits awarded for development.
 
-**Try it:** open the [worked example](docs/recorded/worked-example-review.html) (download the file with GitHub's **Download raw file** button and open it in a browser; no key, no network), or use the [live app](https://proofgraph-orww.onrender.com/) and choose **Run an example** (no account, no key, no upload). The worked example is never limited; live uploads are limited per visitor. To run your own check with your own key, see [Test it yourself](#test-it-yourself-for-judges).
+**Which document says what, and when two disagree, which one governs?**
 
-[![ProofGraph review screen: three clauses on page 1 go against the claim, the deciding clause circled on the real page](docs/media/hero.gif)](docs/media/hero.mp4)
+ProofGraph answers that for one claim against a packet of documents (an insurance policy with its endorsements and binders, or a tax provision with its amendments and IRS guidance), and shows the page and the exact words behind the answer.
 
-*The review screen on a claim about a real NDA (case TC40, from ContractNLI, CC BY 4.0, Koreeda and Manning 2021): each clause that goes against the claim is circled on its page. [Full-quality video](docs/media/hero.mp4).*
+- **Today:** the coverage analyst (or tax reviewer) answering "does this endorsement change the limit?" reads every document in order, then makes a judgment call nobody writes down.
+- **With ProofGraph:** on your own documents, you confirm which lines in the packet are about the claim. Code reads the values, applies two stated rules, and returns an answer you can check against the page, or a named reason it cannot answer.
+- **The line it never crosses:** the model finds and quotes. Code compares and applies the rules. A model never decides which document governs.
 
-> **Meta's Muse Spark does the reading and judging; ProofGraph checks every statement against the page.**
->
-> - **It does not invent quotes.** About 99% of the 1,496 statements the model extracted were found on the real page.
-> - **It does not pass a real contradiction as supported.** On 30 contract pairs never used while building it, none of the 10 real contradictions was passed as supported. Overall it was right on 19, sent 6 to a human, and was wrong on 5.
-> - **Answers resting on text read from the page are the most reliable.** 12 right out of 14, none wrongly supported.
->
-> These are small samples: read them as *better on unseen cases*, not *proven better*. Details and the failures are in [Results](#results).
+**Not:** a document store, a coverage opinion or legal advice.
 
-## Test it yourself (for judges)
+## See it
 
-**No key (1 minute).** Open the [live app](https://proofgraph-orww.onrender.com/) and choose **Run an example**. The example is served from a cached graph and cached model responses from a real run, so it makes no live model calls and needs no key; a run on your own documents is live. If the page is slow, it is waking up; wait a few seconds. For a fully offline copy, download [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) and open it in a browser.
+![The Gillette retention claim, unresolved: three documents state 1,000,000 and a fourth states $500,000, neither rule applies, and each cited value is marked in the raw SEC filing](docs/media/documents-disagree.png)
 
-**With your own keys (about 10 minutes).** To run a live check on your own documents, run the app on your machine with your own Meta Model API key. Nothing is limited by our demo cap, and nothing leaves your machine except the model calls. You need [uv](https://docs.astral.sh/uv/) and Python 3.11.
+- **Documents disagree (Gillette, public SEC filing).** Two Lloyd's cover notes and an endorsement state 1,000,000; the Reliance binder states $500,000 each loss. Only one is issued under the policy in question, so no rule can rank them: *unresolved*. Each value is marked in the raw filing.
+- **A rule decides (ISO forms).** HO 00 03 says "$1000", HO 00 15 says "$1,000". Code compares them as equal; the endorsement rule names HO 00 15 as controlling. A string comparison would have called them a disagreement. The ISO forms are copyrighted, so the page renders live in the app, not here.
 
-```bash
-git clone https://github.com/jhanvi0905/proofgraph.git && cd proofgraph
-make setup
-cp .env.example .env
-```
+![An HSA contribution limit claim of $4,150 naming no year, wrong as the limit now in force ($4,150 is the superseded 2024 figure): Rev. Proc. 2024-25 controls over Rev. Proc. 2023-23 because its effective date is later; the governing line ($4,300) and the overridden line ($4,150) are boxed on each page](docs/media/later-date-governs.png)
 
-Edit `.env`: set `MODEL_API_KEY` to your Meta Model API key. Set `BASETEN_API_KEY` too if you want the Muse Spark Open second reader (optional; without it the second reader is skipped). Then:
+- **A rule decides (IRS, public documents).** Rev. Proc. 2023-23 states $4,150 for 2024; Rev. Proc. 2024-25 states $4,300 for 2025. The claim names no year, so it is checked as the limit in force under these documents: both effective dates are read from the printed lines, the later-date rule names 2024-25 as controlling, and $4,150 is the superseded 2024 figure. Code does not read a year inside a claim: "the 2024 limit is $4,150" would get the same answer unless the person sets the 2025 line aside at confirmation. That is a known gap ([Limitations](#limitations), [results](results/live_irs.md)).
 
-```bash
-export $(grep -v '^#' .env | xargs)
-PROOFGRAPH_GRAPH=1 PROOFGRAPH_SAMPLES=examples/samples/samples.json uv run uvicorn app.server:app --port 8000
-```
+**Bring your own claim** ([D11](DECISIONS.md)). Type any amount or wording claim. Code reads it; the for and against reads find lines in every document of that instrument; a person confirms which lines are about the claim (or sets one aside, with a reason, shown on the result); the unchanged decision tree runs. The eight hand-written questions are now the regression test: typed as plain text, all five amount claims give the same answers ([results](results/d11_regression.md)).
 
-Open <http://localhost:8000>, then:
+## The answers
 
-1. Type a claim. For example: *The SLA commits Nimbus to at least 99.9% uptime each month, we can claim a service credit if it falls short, and Nimbus must notify us of any personal data breach within 24 hours.*
-2. Drop in the documents. The five synthetic documents for that claim are in [`examples/samples/leg-06/`](examples/samples/leg-06/) (every name is invented), or use your own PDFs or images.
-3. Choose **Check claim**. Reading each page with Muse Spark takes a little while; progress shows on screen.
-4. Open the deciding clause to see it circled on its page, then **How this was checked** for the path, which document wins, and the second-reader result.
+| Answer | When | Seen on real documents? |
+|---|---|---|
+| **supported** (right) | The controlling document states the claim's amount. | Yes: 8 family B packets; the SALT and 1099-K holdout claims; IRS HSA and 401(k) uploads. |
+| **contradicted** (wrong) | It states a different amount. Both are shown. | Yes: jewelry claim $1,500 vs HO 00 15's $1,000; an HSA claim naming no year, $4,150 (the superseded 2024 figure) vs $4,300. |
+| **unresolved** (can't be settled), with one reason | `documents_disagree`: amounts differ, no rule picks one. | Yes: Gillette retention, $1,000,000 vs $500,000. |
+| | `amounts_not_comparable`: currency or basis differs or is missing; the mismatch is named. | Yes: a typed Gillette retention claim with the Reliance binder set aside (the rest omit a basis or a currency). |
+| | `governing_instrument_absent`: an endorsement is here, the document it changes is not. | Yes: HO 00 15 without HO 00 03. |
+| **not found** | No document addresses the question. | Yes, before the check: a tax claim where no document had a matching line stopped there and named each document searched (bonus depreciation B4, run 1). The verdict itself is reached only in a unit test. |
+| **quoted** | Wording claims. The controlling clause is quoted with its page, marked not checked. No verdict. | Yes: HO 00 15 item 5. |
 
-`SPEND_LIMIT_USD` in `.env` caps your own spend (default 50). `make test` runs the 1,100+ offline tests with no key. More detail: [Run it](#run-it) and [`docs/deploy.md`](docs/deploy.md).
+Two amounts are compared only when both state the same currency, and either the same basis or none at all ([D9](DECISIONS.md)).
 
-## What it does
+Both rules have settled real disagreements: later effective date on the IRS notices ($4,150 vs $4,300, for a claim naming no year), endorsement over base on the tax holdout ($600 vs $20,000). Neither has fired between documents from different policies, which is why Gillette stays unresolved. On the tax year claims the right answer also depended on which lines the model quoted, not on a rule ([family_tax](results/family_tax.md)).
 
-People trust an answer as far as they can see what it came from. Hand ProofGraph a sentence ("The recipient may share confidential information with outside consultants without written authorization") and a packet of documents. It splits the claim into parts, checks each part against every document, and answers each part with one of six words:
+## Which rule governs
 
-| Answer | Meaning |
-| --- | --- |
-| Supported | Statements match, nothing conflicts, no exception applies |
-| Contradicted | A rule clashes with the part, including a claim that denies an exception's condition |
-| Qualified | Support exists, but an exception or condition is attached |
-| Not found | The documents discuss the thing but never say this, and a full read found nothing either |
-| Unknown | No document mentions the thing at all |
-| Documents disagree | Two documents clash and nothing decides which wins |
+Two precedence rules, nothing else ([D3](DECISIONS.md)). Each applies only between documents of the same **instrument**: what a document belongs to (a policy number for insurance, a code section for tax). The boundary stops a document about one contract from overriding another's.
+1. **Endorsement over base form.** Fires in family B (HO 00 15 is printed "Form HO 00 03 Only"). Fired on the tax holdout (the 2025 Act over the 2023 Code). Never in family A: its endorsements amend GS-212C, whose base wording is not in the packet ([D5](DECISIONS.md)).
+2. **Later effective date over earlier.** Compares effective dates, never coverage periods. Fired on uploaded IRS notices, with the dates read from the printed line ([D13](DECISIONS.md), [results](results/live_irs.md)).
 
-Each answer opens the deciding clause on its page, shows the path the reasoning took, and says which document wins and from when.
+No rule applies and the documents disagree? It refuses to pick.
 
-**Worked example (the one on the live app).** A synthetic packet (every name invented): a subscription agreement excerpt, the service-level schedule, the data-processing addendum, a scanned October service report and a news screenshot. Claim: *"The SLA commits Nimbus to at least 99.9% uptime each month, we can claim a service credit if it falls short, and Nimbus must notify us of any personal data breach within 24 hours."*
+## What it has been run on
 
-ProofGraph splits it into three parts. **Part 1 is Supported**: the service-level schedule promises at least 99.9% in each month, a quote found on the page. **Part 2 is Supported**: the same schedule grants a service credit when uptime falls short. **Part 3 is Contradicted**: the data-processing addendum requires notice within 72 hours, and the agreement excerpt says the addendum prevails on personal data, so the 24 hours in the claim loses. The news screenshot also mentions credits; it is a model-read line, labelled approximate, and never decides. Two parts hold and one fails, so the claim as a whole does not.
-
-![Worked example: each of the two claim parts, from entity to clause to answer, with the documents that were set aside](docs/img/worked-example.png)
-
-*Interactive version: [docs/diagrams/worked-example.html](docs/diagrams/worked-example.html) (download and open).*
-
-## Why a sceptic can believe it
-
-Fastest to check first:
-
-1. **The page.** The deciding clause, circled on the real page.
-2. **The path.** For example Personal Data Breach, then the data-processing addendum, page 1: the reasoning a careful reviewer would write out.
-3. **The override.** Which document wins, and from when.
-4. **The honesty.** "Not in these documents" and "cited, not in the packet" are answers, not failures.
-5. **How each link was made.** *Read from the page* (code verified the quote), *the model's reading*, or *unclear*. An unclear link never decides an answer, and an answer is only as strong as its weakest link.
-6. **Two routes agree.** A typed graph walk and one full read of the packet run side by side. "Not found" needs both to come back empty.
-7. **Measured, not asserted.** The wrongly-supported rate on held-out cases.
-
-## How it works
-
-ProofGraph is neuro-symbolic, and the models carry the language work: Muse Spark is called at four of the eight steps (reading, claim linking, the full read, pair comparison) and Muse Spark Open re-reads deciding links. Code builds the graph, checks every quote against the page, and runs a small frozen verifier over the models' labels. The graph and the decision logic are deterministic; the contents of the graph are probabilistic, and every probabilistic piece is labelled.
-
-| # | Step | Done by | Technique |
-| --- | --- | --- | --- |
-| 1 | **Read** each document once into rule-shaped statements (who is bound, must / may / must-not / fact, action, value, effective date, exact quote). Exceptions become linked statements. One *gleaning* recall pass asks what was missed. | Muse Spark | Information extraction, schema-constrained JSON |
-| 2 | **Align** every quote to its page: exact, then normalised, then fuzzy, else unmatched. Offsets and word boxes are kept. | Code | Deterministic string alignment |
-| 3 | **Merge entities** through defined terms, party names and section numbers. A number veto stops section 3.2 merging with 3.3. Look-alike names become "unclear" links, never merges. | Code | Rule-based record linkage |
-| 4 | **Link** with typed edges: mentions, same as, is a, holds office, defined by, refers to, defeats, conditions, overrides, cites. Every edge carries its tier and evidence. | Code, checked against quotes | Typed knowledge graph |
-| 5 | **Link the claim**: split into parts, each attached only to entity ids and rule types that exist in the packet. | Code, then Muse Spark constrained to an enum | Entity linking, constrained decoding |
-| 6 | **Retrieve two ways in parallel**: a typed path walk and one full read of the packet that cites statement ids. | Code and Muse Spark | Hybrid retrieval with a long-context read |
-| 7 | **Compare, then re-read** pairs of statements (agrees, conflicts, qualifies, irrelevant, unsure). A second model re-reads deciding links (a capped number per claim) without seeing the verdict. | Muse Spark, then Muse Spark Open | Pairwise entailment (NLI) |
-| 8 | **Verify and decide**: a small frozen verifier combines the models' labels with structure, precedence and dates. The weakest link sets the confidence label. | Code | Symbolic, defeasible deontic reasoning |
-
-The verifier is deliberately small, five rules over the models' labels: a rule cannot establish a fact about an instance; an exception defeats its rule only when it applies to this case; an extracted override wins, otherwise the later document of the same role, otherwise a declared governance order, otherwise "documents disagree"; time claims compare event dates; and the weakest link sets the label. No rule in code names a document type, a domain, a synonym or a case.
-
-[![ProofGraph pipeline, animated: Muse Spark reads and judges, code builds the graph and decides, Muse Spark Open re-reads deciding links](docs/media/pipeline.gif)](docs/media/pipeline.webm)
-
-*Animated: [full-quality video](docs/media/pipeline.webm), [static image](docs/img/pipeline.png). Each node links to its code in the interactive version: [docs/diagrams/pipeline.html](docs/diagrams/pipeline.html) (download and open).*
-
-The graph is built once per packet and cached on the packet's content hash, so a second claim on the same packet answers in seconds.
-
-**A span-grounded evidence graph, not GraphRAG.** No summaries, no embeddings, no vector store, no graph database. Each packet's graph is one JSON file. More in [docs/evidence-graph.md](docs/evidence-graph.md).
-
-## Meta models: which, where, and for what
-
-| Model | Runs on | Used for |
-| --- | --- | --- |
-| **Muse Spark** (`muse-spark-1.3`) | Meta Model API | Step 1 reading and gleaning pass; step 5 claim splitting and enum-constrained linking; step 6 full read; step 7 pairwise comparison; transcription of scanned pages with a box per line |
-| **Muse Spark Open** (`meta-models/muse-spark-open-1026`) | Baseten (partner inference) | Step 7: a blind second reader of deciding links, capped per claim. It never sees the relation or the verdict. The review page reports how many were re-read and how many it confirmed. |
-
-All graph building, alignment, merging, walking, precedence, dating and the final verdict run on our own compute (a Docker container on Render, or your machine). Every model call goes through one client with a disk cache, a spend cap, and fencing against instructions planted in documents.
-
-![Where each Meta model runs: Muse Spark on the Meta Model API, Muse Spark Open on Baseten, everything else in our container](docs/img/where-it-runs.png)
-
-*Interactive version, with source links per component: [docs/diagrams/where-it-runs.html](docs/diagrams/where-it-runs.html).* Muse Spark Open shares Muse Spark's lineage, so we measure its independence (the agreement table in [results/health.md](results/health.md)) rather than assume it.
-
-*Built for Best Build on Meta Open Weight Models: the second reader is Muse Spark Open on partner-provided inference.*
-
-## Results
-
-**What the numbers say, first.** Everything here is measured on recorded runs you can open ([`runs/`](runs/), [`results/`](results/)). The first three are the ones that matter.
-
-| Result | Evidence | Why it matters |
-| --- | --- | --- |
-| **About 99%** of the statements Muse Spark extracted were found on the real page, exactly or after whitespace and punctuation normalisation | 1,496 statements on the suite (7 unmatched) and 1,192 on the held-out contracts (9 unmatched); unmatched ones are kept as unclear and never decide | The model is not inventing quotes |
-| **92%** of the gold evidence became a statement | First full run: 73 gold relations | The model reads what matters |
-| **0 of 10** real contradictions passed as supported | 30 unseen pairs, 10 per published label | The error that costs a reviewer money did not happen |
-| **10 fixed, 0 broken** compared with the earlier hand-coded patches, when they gave way to model-labelled judgement under fixed label sets | 30 unseen pairs, 9/30 to 19/30 | The approach generalises; it is not tuned to cases |
-| **12 of 14** right, none wrongly supported, when the answer rests on text read straight from the page | 24-case suite, by trust tier (small n) | A reviewer can trust the green tier |
-
-![What happened to the 30 unseen pairs: 19 right, 6 qualified and sent to review, 5 wrong; none of the 10 real contradictions passed as supported](docs/img/results-outcomes.svg)
-
-### The held-out check in full
-
-30 ContractNLI pairs, scored against the dataset's published labels. Gold labels are read only by the evaluation scripts, never by product code. Iteration 2's design is written down before its code in [`results/preregistration-iteration-2.md`](results/preregistration-iteration-2.md), from the 29-case suite's failures; this held-out check is the number we treat as unbiased.
-
-**How the 30 came out.** 19 right (63%). 6 qualified: the answer carries a caveat and goes to a human instead of showing a green or red verdict. 5 wrong: 3 false alarms (a contradiction flagged in a document that is silent), 1 wrongly supported (cnli-85), and 1 "not found" for a claim the document supports. The strict score below counts qualified as not right.
-
-| System (n = 30) | Correct | 95% Wilson interval | Wrongly supported |
-| --- | --- | --- | --- |
-| Same pipeline with the graph switched off (baseline) | 15/30 (50%) | 33 to 67% | 2/20 (10%) |
-| Hand-coded patches (run 1, the ablation) | 9/30 (30%) | 17 to 48% | 0/20 |
-| **ProofGraph (iteration 2, shipped)** | **19/30 (63%)** | **45 to 78%** | **1/20 (5%)** |
-
-**Why the patches row matters.** Run 1 let hand-coded code patches decide each case we had seen fail. That scored 9 of 30 on unseen pairs, worse than no graph. Iteration 2 threw the patches out. It asked Muse Spark to judge under fixed label sets (does this statement address the claim part; does it agree, conflict or not mention it; does an exception apply; which of ten event types is this) and kept only a small frozen verifier in code, with no rule naming a document type, a domain or a case. It scored 19 of 30 and got 10 pairs right that run 1 got wrong, and none the other way. The models handle the variety of contract wording; code only reads their labels and checks them against the page.
-
-**What got worse, and the one miss.** Compared with the graph switched off, 7 pairs were fixed and three broke (cnli-62, 157, 289): all are exceptions that agree with the claim, a known limit (see [Limitations](#limitations)). The one wrongly supported answer (cnli-85) read a blank-template statement as supporting "all information shall be expressly identified".
-
-### Why you can believe the green tier
-
-- **Calibrated.** Answers decided by statements read straight from the page: 12 of 14 right, none wrongly supported.
-- **Faithful to the page.** Across the 29 graphs of the first full run and 1,496 statements, 84% were read from the page, 15% were the model's reading, and 0.5% (7) could not be aligned and were marked unclear, so they never decided anything.
-- **Honest abstention.** "Not mentioned" cases were 3 of 3 on the suite.
-- **Nothing dropped silently.** 165 list members not found in their quote, 29 relations whose names were not in the quote, and 2 ambiguous override targets were each rejected and counted. Instructions planted in two packets were kept out of the rules.
-
-### The 24-case suite (labelled after error analysis)
-
-Used to find failures, so not unbiased: 11 of 24 correct against 9 of 24 without the graph. Sources: 8 LegalReasonBench cases, 8 ContractNLI and 8 multi-document packs. The first full run had 29 cases; 5 whose source licence we could not confirm or did not want to carry were dropped and the suite figures recomputed from the recorded runs, so the analysis files in `results/` still report the 29-case run; see [Data and licences](#data-and-licences).
-
-## Recorded runs
-
-The hosted app runs the same code. For anything you cannot rerun without a key, the evidence is in the repo:
-
-| What | Where |
-| --- | --- |
-| Per-case review output of every suite run (flag off, run 1, run 2) | [`runs/review-off.jsonl`](runs/review-off.jsonl), [`runs/review-on.jsonl`](runs/review-on.jsonl), [`runs/review-on-2.jsonl`](runs/review-on-2.jsonl) |
-| The 30-pair held-out check, graph on and off, and the run-1 ablation | [`runs/clean-on.jsonl`](runs/clean-on.jsonl), [`runs/clean-off.jsonl`](runs/clean-off.jsonl), [`runs/clean-on-run1.jsonl`](runs/clean-on-run1.jsonl) |
-| Analysis, with the pre-registered criteria for iteration 2 | [`results/run2-analysis.md`](results/run2-analysis.md), [`results/run2-suite-analysis.md`](results/run2-suite-analysis.md), [`results/preregistration-iteration-2.md`](results/preregistration-iteration-2.md) |
-| Health lines (quote alignment, rejections, first read against second reader, walk against full read) and the error split (graph missed the evidence, or reasoning misjudged it) | [`results/health.md`](results/health.md), [`results/error-split.md`](results/error-split.md) |
-| The full review page of the worked example, saved as one self-contained file (page images included; the live app's "ask another claim" box does not work offline) | [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) |
-| A live trace of one packet | Open the live URL and choose **Run an example** |
-
-The five suite cases whose source licence we could not confirm have been removed from these files. The analysis files in `results/` still describe the original 29-case run.
-
-## Limitations
-
-| Limitation | Evidence |
-| --- | --- |
-| An exception that agrees with the claim is treated as a caveat | Held-out 0/7 on exception cases |
-| Overrides across documents rarely decide | Suite 2/7 |
-| Normative claims backed only by facts can be wrongly supported | The one suite case, TC17: "served from May 7" read as "authorized from May 7" |
-| Emails, image pages and table rows are often not reached | 92% of gold evidence extracted, 73% reached by the walk |
-| Small samples | n = 24 and n = 30, intervals overlap |
-
-Out of scope, and said so on screen: arithmetic across many figures, law outside the packet (shown as "cited, not in the packet"), and subjective claims.
+- a 1996 D&O program filed with the SEC (family A, the development set);
+- ISO homeowners forms (family B, the first holdout);
+- a Chubb cyber policy it was never built on ([2 of 5, then 5 of 5 after D12](results/family_c.md));
+- US tax statutes, a preregistered holdout ([5 of 12 right, 0 wrong, 7 refused with a reason](results/family_tax.md));
+- IRS annual-limit notices uploaded through the app ([results](results/live_irs.md)).
 
 ## Run it
 
-You do not need an account to look: use the [live app](https://proofgraph-orww.onrender.com/) and its worked example. To run the code yourself:
+You need [uv](https://docs.astral.sh/uv/) and a network connection. No API key.
 
 ```bash
-git clone https://github.com/jhanvi0905/proofgraph.git && cd proofgraph
-make setup            # uv sync, Python 3.11
-make test             # 1,100+ tests, all offline, no key needed
+git clone https://github.com/jhanvi0905/proofgraph.git && cd proofgraph && git checkout x/proofgraph-v2-arbiter
 ```
-
-**See a full review without a key:** open [`docs/recorded/worked-example-review.html`](docs/recorded/worked-example-review.html) in a browser.
-
-**Offline command, no key, no network** (the earlier deterministic engine on a recorded fixture; prints a JSON verdict):
 
 ```bash
-uv run python -m proofgraph tests/fixtures/synthetic_pm_packet.json
+uv sync
 ```
 
-**The full app, with live model calls.** This needs a Meta Model API key:
+**The app.**
 
 ```bash
-cp .env.example .env          # .env is gitignored; never commit a key
-# edit .env: set MODEL_API_KEY (Meta Model API) and BASETEN_API_KEY (Muse Spark Open, the second reader)
-export $(grep -v '^#' .env | xargs)
-PROOFGRAPH_GRAPH=1 PROOFGRAPH_SAMPLES=examples/samples/samples.json uv run uvicorn app.server:app --port 8000
+uv run uvicorn app.server:app --port 8765
 ```
 
-Open <http://localhost:8000>; the app starts, and the worked-example packet appears on the entrance screen. Running a packet makes live model calls, so it needs the keys above; the hosted app already has its result cached. `SPEND_LIMIT_USD` in `.env` caps model spend (default 50). Without `BASETEN_API_KEY` the second reader does not run, so supported answers go unchecked by it. Without `MODEL_API_KEY` the app cannot read new documents; the live URL above can.
+Open http://localhost:8765.
+- **Five worked examples** (right, wrong, can't be settled, base form missing, wording quoted) replay recorded model responses: no key, no cost.
+- **Upload your own PDFs** with `ANTHROPIC_API_KEY` set. The model proposes what each file is and its effective date from what is printed on it; code checks the quote is on the page; a person confirms ([D10](DECISIONS.md), [D13](DECISIONS.md)).
+- **Every result** has its own link (`/?review=<id>`), a print view and an "Approved by" sign-off. Results are saved under `data/reviews/` on the machine that ran them, so links survive a restart.
 
-The reproduction scripts (`scripts/eval_review.py`, `scripts/report_review.py`, `scripts/analyze_run.py`) re-run or re-analyse the evaluation, but the evaluation documents are third-party datasets that we do not redistribute. See below.
+**The command-line demo.**
 
-## Built during the hackathon, and what it stands on
+```bash
+SEC_USER_AGENT="Your Name you@example.com" uv run pgrun demo
+```
 
-**Provenance.** The git history is the record (`git log --reverse --format='%h %aI %s'`).
+`pgrun demo`:
+1. Fetches the source documents and refuses any whose sha256 differs. None is stored here. (SEC asks for a contact, hence `SEC_USER_AGENT`.)
+2. Prints the verdict on the retention question.
+3. Prints retrieval recall@10 on labelled queries.
+4. Replays the support and attack passes from `data/recorded/model`.
+5. Gives the pipeline's own verdict beside the hand-labelled one.
 
-| When | What |
-| --- | --- |
-| Mon 26 Oct, 12:00 PM ET | Hackathon kickoff |
-| 26 Oct, 12:11 PM ET (21:41 IST) | First commit: scaffold only (documents, licence, `.gitignore`, contributor notes) |
-| 26 Oct, 5:18 PM ET (27 Oct, 02:48 IST) | First code commit: `feat: add the deterministic verification engine` |
-| 27 Oct, 12:00 AM ET | Start of the building period in the schedule |
-| 4 Nov, 9:00 PM ET | Submission deadline |
+- `ANTHROPIC_API_KEY` makes new model calls instead.
+- First run downloads `all-MiniLM-L6-v2` (pinned, ~90 MB); `uv sync` installs PyTorch.
+- The ISO forms are copyrighted and not redistributed: `pgrun fetch` says where to save them and checks the hash.
 
-Every commit, including the first scaffold, was made after the 26 Oct kickoff. The first code commit falls on the evening of kickoff day, a few hours before the building period's 27 Oct start in the schedule. We state that plainly rather than shift the dates; there is no earlier history and no earlier repository, and no code in this repository predates the kickoff. The only pre-existing code is the named dependencies below.
+## Who decides what
 
-**Earlier iterations that are still in the tree.** The repository began as a different engine and became ProofGraph. These files were all written inside the build window and are not used by the demo; they are kept for history and are listed in [`NOTICE.md`](NOTICE.md):
+**A person writes:**
+- the claim and its value (`data/claims.json`);
+- which instrument each document belongs to, with a cited scope and a strength (`data/document_mappings.json`; insurance packets call it the policy). Fixed before the run, so it cannot be shaped to fit the answer. For uploads it defaults to one set, and the person names instruments only when the documents belong to different ones.
 
-| Path | First commit | What it was |
-| --- | --- | --- |
-| `app/streamlit_app.py` | 28 Oct (IST) | The first front end, replaced by the web review screen in `app/web/` |
-| `proofgraph/clients/sam.py`, boxed-bundle path | 29 to 31 Oct (IST) | A photo-counting check using SAM 3.1 |
-| `examples/freight/` | 31 Oct (IST) | An earlier freight example |
+**The model sees only:**
+- text from documents mapped to the claim's instrument, inside each mapping's scope (`admit()` in [`retrieve.py`](proofgraph/retrieve.py));
+- one claim per pass (support or attack), never the whole packet ([`passes.py`](proofgraph/passes.py)).
 
-The evidence graph, the review app and the evaluation scripts are the work shown in the demo.
+**The model returns:** a passage id, an exact quote, a pointer to the value inside it, a one-line reading. Code reads the value from the verified quote: one amount, code reads it; several, the pointer decides, only if it lies inside the quote; otherwise a person picks the figure at confirmation, or it refuses ([D12](DECISIONS.md), [D13](DECISIONS.md)).
 
-Not built here, used as named dependencies:
+**Code does the rest:**
 
-| Dependency | Licence | Used for |
-| --- | --- | --- |
-| networkx | BSD-3-Clause | The packet graph, typed walks and path enumeration |
-| RapidFuzz | MIT | Fuzzy quote alignment and near-miss name detection |
-| pdfplumber | MIT | PDF text and word boxes |
-| FastAPI, uvicorn, python-multipart | MIT, BSD-3-Clause, Apache-2.0 | The server and uploads |
-| pydantic, Pillow, openai SDK | MIT, MIT-CMU, Apache-2.0 | Typed contracts, page images, calling the model endpoints |
-| Schibsted Grotesk, Source Serif 4 (Google Fonts) | SIL OFL | Typography |
+| Step | Model | Code |
+|---|---|---|
+| Atomise | splits the claim into a closed predicate set | validates every field; one repair, then fail |
+| Retrieve | — | BM25 + local embeddings, fused by rank; ten admitted passages |
+| Support / attack | picks a passage, quotes it | id must be one it was shown; quote must occur once inside the region it was shown, in one column; citation verified against the file |
+| Numbers | — | parses to integer minor units; `NIL` is not comparable |
+| Verdict | — | the two rules; `unresolved` unless one picks a winner |
 
-Full list and attribution in [`NOTICE.md`](NOTICE.md). The earlier iterations are described under Provenance above; they were written in the build window and are not used by the demo.
+Every route carries a strength: **read** off the page, **derived** by code, or **judgment**. A judgment with no reasoning is rejected.
 
-**Ideas studied, no code copied:** LangExtract (source grounding), Graphiti (declared edge schema), LightRAG (gleaning pass), LazyGraphRAG, KAG, LegalRuleML and ContractNLI (label set).
+- **Every citation is checkable.** File hash, a locator (raw-file offsets, or page + the region shown + a hash of the quote, which must occur once inside that region; columns come from page coordinates), the expected text, the extractor version. One verifier checks it against the source file, never against our own text conversion ([`checker.py`](proofgraph/checker.py)).
+- **Closed vocabulary.** Predicates are frozen data; questions are keys in a registry, matched exactly (no aliases, no fuzzy matching). The model never names one ([`predicates.json`](data/predicates.json), [`slots.json`](data/slots.json)).
+- **Currencies and bases are data.** [`currencies.json`](data/currencies.json) (ISO 4217) and [`basis_phrases.json`](data/basis_phrases.json), each phrase its own basis. "$" is recorded as dollars, country not printed; against a named currency it isn't comparable until a person sets the claim's currency, recorded on the result. An unknown currency token is refused by name.
+- **The pipeline matches the hand labels, and found more.** `pgrun derive` reaches the same verdict (*unresolved, documents disagree*) from four assertions instead of three: support found the FD960229 cover note restating the retention, which the hand labels missed.
 
-## Data and licences
+**What is measured** ([metrics](results/metrics.md)): wrong answers first (0 of 19 on clean holdouts, 0 of 30 overall), then whether every answer is checkable and every refusal named, then coverage, the cost of the caution (19 of 35 answerable claims on clean holdouts, with the 16 it declined traced to 10 small fixes, 4 design gaps and 2 already fixed).
 
-Code: MIT ([`LICENSE`](LICENSE)). No API key or secret is committed; `.env` is gitignored and only `.env.example` is tracked.
+## How it is kept honest
 
-| Data | Licence | How it is used here |
-| --- | --- | --- |
-| **ContractNLI** (Koreeda and Manning, Findings of EMNLP 2021) | CC BY 4.0, attribution required, no share-alike. Documents were collected from SEC filings and search results; the dataset page does not address the rights status of the original documents, so we ship none of them. | Held-out check and suite. Published gold labels are used under the same licence. Suite documents are referenced by file name and hash, not redistributed. The hero clip shows one page of one NDA (TC40) with attribution; no other ContractNLI page is shown. |
-| **LegalReasonBench** (micro1 public sample) | CC BY 4.0 per the dataset card. | Suite cases. Cite as: LegalReasonBench (micro1), <https://www.micro1.ai/benchmark/legal-reason-bench>. |
-| Packets in `examples/` | Fictional, written for ProofGraph, MIT. | The worked example and the offline run. |
+Each guard has a test; counterfactual tests show what gets through without it.
 
-Labels and transcriptions derived from a dataset's images or documents fall under that dataset's licence, so the same status applies to them.
+| The model might… | Guard | Test |
+|---|---|---|
+| force "each claim" into a nearby allowed value (seen 1 of 2 runs) | bases kept as written; no equivalence without a cited span ([D6](DECISIONS.md)) | `test_numbers.py`, `test_arbiter.py` |
+| copy words from prompt examples (2 of 2 runs) | examples outside insurance; a test scans prompts for packet literals | `test_no_family_literals.py` |
+| cite a passage it wasn't shown | span ids are an enum; hard failure | `test_span_id_guard_counterfactual` |
+| paraphrase a quote | exact occurrence required; 17 of 17 live quotes located | `test_exactly_once_guard_counterfactual` |
+| let attack copy support | separate prompts; attack never sees support | `test_attack_is_blind_to_support` |
+| get arithmetic wrong | the model never compares numbers | `test_numbers.py` |
+| fill a field it can't source | unsourced fields are "not stated" ([D1](DECISIONS.md)) | `test_assertions.py` |
+| force a claim into a predicate | "no predicate fits" is an outcome | `test_no_fit_is_an_outcome_not_a_repair` |
+| pick a winner | no model in the arbiter | `test_later_effective_date_flips_the_verdict_when_reliance_is_in_scope` |
 
-*ProofGraph checks a claim against documents. It does not give legal advice.*
+**Evaluation hygiene**
+- **Labels first.** Retrieval queries and gold quotes committed (`baf5c04`) before any measurement.
+- **Design vs independent queries reported apart.** Field labels helped an independent query (3/6 → 4/6); plural folding helped only design queries.
+- **No tuning to known answers.** A synonym list written after reading both families was deleted before commit.
+- **A frozen holdout.** The domain layer (arbiter, comparators, assertions, passes, predicates, slots, family A labels) is hashed before family B is labelled; `tests/test_freeze.py` fails on any change ([D8](DECISIONS.md)). Family B ran once: **8 of 8** matched preregistered labels; 2 of 5 predictions were wrong, optimistically. Under D9 those labels now match **5 of 8**: three were `resolved_by_rule` over equal amounts, which D9 calls a mislabel. Recorded tables unchanged ([results](results/family_b.md), [PREREGISTRATION.md](PREREGISTRATION.md)).
+
+**Replay and cost**
+- One JSON line per stage: served model, prompt hash, tokens, rejects, verdict (`runs/trace.jsonl`).
+- Every response cached; a clean clone replays with no key.
+- Cost from real token counts: support + attack on the retention claim ≈ $0.03.
+
+## Limitations
+
+| Limit | Today |
+|---|---|
+| Right/wrong only for amounts | Wording is quoted, never judged. |
+| Missing-document check needs an `amends` route | Recorded by hand or read from an upload's printed line. Out-of-policy amendments (Gillette's Endorsement 13 → GS-212C) are listed as set aside, not checked. |
+| Endorsement rule only on an assembled packet | Insurance: fired 3 of 3 on two ISO forms paired under a specimen policy, both stating the same amount. Tax: settled differing amounts (the Act over the Code), but on year claims only because the model quoted just the line for that year. Not yet seen between differing insurance amounts. |
+| Small sample | 1 labelled Gillette claim (dev; plus 6 retrieval queries), 8 ISO holdout packets (11 claims under D9), 5 typed regression claims, 5 Chubb claims, 12 tax holdout claims, 5 IRS upload claims. Shows the design; not a rate ([metrics](results/metrics.md)). |
+| Amending language | Text that changes a figure ("by striking '$10,000'", "increased from $23,000 to $23,500") is not recognised by code. A verified quote of the old figure can be read as what the amending document states. So far it has refused or needed a person to set the line aside; in one tax diagnostic it would have answered wrong ([family_tax](results/family_tax.md), [live_irs](results/live_irs.md)). |
+| Prompts still shaped by insurance | The upload proposer and the claim splitter describe their input as insurance; on tax documents that cost 2 refusals and left kinds unproposed ([family_tax](results/family_tax.md)). Percentages are not compared as amounts. |
+| New layouts | On the Chubb cyber sample: 2 of 5 preregistered answers at first, none wrong. The misses (columns, repeated wording across coverages, a missing value pointer, a wording claim about a duration) led to [D12](DECISIONS.md); after it, two fresh runs matched 5 of 5. One D12 fix was made after seeing this packet's output, so that 5 of 5 is not a clean holdout; the next unseen set is ([results](results/family_c.md)). |
+| Typed claims | A person confirms every grouping; pre-fill from past confirmations and auto-accept are not built. Code does not read a year inside a claim ("the 2024 limit", "for tax year 2026"): it checks the amount against the lines confirmed, so a person must set aside lines for other years, or the later-date rule answers for the latest year. On the tax holdout the year claims came out right only because the model quoted just that year's line. A claim with a full printed date and no amount is refused: no date comparator. No public API. |
+
+## Repo map
+
+- [`DECISIONS.md`](DECISIONS.md): numbered design decisions, cited by the code.
+- [`DEFERRED.md`](DEFERRED.md): found and deliberately left, with reasons.
+- [`data/SOURCES.md`](data/SOURCES.md): the first two document sets, read from the files; later sets record their sources in their preregistration files.
+- [`results/family_b.md`](results/family_b.md): the holdout run.
+- [`results/d11_regression.md`](results/d11_regression.md): typed claims reproduce the frozen answers.
+- [`results/family_c.md`](results/family_c.md): a third document set, preregistered: 2 of 5, D12, then 5 of 5.
+- [`results/family_tax.md`](results/family_tax.md): US tax statutes, preregistered holdout, domain unchanged.
+- [`results/live_irs.md`](results/live_irs.md): IRS limits uploaded through the app (not preregistered).
+- [`results/metrics.md`](results/metrics.md): wrong answers, answer precision, checkability, named refusals and coverage first; then accuracy by category, refusal precision and recall, precedence, derivation validity and cost. Reproduce with `scripts/metrics.py`.
+- Earlier version (ContractNLI evidence graph): git history up to `14264f0`.

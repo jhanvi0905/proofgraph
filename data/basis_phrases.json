@@ -1,0 +1,50 @@
+{
+ "note": "D12 item 5: basis phrases are data. Each row is a phrase as printed and the basis it names; each phrase is its own basis, and no two bases are equal without a decision (D6). Matched case-insensitively, whole words, inside one citation only (D1). A phrase outside this table reads as no basis. The first six rows are the lexicon frozen at D9, unchanged.",
+ "written_on": "2026-11-24",
+ "rows": [
+  {
+   "phrase": "each claim",
+   "basis": "each_claim"
+  },
+  {
+   "phrase": "any one claim",
+   "basis": "any_one_claim"
+  },
+  {
+   "phrase": "each loss",
+   "basis": "each_loss"
+  },
+  {
+   "phrase": "each occurrence",
+   "basis": "each_occurrence"
+  },
+  {
+   "phrase": "per person",
+   "basis": "per_person"
+  },
+  {
+   "phrase": "in the aggregate",
+   "basis": "aggregate"
+  },
+  {
+   "phrase": "per coverage period",
+   "basis": "per_coverage_period"
+  },
+  {
+   "phrase": "per policy period",
+   "basis": "per_policy_period"
+  },
+  {
+   "phrase": "per occurrence",
+   "basis": "per_occurrence"
+  },
+  {
+   "phrase": "per claim",
+   "basis": "per_claim"
+  },
+  {
+   "phrase": "any one occurrence",
+   "basis": "any_one_occurrence"
+  }
+ ]
+}

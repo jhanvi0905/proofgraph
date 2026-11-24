@@ -1,0 +1,191 @@
+{
+  "note": "Labelled retrieval queries for family A. Atoms are hand-written (no model call, no slot drift). Gold quotes were read from the filing before any of q4-q6 was run. Recall@10 counts a gold quote as found if a top-ten span contains it. n = 6 queries, 15 gold quotes: this measures, it does not estimate.",
+  "queries": [
+    {
+      "query_id": "retention_no_value",
+      "atom": {
+        "atom_id": "q1",
+        "predicate": "states",
+        "kind": null,
+        "negated": false,
+        "subject": "Lloyd's primary policy FD960228 corporate reimbursement retention",
+        "slot": "FD960228.corp_reimbursement.retention",
+        "quantity_raw": null,
+        "quantity": null,
+        "value": null,
+        "period": null,
+        "territory": null,
+        "basis": null,
+        "conditions": null
+      },
+      "gold": [
+        {
+          "doc_id": "coda_end13",
+          "quote": "NIL/NIL/1,000,000"
+        },
+        {
+          "doc_id": "london_fd960228",
+          "quote": "USD 1,000,000 each Claim under Insuring Clause I.B."
+        },
+        {
+          "doc_id": "reliance_binder",
+          "quote": "$500,000 Corporate Reimbursement, each loss"
+        }
+      ],
+      "note": "Used to find the chunking miss; not independent evidence for the fix."
+    },
+    {
+      "query_id": "retention_slot_only",
+      "atom": {
+        "atom_id": "q2",
+        "predicate": "states",
+        "kind": null,
+        "negated": false,
+        "subject": null,
+        "slot": "FD960228.corp_reimbursement.retention",
+        "quantity_raw": null,
+        "quantity": null,
+        "value": null,
+        "period": null,
+        "territory": null,
+        "basis": null,
+        "conditions": null
+      },
+      "gold": [
+        {
+          "doc_id": "coda_end13",
+          "quote": "NIL/NIL/1,000,000"
+        },
+        {
+          "doc_id": "london_fd960228",
+          "quote": "USD 1,000,000 each Claim under Insuring Clause I.B."
+        },
+        {
+          "doc_id": "reliance_binder",
+          "quote": "$500,000 Corporate Reimbursement, each loss"
+        }
+      ],
+      "note": "Used to find the chunking miss; not independent evidence for the fix."
+    },
+    {
+      "query_id": "retention_reliance_value",
+      "atom": {
+        "atom_id": "q3",
+        "predicate": "states",
+        "kind": null,
+        "negated": false,
+        "subject": "primary corporate reimbursement retention",
+        "slot": "FD960228.corp_reimbursement.retention",
+        "quantity_raw": "$500,000",
+        "quantity": null,
+        "value": null,
+        "period": null,
+        "territory": null,
+        "basis": null,
+        "conditions": null
+      },
+      "gold": [
+        {
+          "doc_id": "coda_end13",
+          "quote": "NIL/NIL/1,000,000"
+        },
+        {
+          "doc_id": "london_fd960228",
+          "quote": "USD 1,000,000 each Claim under Insuring Clause I.B."
+        },
+        {
+          "doc_id": "reliance_binder",
+          "quote": "$500,000 Corporate Reimbursement, each loss"
+        }
+      ],
+      "note": "Used to find the chunking miss; not independent evidence for the fix."
+    },
+    {
+      "query_id": "chubb_do_limit",
+      "atom": {
+        "atom_id": "q4",
+        "predicate": "states",
+        "kind": null,
+        "negated": false,
+        "subject": "Chubb Federal Insurance Company excess D&O policy 81385411 limit of liability",
+        "slot": "81385411.d_and_o.limit",
+        "quantity_raw": "$20,000,000",
+        "quantity": null,
+        "value": null,
+        "period": null,
+        "territory": null,
+        "basis": null,
+        "conditions": null
+      },
+      "gold": [
+        {
+          "doc_id": "chubb_do_binder",
+          "quote": "$20,000,000 policy aggregate excess $20 million"
+        },
+        {
+          "doc_id": "coda_end13",
+          "quote": "2nd Excess Chubb 81385411B"
+        }
+      ],
+      "note": "Written before the field-label change was measured. Independent of the retention miss."
+    },
+    {
+      "query_id": "cna_policy_period",
+      "atom": {
+        "atom_id": "q5",
+        "predicate": "effective_during",
+        "kind": null,
+        "negated": false,
+        "subject": "CNA Continental Casualty policy 132034203 policy period",
+        "slot": null,
+        "quantity_raw": null,
+        "quantity": null,
+        "value": null,
+        "period": "06/01/96 to 06/01/99",
+        "territory": null,
+        "basis": null,
+        "conditions": null
+      },
+      "gold": [
+        {
+          "doc_id": "cna_binder",
+          "quote": "POLICY PERIOD: From 06/01/96 to 06/01/99"
+        },
+        {
+          "doc_id": "coda_end13",
+          "quote": "3rd Excess CNA DOX132034203"
+        }
+      ],
+      "note": "Written before the field-label change was measured. Independent of the retention miss."
+    },
+    {
+      "query_id": "erma_limit",
+      "atom": {
+        "atom_id": "q6",
+        "predicate": "states",
+        "kind": null,
+        "negated": false,
+        "subject": "ERMA excess policy 752-034765-96 limit of liability inclusive of defense expenses",
+        "slot": "752-034765-96.d_and_o.limit",
+        "quantity_raw": "$10,000,000",
+        "quantity": null,
+        "value": null,
+        "period": null,
+        "territory": null,
+        "basis": null,
+        "conditions": null
+      },
+      "gold": [
+        {
+          "doc_id": "erma_binder",
+          "quote": "Limit of Liability: $10,000,000 (inclusive of defense expenses)"
+        },
+        {
+          "doc_id": "coda_end13",
+          "quote": "4th Excess ERMA 752034765-96"
+        }
+      ],
+      "note": "Written before the field-label change was measured. Independent of the retention miss."
+    }
+  ]
+}

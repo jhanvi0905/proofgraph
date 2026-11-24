@@ -1,26 +1,25 @@
 [project]
 name = "proofgraph"
-version = "0.1.0"
-description = "Verifies AI conclusions against documents."
+version = "2.0.0.dev0"
+description = "Decides whether versioned insurance documents support a claim, and which document governs."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
-    "fastapi>=0.162.0",
-    "networkx>=3.6.1",
-    "openai",
-    "pdfplumber>=0.11.10",
-    "pillow>=13.0.0",
-    "pydantic>=2",
-    "python-multipart>=0.0.32",
-    "rapidfuzz>=3.14.6",
-    "streamlit",
-    "uvicorn>=0.54.0",
+    "anthropic==2.12.0",
+    "fastapi==0.162.0",
+    "numpy==2.4.6",
+    "pdfplumber==0.11.10",
+    "pydantic==2.12.5",
+    "python-multipart==0.0.32",
+    "rank-bm25==0.2.2",
+    "sentence-transformers==6.3.0",
+    "uvicorn==0.54.0",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=8",
+    "pytest==8.4.2",
 ]
 
 [build-system]
@@ -32,3 +31,6 @@ packages = ["proofgraph"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[project.scripts]
+pgrun = "proofgraph.cli:main"

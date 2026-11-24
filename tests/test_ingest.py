@@ -1,146 +1,128 @@
-"""R-03: ingest turns uploads into pages with kind, PNG and grid words."""
+"""Ingest invariants. Raw files are not in git; these tests skip when absent."""
 
 from __future__ import annotations
 
-import io
-import random
+from collections import Counter
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageStat
+import pytest
 
-from proofgraph.review.ingest import ingest
+from proofgraph.ingest import ingest
+from proofgraph.schema import IngestResult, SourceManifest, span_id_for
 
-FREIGHT = Path(__file__).parent.parent / "examples" / "freight" / "demo-001"
-RATE_CONF = FREIGHT / "rate_confirmation.pdf"
-
-
-def _mean_brightness(png: bytes) -> float:
-    return ImageStat.Stat(Image.open(io.BytesIO(png)).convert("L")).mean[0]
-
-
-def test_text_pdf_page_one_has_words_on_the_grid() -> None:
-    [doc] = ingest([RATE_CONF])
-    assert doc.error is None
-    page = doc.pages[0]
-    assert page.kind == "text"
-    assert page.page == 1
-    assert len(page.words) > 5
-    assert page.png.startswith(b"\x89PNG")
-    for word in page.words:
-        x0, y0, x1, y1 = word.box
-        assert 0 <= x0 < x1 <= 1000
-        assert 0 <= y0 < y1 <= 1000
+ROOT = Path(__file__).resolve().parent.parent
+RAW = ROOT / "data" / "raw"
+MANIFEST = SourceManifest.model_validate_json((ROOT / "data" / "instruments.json").read_text(encoding="utf-8"))
+LABELS = {s.source_id: s for s in MANIFEST.sources}
 
 
-def test_inverted_one_bit_png_comes_out_light(tmp_path: Path) -> None:
-    dark = Image.new("1", (200, 300), 0)
-    for x in range(20, 180, 8):
-        dark.putpixel((x, 150), 1)
-    path = tmp_path / "scan.png"
-    dark.save(path)
-    assert _mean_brightness(path.read_bytes()) < 100
-
-    [doc] = ingest([path])
-    assert doc.error is None
-    assert doc.pages[0].kind == "image"
-    assert _mean_brightness(doc.pages[0].png) > 200
+@pytest.fixture(scope="module", params=sorted(LABELS))
+def result(request) -> IngestResult:
+    label = LABELS[request.param]
+    if not (RAW / label.file).exists():
+        pytest.skip(f"{label.file} not in data/raw")
+    return ingest(label, RAW)
 
 
-def _text_lines(bg: int, fg: int, size: tuple[int, int] = (600, 800), blur: float = 1.0) -> Image.Image:
-    rng = random.Random(1)
-    im = Image.new("L", size, bg)
-    draw = ImageDraw.Draw(im)
-    for y in range(40, size[1] - 40, 22):
-        for x in range(40, size[0] - 60, 14):
-            if rng.random() < 0.7:
-                draw.rectangle((x, y, x + 8, y + 9), fill=fg)
-    return im.filter(ImageFilter.GaussianBlur(blur)) if blur else im
+def _page_of(offset: int, page_starts: tuple[int, ...]) -> int:
+    return max(i for i, ps in enumerate(page_starts, 1) if offset >= ps)
 
 
-def _dark_photo_of_light_page(dim: float = 1.0) -> Image.Image:
-    rng = random.Random(2)
-    surface = Image.new("L", (1200, 900))
-    px = surface.load()
-    for y in range(900):
-        for x in range(1200):
-            px[x, y] = max(0, int(20 + 25 * x / 1200 + rng.gauss(0, 6)))
-    surface.paste(_text_lines(150, 40, (600, 760)), (300, 70))
-    surface = surface.filter(ImageFilter.GaussianBlur(1.5))
-    return surface.point(lambda v: int(v * dim))
+def test_every_span_is_its_source_slice(result: IngestResult):
+    text = result.source.text
+    for inst in result.instruments:
+        for sp in inst.spans:
+            assert text[sp.start:sp.end] == sp.text, sp.span_id
 
 
-def _ingest_image(im: Image.Image, tmp_path: Path) -> bytes:
-    path = tmp_path / "upload.png"
-    im.save(path)
-    [doc] = ingest([path])
-    assert doc.error is None
-    return doc.pages[0].png
+def test_spans_stay_inside_their_instrument_and_page(result: IngestResult):
+    ps = result.source.page_starts
+    for inst in result.instruments:
+        for sp in inst.spans:
+            assert inst.source_start <= sp.start < sp.end <= inst.source_end
+            assert _page_of(sp.start, ps) == sp.page == _page_of(sp.end - 1, ps)
 
 
-def test_dark_photo_of_a_light_page_is_not_inverted(tmp_path: Path) -> None:
-    for dim in (1.0, 0.8):
-        photo = _dark_photo_of_light_page(dim)
-        before = ImageStat.Stat(photo).mean[0]
-        assert before < 100
-        out = _mean_brightness(_ingest_image(photo, tmp_path))
-        assert abs(out - before) < 2
+def test_span_ids_unique_and_recomputable(result: IngestResult):
+    ids = [sp.span_id for inst in result.instruments for sp in inst.spans]
+    assert len(ids) == len(set(ids))
+    for inst in result.instruments:
+        for sp in inst.spans:
+            assert sp.span_id == span_id_for(sp.doc_id, sp.version, sp.text, sp.start, sp.end)
 
 
-def test_inverted_grayscale_scan_with_soft_text_comes_out_light(tmp_path: Path) -> None:
-    out = _ingest_image(_text_lines(5, 235), tmp_path)
-    assert _mean_brightness(out) > 200
+def test_instruments_tile_the_source(result: IngestResult):
+    insts = sorted(result.instruments, key=lambda i: i.source_start)
+    assert insts[0].source_start == 0
+    assert insts[-1].source_end == len(result.source.text)
+    for a, b in zip(insts, insts[1:]):
+        assert a.source_end == b.source_start
 
 
-def test_dark_mode_screenshot_is_treated_like_a_negative_scan(tmp_path: Path) -> None:
-    # A dark UI with light text has the same histogram as a white-on-black
-    # negative, so the two cannot be told apart. Inverting it is harmless:
-    # the text ends up dark on light.
-    for bg, fg in ((30, 225), (18, 230)):
-        out = _ingest_image(_text_lines(bg, fg), tmp_path)
-        assert _mean_brightness(out) > 150
+# ---------------------------------------------------------------- EDGAR
 
 
-def test_light_scan_is_left_alone(tmp_path: Path) -> None:
-    for bg, fg, blur in ((245, 20, 1.0), (235, 40, 0.5)):
-        scan = _text_lines(bg, fg, blur=blur)
-        before = ImageStat.Stat(scan).mean[0]
-        out = _mean_brightness(_ingest_image(scan, tmp_path))
-        assert abs(out - before) < 2
+def test_edgar_source_is_raw_bytes():
+    label = LABELS["gillette_ex10e"]
+    path = RAW / label.file
+    if not path.exists():
+        pytest.skip("gillette file absent")
+    res = ingest(label, RAW)
+    raw = path.read_text(encoding="ascii")
+    assert raw.count(res.source.text) == 1
+    assert len(res.source.page_starts) == 18
+    end13 = next(i for i in res.instruments if i.doc_id == "coda_end13")
+    schedule = next(sp for sp in end13.spans if "ERMA" in sp.text)
+    assert "752034765-96" in schedule.text and "NIL/NIL/1,000,000" in schedule.text
 
 
-def test_docx_is_refused_per_file(tmp_path: Path) -> None:
-    docx = tmp_path / "contract.docx"
-    docx.write_bytes(b"PK\x03\x04 not really")
-    bad = tmp_path / "other.txt"
-    bad.write_text("x")
-    docs = ingest([docx, RATE_CONF, bad])
-    assert "Save as PDF" in docs[0].error
-    assert docs[0].pages == []
-    assert docs[1].error is None
-    assert docs[2].error
+# ---------------------------------------------------------------- PDF
 
 
-def test_truncated_pdf_returns_an_error(tmp_path: Path) -> None:
-    raw = RATE_CONF.read_bytes()
-    path = tmp_path / "cut.pdf"
-    path.write_bytes(raw[: len(raw) // 3])
-    [doc] = ingest([path])
-    assert doc.error
-    assert doc.pages == []
+def test_pdf_conserves_every_character():
+    """Reading-order rebuild must neither drop nor duplicate a character.
+
+    Characters, not words: word boundaries shift when a font changes mid-token
+    (bold "10." + regular "$1000").
+    """
+    import pdfplumber
+
+    label = LABELS["iso_ho0003_0491"]
+    path = RAW / label.file
+    if not path.exists():
+        pytest.skip("ISO file absent")
+    res = ingest(label, RAW)
+    with pdfplumber.open(path) as pdf:
+        expected = Counter(c["text"] for p in pdf.pages for c in p.chars if not c["text"].isspace())
+    assert Counter(ch for ch in res.source.text if not ch.isspace()) == expected
 
 
-def test_garbage_and_missing_files_never_raise(tmp_path: Path) -> None:
-    junk = tmp_path / "junk.png"
-    junk.write_bytes(b"nope")
-    docs = ingest([junk, tmp_path / "gone.pdf"])
-    assert all(d.error and d.pages == [] for d in docs)
-
-
-def test_names_are_decoded_and_stripped(tmp_path: Path) -> None:
-    path = tmp_path / "  %20My%20Rate%20Conf%2Epdf "
-    path.write_bytes(RATE_CONF.read_bytes())
-    [doc] = ingest([path])
-    assert doc.error is None
-    assert doc.name == "My Rate Conf.pdf"
-    assert doc.original_name == path.name
-    assert len(doc.doc_id) == 12
+def test_pdf_reading_order_and_headings():
+    label = LABELS["iso_ho0003_0491"]
+    if not (RAW / label.file).exists():
+        pytest.skip("ISO file absent")
+    res = ingest(label, RAW)
+    text = res.source.text
+    lines = text.split("\n")
+    # page 1: right column follows the left column, not interleaved with it
+    assert text.index('4. "Insured location" means') < text.index("c. Any premises used by you")
+    assert "named c. Any premises" not in text
+    # a centred heading that straddles the gutter stays one line
+    assert "SECTION I – PERILS INSURED AGAINST" in lines
+    paths = {sp.section_path[1] for sp in res.instruments[0].spans if len(sp.section_path) > 1}
+    for heading in [
+        "SECTION I – PROPERTY COVERAGES",
+        "SECTION I – PERILS INSURED AGAINST",
+        "SECTION I – EXCLUSIONS",
+        "SECTION I – CONDITIONS",
+        "SECTION II – LIABILITY COVERAGES",
+        "SECTION II – EXCLUSIONS",
+        "SECTION II – ADDITIONAL COVERAGES",
+        "SECTION II – CONDITIONS",
+        "SECTIONS I AND II – CONDITIONS",
+    ]:
+        assert heading in paths, heading
+    # a regular-weight cross-reference is not a heading
+    assert "SECTION I – CONDITION 2.d." not in paths
+    terms = {d.term for d in res.instruments[0].definitions}
+    assert {"bodily injury", "business", "insured", "insured location", "occurrence"} <= terms
