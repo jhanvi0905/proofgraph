@@ -1,5 +1,7 @@
 # ProofGraph
 
+Selected submission, Meta Global AI Developer Hackathon. Baseten and Fireworks credits awarded for development.
+
 **Which document says what, and when two disagree, which one governs?**
 
 ProofGraph answers that for one claim against a packet of documents (an insurance policy with its endorsements and binders, or a tax provision with its amendments and IRS guidance), and shows the page and the exact words behind the answer.
@@ -9,8 +11,6 @@ ProofGraph answers that for one claim against a packet of documents (an insuranc
 - **The line it never crosses:** the model finds and quotes. Code compares and applies the rules. A model never decides which document governs.
 
 **Not:** a document store, a coverage opinion or legal advice.
-
-A selected and accepted submission at the Meta hackathon (the earlier version, in git history up to `14264f0`), which won Baseten and Fireworks innovation credits for development.
 
 ## See it
 
