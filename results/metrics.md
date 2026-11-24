@@ -2,6 +2,16 @@
 
 Computed by `scripts/metrics.py` over every recorded run set. The tables below are that script's output, pasted unedited (the 2026-11-24 state of the repo). Nothing here is a new run: no model call was made.
 
+## In short
+
+- **No wrong verdict in any set.** Every miss is a refusal with a named reason.
+- **Accuracy 54% on clean holdouts (20 of 37):** the share of claims where the answer matched the real one. The other 17 were refusals.
+  - 14 were tax claims, counted once per run. Their causes: prompts still worded for insurance (4), percentages not read as amounts (4), "IRC" read as a currency (2), claims about a date (2), and "by striking" amending text (2).
+  - 3 were Chubb claims, since fixed by D12.
+- **Refusal precision 7% (1 of 15):** of the refusals on clean holdouts, one was a case where refusing was the right answer. The other 14 were over-cautious refusals of answerable claims, not wrong judgments.
+- **Refusal recall 100% (1 of 1):** it never answered when it should have refused.
+- **The trade:** it fails safe and refuses too often. The causes are listed above; three of them are small.
+
 ## Reproduce
 
 ```
