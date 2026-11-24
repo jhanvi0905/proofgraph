@@ -14,9 +14,9 @@ ProofGraph answers that for one claim against a packet of documents (an insuranc
 
 ## See it
 
-![The Gillette retention claim, unresolved: three documents state 1,000,000 and a fourth states $500,000, neither rule applies, and each cited value is marked in the raw SEC filing](docs/media/documents-disagree.png)
+![The Gillette retention claim, unresolved: three documents state 1,000,000 and the Reliance binder states $500,000; neither rule applies because only one document is issued under the policy in question; the 1,000,000 and $500,000 lines are boxed in the raw SEC filing](docs/media/documents-disagree.png)
 
-- **Documents disagree (Gillette, public SEC filing).** Two Lloyd's cover notes and an endorsement state 1,000,000; the Reliance binder states $500,000 each loss. Only one is issued under the policy in question, so no rule can rank them: *unresolved*. Each value is marked in the raw filing.
+- **Documents disagree (Gillette, public SEC filing).** Two Lloyd's cover notes and an endorsement state 1,000,000; the Reliance binder states $500,000 each loss. Only one is issued under the policy in question, so no rule can rank them: *unresolved*. The two figures are boxed in the raw filing; every cited value is, on the full result.
 - **A rule decides (ISO forms).** HO 00 03 says "$1000", HO 00 15 says "$1,000". Code compares them as equal; the endorsement rule names HO 00 15 as controlling. A string comparison would have called them a disagreement. The ISO forms are copyrighted, so the page renders live in the app, not here.
 
 ![An HSA contribution limit claim of $4,150 naming no year, wrong as the limit now in force ($4,150 is the superseded 2024 figure): Rev. Proc. 2024-25 controls over Rev. Proc. 2023-23 because its effective date is later; the governing line ($4,300) and the overridden line ($4,150) are boxed on each page](docs/media/later-date-governs.png)
