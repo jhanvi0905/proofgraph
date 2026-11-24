@@ -10,8 +10,6 @@ ProofGraph answers that for one claim against a packet of documents (an insuranc
 
 **Not:** a document store, a coverage opinion or legal advice.
 
-**Bring your own claim** ([D11](DECISIONS.md)). Type any amount or wording claim. Code reads it; the for and against reads find lines in every document of that instrument; a person confirms which lines are about the claim (or sets one aside, with a reason, shown on the result); the unchanged decision tree runs. The eight hand-written questions are now the regression test: typed as plain text, all five amount claims give the same answers ([results](results/d11_regression.md)).
-
 ## See it
 
 ![The Gillette retention claim, unresolved: three documents state 1,000,000 and a fourth states $500,000, neither rule applies, and each cited value is marked in the raw SEC filing](docs/media/documents-disagree.png)
@@ -19,25 +17,27 @@ ProofGraph answers that for one claim against a packet of documents (an insuranc
 - **Documents disagree (Gillette, public SEC filing).** Two Lloyd's cover notes and an endorsement state 1,000,000; the Reliance binder states $500,000 each loss. Only one is issued under the policy in question, so no rule can rank them: *unresolved*. Each value is marked in the raw filing.
 - **A rule decides (ISO forms).** HO 00 03 says "$1000", HO 00 15 says "$1,000". Code compares them as equal; the endorsement rule names HO 00 15 as controlling. A string comparison would have called them a disagreement. The ISO forms are copyrighted, so the page renders live in the app, not here.
 
-![An HSA contribution limit claim of $4,150, wrong: Rev. Proc. 2024-25 controls over Rev. Proc. 2023-23 because its effective date is later; the governing line ($4,300) and the overridden line ($4,150) are boxed on each page](docs/media/later-date-governs.png)
+![An HSA contribution limit claim of $4,150 naming no year, wrong as the limit now in force ($4,150 is the superseded 2024 figure): Rev. Proc. 2024-25 controls over Rev. Proc. 2023-23 because its effective date is later; the governing line ($4,300) and the overridden line ($4,150) are boxed on each page](docs/media/later-date-governs.png)
 
-- **A rule decides (IRS, public documents).** Rev. Proc. 2023-23 states $4,150 for 2024; Rev. Proc. 2024-25 states $4,300 for 2025. Both effective dates are read from the printed lines, and the later-date rule names 2024-25 as controlling, so a $4,150 claim is wrong. Both lines are boxed on their pages ([results](results/live_irs.md)).
+- **A rule decides (IRS, public documents).** Rev. Proc. 2023-23 states $4,150 for 2024; Rev. Proc. 2024-25 states $4,300 for 2025. The claim names no year, so it is checked as the limit in force under these documents: both effective dates are read from the printed lines, the later-date rule names 2024-25 as controlling, and $4,150 is the superseded 2024 figure. Code does not read a year inside a claim: "the 2024 limit is $4,150" would get the same answer unless the person sets the 2025 line aside at confirmation. That is a known gap ([Limitations](#limitations), [results](results/live_irs.md)).
+
+**Bring your own claim** ([D11](DECISIONS.md)). Type any amount or wording claim. Code reads it; the for and against reads find lines in every document of that instrument; a person confirms which lines are about the claim (or sets one aside, with a reason, shown on the result); the unchanged decision tree runs. The eight hand-written questions are now the regression test: typed as plain text, all five amount claims give the same answers ([results](results/d11_regression.md)).
 
 ## The answers
 
 | Answer | When | Seen on real documents? |
 |---|---|---|
 | **supported** (right) | The controlling document states the claim's amount. | Yes: 8 family B packets; the SALT and 1099-K holdout claims; IRS HSA and 401(k) uploads. |
-| **contradicted** (wrong) | It states a different amount. Both are shown. | Yes: jewelry claim $1,500 vs HO 00 15's $1,000; HSA $4,150 vs $4,300. |
+| **contradicted** (wrong) | It states a different amount. Both are shown. | Yes: jewelry claim $1,500 vs HO 00 15's $1,000; an HSA claim naming no year, $4,150 (the superseded 2024 figure) vs $4,300. |
 | **unresolved** (can't be settled), with one reason | `documents_disagree`: amounts differ, no rule picks one. | Yes: Gillette retention, $1,000,000 vs $500,000. |
 | | `amounts_not_comparable`: currency or basis differs or is missing; the mismatch is named. | Yes: a typed Gillette retention claim with the Reliance binder set aside (the rest omit a basis or a currency). |
 | | `governing_instrument_absent`: an endorsement is here, the document it changes is not. | Yes: HO 00 15 without HO 00 03. |
-| **not found** | No document addresses the question. | In a unit test only. |
+| **not found** | No document addresses the question. | Yes, before the check: a tax claim where no document had a matching line stopped there and named each document searched (bonus depreciation B4, run 1). The verdict itself is reached only in a unit test. |
 | **quoted** | Wording claims. The controlling clause is quoted with its page, marked not checked. No verdict. | Yes: HO 00 15 item 5. |
 
 Two amounts are compared only when both state the same currency, and either the same basis or none at all ([D9](DECISIONS.md)).
 
-Both rules have settled real disagreements: later effective date on the IRS notices ($4,150 vs $4,300), endorsement over base on the tax holdout ($600 vs $20,000). Neither has fired between documents from different policies, which is why Gillette stays unresolved. On the tax year claims the right answer also depended on which lines the model quoted, not on a rule ([family_tax](results/family_tax.md)).
+Both rules have settled real disagreements: later effective date on the IRS notices ($4,150 vs $4,300, for a claim naming no year), endorsement over base on the tax holdout ($600 vs $20,000). Neither has fired between documents from different policies, which is why Gillette stays unresolved. On the tax year claims the right answer also depended on which lines the model quoted, not on a rule ([family_tax](results/family_tax.md)).
 
 ## Which rule governs
 
@@ -164,7 +164,7 @@ Each guard has a test; counterfactual tests show what gets through without it.
 | Amending language | Text that changes a figure ("by striking '$10,000'", "increased from $23,000 to $23,500") is not recognised by code. A verified quote of the old figure can be read as what the amending document states. So far it has refused or needed a person to set the line aside; in one tax diagnostic it would have answered wrong ([family_tax](results/family_tax.md), [live_irs](results/live_irs.md)). |
 | Prompts still shaped by insurance | The upload proposer and the claim splitter describe their input as insurance; on tax documents that cost 2 refusals and left kinds unproposed ([family_tax](results/family_tax.md)). Percentages are not compared as amounts. |
 | New layouts | On the Chubb cyber sample: 2 of 5 preregistered answers at first, none wrong. The misses (columns, repeated wording across coverages, a missing value pointer, a wording claim about a duration) led to [D12](DECISIONS.md); after it, two fresh runs matched 5 of 5. One D12 fix was made after seeing this packet's output, so that 5 of 5 is not a clean holdout; the next unseen set is ([results](results/family_c.md)). |
-| Typed claims | A person confirms every grouping; pre-fill from past confirmations and auto-accept are not built. A claim about a date ("the cap for tax year 2026") is refused: no date comparator. No public API. |
+| Typed claims | A person confirms every grouping; pre-fill from past confirmations and auto-accept are not built. Code does not read a year inside a claim ("the 2024 limit", "for tax year 2026"): it checks the amount against the lines confirmed, so a person must set aside lines for other years, or the later-date rule answers for the latest year. On the tax holdout the year claims came out right only because the model quoted just that year's line. A claim with a full printed date and no amount is refused: no date comparator. No public API. |
 
 ## Repo map
 
