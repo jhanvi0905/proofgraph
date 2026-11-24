@@ -10,6 +10,8 @@ ProofGraph answers that for one claim against a packet of documents (an insuranc
 
 **Not:** a document store, a coverage opinion or legal advice.
 
+A selected and accepted submission at the Meta hackathon (the earlier version, in git history up to `14264f0`), which won Baseten and Fireworks innovation credits for development.
+
 ## See it
 
 ![The Gillette retention claim, unresolved: three documents state 1,000,000 and a fourth states $500,000, neither rule applies, and each cited value is marked in the raw SEC filing](docs/media/documents-disagree.png)
