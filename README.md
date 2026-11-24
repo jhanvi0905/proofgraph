@@ -1,19 +1,27 @@
 # ProofGraph
 
-**Which document says what, and which one wins?** ProofGraph answers that for one claim against a packet of documents (an insurance policy with its endorsements and binders, or a tax provision with its amendments and IRS guidance), and shows the page and the exact words behind the answer.
+**Which document says what, and when two disagree, which one governs?**
 
-- **Today:** a person reads every document in order, then makes a judgment call nobody writes down.
-- **With ProofGraph:** an answer you can check in seconds, or a named reason it cannot answer.
-- **The line it never crosses:** the model finds and quotes. Code compares and applies the rules. A model never decides which document wins.
+ProofGraph answers that for one claim against a packet of documents (an insurance policy with its endorsements and binders, or a tax provision with its amendments and IRS guidance), and shows the page and the exact words behind the answer.
 
-**Not:** a document store, a coverage opinion or legal advice. Tested on five document sets:
-- a 1996 D&O program filed with the SEC;
-- ISO homeowners forms;
-- a Chubb cyber policy it was never built on ([2 of 5, then 5 of 5 after D12](results/family_c.md));
-- US tax statutes, a preregistered holdout ([5 of 12 right, 0 wrong, 7 refused with a reason](results/family_tax.md));
-- IRS annual-limit notices uploaded through the app ([results](results/live_irs.md)).
+- **Today:** the coverage analyst (or tax reviewer) answering "does this endorsement change the limit?" reads every document in order, then makes a judgment call nobody writes down.
+- **With ProofGraph:** on your own documents, you confirm which lines in the packet are about the claim. Code reads the values, applies two stated rules, and returns an answer you can check against the page, or a named reason it cannot answer.
+- **The line it never crosses:** the model finds and quotes. Code compares and applies the rules. A model never decides which document governs.
+
+**Not:** a document store, a coverage opinion or legal advice.
 
 **Bring your own claim** ([D11](DECISIONS.md)). Type any amount or wording claim. Code reads it; the for and against reads find lines in every document of that instrument; a person confirms which lines are about the claim (or sets one aside, with a reason, shown on the result); the unchanged decision tree runs. The eight hand-written questions are now the regression test: typed as plain text, all five amount claims give the same answers ([results](results/d11_regression.md)).
+
+## See it
+
+![The Gillette retention claim, unresolved: three documents state 1,000,000 and a fourth states $500,000, neither rule applies, and each cited value is marked in the raw SEC filing](docs/media/documents-disagree.png)
+
+- **Documents disagree (Gillette, public SEC filing).** Two Lloyd's cover notes and an endorsement state 1,000,000; the Reliance binder states $500,000 each loss. Only one is issued under the policy in question, so no rule can rank them: *unresolved*. Each value is marked in the raw filing.
+- **A rule decides (ISO forms).** HO 00 03 says "$1000", HO 00 15 says "$1,000". Code compares them as equal; the endorsement rule names HO 00 15 as controlling. A string comparison would have called them a disagreement. The ISO forms are copyrighted, so the page renders live in the app, not here.
+
+![An HSA contribution limit claim of $4,150, wrong: Rev. Proc. 2024-25 controls over Rev. Proc. 2023-23 because its effective date is later; the governing line ($4,300) and the overridden line ($4,150) are boxed on each page](docs/media/later-date-governs.png)
+
+- **A rule decides (IRS, public documents).** Rev. Proc. 2023-23 states $4,150 for 2024; Rev. Proc. 2024-25 states $4,300 for 2025. Both effective dates are read from the printed lines, and the later-date rule names 2024-25 as controlling, so a $4,150 claim is wrong. Both lines are boxed on their pages ([results](results/live_irs.md)).
 
 ## The answers
 
@@ -29,27 +37,23 @@
 
 Two amounts are compared only when both state the same currency, and either the same basis or none at all ([D9](DECISIONS.md)).
 
-**Two precedence rules, nothing else** ([D3](DECISIONS.md)). Each applies only between documents of the same **instrument**: what a document belongs to (a policy number for insurance, a code section for tax). The boundary stops a document about one contract from overriding another's.
-1. **Endorsement over base form.** Fires in family B (HO 00 15 is printed "Form HO 00 03 Only"). Never in family A: its endorsements amend GS-212C, whose base wording is not in the packet ([D5](DECISIONS.md)).
+Both rules have settled real disagreements: later effective date on the IRS notices ($4,150 vs $4,300), endorsement over base on the tax holdout ($600 vs $20,000). Neither has fired between documents from different policies, which is why Gillette stays unresolved. On the tax year claims the right answer also depended on which lines the model quoted, not on a rule ([family_tax](results/family_tax.md)).
+
+## Which rule governs
+
+Two precedence rules, nothing else ([D3](DECISIONS.md)). Each applies only between documents of the same **instrument**: what a document belongs to (a policy number for insurance, a code section for tax). The boundary stops a document about one contract from overriding another's.
+1. **Endorsement over base form.** Fires in family B (HO 00 15 is printed "Form HO 00 03 Only"). Fired on the tax holdout (the 2025 Act over the 2023 Code). Never in family A: its endorsements amend GS-212C, whose base wording is not in the packet ([D5](DECISIONS.md)).
 2. **Later effective date over earlier.** Compares effective dates, never coverage periods. Fired on uploaded IRS notices, with the dates read from the printed line ([D13](DECISIONS.md), [results](results/live_irs.md)).
 
 No rule applies and the documents disagree? It refuses to pick.
 
-## See it
+## What it has been run on
 
-![The Gillette retention claim, unresolved: three documents state 1,000,000 and a fourth states $500,000, neither rule applies, and each cited value is marked in the raw SEC filing](docs/media/documents-disagree.png)
-
-- **Documents disagree (Gillette, public SEC filing).** Two Lloyd's cover notes and an endorsement state 1,000,000; the Reliance binder states $500,000 each loss. Only one is issued under the policy in question, so no rule can rank them: *unresolved*. Each value is marked in the raw filing.
-- **A rule decides (ISO forms).** HO 00 03 says "$1000", HO 00 15 says "$1,000". Code compares them as equal; the endorsement rule names HO 00 15 as controlling. A string comparison would have called them a disagreement. The ISO forms are copyrighted, so the page renders live in the app, not here.
-
-```bash
-uv run uvicorn app.server:app --port 8765
-```
-
-Open http://localhost:8765.
-- **Five worked examples** (right, wrong, can't be settled, base form missing, wording quoted) replay recorded model responses: no key, no cost.
-- **Upload your own PDFs** with `ANTHROPIC_API_KEY` set. The model proposes what each file is and its effective date from what is printed on it; code checks the quote is on the page; a person confirms ([D10](DECISIONS.md), [D13](DECISIONS.md)).
-- **Every result** has its own link (`/?review=<id>`), a print view and an "Approved by" sign-off. Results are saved under `data/reviews/` on the machine that ran them, so links survive a restart.
+- a 1996 D&O program filed with the SEC (family A, the development set);
+- ISO homeowners forms (family B, the first holdout);
+- a Chubb cyber policy it was never built on ([2 of 5, then 5 of 5 after D12](results/family_c.md));
+- US tax statutes, a preregistered holdout ([5 of 12 right, 0 wrong, 7 refused with a reason](results/family_tax.md));
+- IRS annual-limit notices uploaded through the app ([results](results/live_irs.md)).
 
 ## Run it
 
@@ -62,6 +66,19 @@ git clone https://github.com/jhanvi0905/proofgraph.git && cd proofgraph && git c
 ```bash
 uv sync
 ```
+
+**The app.**
+
+```bash
+uv run uvicorn app.server:app --port 8765
+```
+
+Open http://localhost:8765.
+- **Five worked examples** (right, wrong, can't be settled, base form missing, wording quoted) replay recorded model responses: no key, no cost.
+- **Upload your own PDFs** with `ANTHROPIC_API_KEY` set. The model proposes what each file is and its effective date from what is printed on it; code checks the quote is on the page; a person confirms ([D10](DECISIONS.md), [D13](DECISIONS.md)).
+- **Every result** has its own link (`/?review=<id>`), a print view and an "Approved by" sign-off. Results are saved under `data/reviews/` on the machine that ran them, so links survive a restart.
+
+**The command-line demo.**
 
 ```bash
 SEC_USER_AGENT="Your Name you@example.com" uv run pgrun demo
@@ -142,7 +159,7 @@ Each guard has a test; counterfactual tests show what gets through without it.
 |---|---|
 | Right/wrong only for amounts | Wording is quoted, never judged. |
 | Missing-document check needs an `amends` route | Recorded by hand or read from an upload's printed line. Out-of-policy amendments (Gillette's Endorsement 13 → GS-212C) are listed as set aside, not checked. |
-| Endorsement rule only on an assembled packet | Fired 3 of 3 on two ISO forms paired under a specimen policy; both state the same amount, so no value dispute has yet been settled by a rule. |
+| Endorsement rule only on an assembled packet | Insurance: fired 3 of 3 on two ISO forms paired under a specimen policy, both stating the same amount. Tax: settled differing amounts (the Act over the Code), but on year claims only because the model quoted just the line for that year. Not yet seen between differing insurance amounts. |
 | Small sample | 1 labelled Gillette claim (dev; plus 6 retrieval queries), 8 ISO holdout packets (11 claims under D9), 5 typed regression claims, 5 Chubb claims, 12 tax holdout claims, 5 IRS upload claims. Shows the design; not a rate ([metrics](results/metrics.md)). |
 | Amending language | Text that changes a figure ("by striking '$10,000'", "increased from $23,000 to $23,500") is not recognised by code. A verified quote of the old figure can be read as what the amending document states. So far it has refused or needed a person to set the line aside; in one tax diagnostic it would have answered wrong ([family_tax](results/family_tax.md), [live_irs](results/live_irs.md)). |
 | Prompts still shaped by insurance | The upload proposer and the claim splitter describe their input as insurance; on tax documents that cost 2 refusals and left kinds unproposed ([family_tax](results/family_tax.md)). Percentages are not compared as amounts. |
