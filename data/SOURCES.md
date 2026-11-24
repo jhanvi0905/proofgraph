@@ -2,7 +2,9 @@
 
 Raw files live in `data/raw/` (gitignored). Every fact below was read from the file, not from a listing.
 
-## Family A (dev, 12 packets): Gillette D&O, 1996
+## Family A (dev): Gillette D&O, 1996
+
+(Planned as 12 packets when this file was written; one labelled claim, the FD960228 retention, was built, plus 6 retrieval queries in `retrieval_eval.json`.)
 
 - File: SEC EDGAR accession 0000950135-97-001269 (Gillette 10-K405, FY1996), `gillette_10k405_1996.txt`, 726,516 bytes.
 - Use `<DOCUMENT>` with `<TYPE>EX-10.(E)` / `<SEQUENCE>4`. It runs 993 lines and has 18 `<PAGE>` markers. Everything else in the file is out of scope.

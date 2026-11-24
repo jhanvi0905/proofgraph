@@ -1,6 +1,6 @@
 # ProofGraph
 
-**Which document says what, and which one wins?** ProofGraph answers that for one claim against a packet of insurance documents (a policy, its endorsements, its binders), and shows the page and the exact words behind the answer.
+**Which document says what, and which one wins?** ProofGraph answers that for one claim against a packet of documents (an insurance policy with its endorsements and binders, or a tax provision with its amendments and IRS guidance), and shows the page and the exact words behind the answer.
 
 - **Today:** a person reads every document in order, then makes a judgment call nobody writes down.
 - **With ProofGraph:** an answer you can check in seconds, or a named reason it cannot answer.
@@ -13,7 +13,7 @@
 - US tax statutes, a preregistered holdout ([5 of 12 right, 0 wrong, 7 refused with a reason](results/family_tax.md));
 - IRS annual-limit notices uploaded through the app ([results](results/live_irs.md)).
 
-**Bring your own claim** ([D11](DECISIONS.md)). Type any amount or wording claim. Code reads it; the for and against reads find lines in every document of that policy; a person confirms which lines are about the claim (or sets one aside, with a reason, shown on the result); the unchanged decision tree runs. The eight hand-written questions are now the regression test: typed as plain text, all five amount claims give the same answers ([results](results/d11_regression.md)).
+**Bring your own claim** ([D11](DECISIONS.md)). Type any amount or wording claim. Code reads it; the for and against reads find lines in every document of that instrument; a person confirms which lines are about the claim (or sets one aside, with a reason, shown on the result); the unchanged decision tree runs. The eight hand-written questions are now the regression test: typed as plain text, all five amount claims give the same answers ([results](results/d11_regression.md)).
 
 ## The answers
 
@@ -29,7 +29,7 @@
 
 Two amounts are compared only when both state the same currency, and either the same basis or none at all ([D9](DECISIONS.md)).
 
-**Two precedence rules, nothing else** ([D3](DECISIONS.md)). Each applies only between documents issued under the question's policy.
+**Two precedence rules, nothing else** ([D3](DECISIONS.md)). Each applies only between documents of the same **instrument**: what a document belongs to (a policy number for insurance, a code section for tax). The boundary stops a document about one contract from overriding another's.
 1. **Endorsement over base form.** Fires in family B (HO 00 15 is printed "Form HO 00 03 Only"). Never in family A: its endorsements amend GS-212C, whose base wording is not in the packet ([D5](DECISIONS.md)).
 2. **Later effective date over earlier.** Compares effective dates, never coverage periods. Fired on uploaded IRS notices, with the dates read from the printed line ([D13](DECISIONS.md), [results](results/live_irs.md)).
 
@@ -82,10 +82,10 @@ SEC_USER_AGENT="Your Name you@example.com" uv run pgrun demo
 
 **A person writes:**
 - the claim and its value (`data/claims.json`);
-- which policy each document describes, with a cited scope and a strength (`data/document_mappings.json`). Fixed before the run, so it cannot be shaped to fit the answer.
+- which instrument each document belongs to, with a cited scope and a strength (`data/document_mappings.json`; insurance packets call it the policy). Fixed before the run, so it cannot be shaped to fit the answer. For uploads it defaults to one set, and the person names instruments only when the documents belong to different ones.
 
 **The model sees only:**
-- text from documents mapped to the claim's policy, inside each mapping's scope (`admit()` in [`retrieve.py`](proofgraph/retrieve.py));
+- text from documents mapped to the claim's instrument, inside each mapping's scope (`admit()` in [`retrieve.py`](proofgraph/retrieve.py));
 - one claim per pass (support or attack), never the whole packet ([`passes.py`](proofgraph/passes.py)).
 
 **The model returns:** a passage id, an exact quote, a pointer to the value inside it, a one-line reading. Code reads the value from the verified quote: one amount, code reads it; several, the pointer decides, only if it lies inside the quote; otherwise a person picks the figure at confirmation, or it refuses ([D12](DECISIONS.md), [D13](DECISIONS.md)).
@@ -143,7 +143,7 @@ Each guard has a test; counterfactual tests show what gets through without it.
 | Right/wrong only for amounts | Wording is quoted, never judged. |
 | Missing-document check needs an `amends` route | Recorded by hand or read from an upload's printed line. Out-of-policy amendments (Gillette's Endorsement 13 → GS-212C) are listed as set aside, not checked. |
 | Endorsement rule only on an assembled packet | Fired 3 of 3 on two ISO forms paired under a specimen policy; both state the same amount, so no value dispute has yet been settled by a rule. |
-| Small sample | 20 packets (12 Gillette dev, 8 ISO holdout), 5 typed claims on the Chubb set, 12 tax holdout claims, 5 IRS upload claims. Shows the design; not a rate. |
+| Small sample | 1 labelled Gillette claim (dev; plus 6 retrieval queries), 8 ISO holdout packets (11 claims under D9), 5 typed regression claims, 5 Chubb claims, 12 tax holdout claims, 5 IRS upload claims. Shows the design; not a rate ([metrics](results/metrics.md)). |
 | Amending language | Text that changes a figure ("by striking '$10,000'", "increased from $23,000 to $23,500") is not recognised by code. A verified quote of the old figure can be read as what the amending document states. So far it has refused or needed a person to set the line aside; in one tax diagnostic it would have answered wrong ([family_tax](results/family_tax.md), [live_irs](results/live_irs.md)). |
 | Prompts still shaped by insurance | The upload proposer and the claim splitter describe their input as insurance; on tax documents that cost 2 refusals and left kinds unproposed ([family_tax](results/family_tax.md)). Percentages are not compared as amounts. |
 | New layouts | On the Chubb cyber sample: 2 of 5 preregistered answers at first, none wrong. The misses (columns, repeated wording across coverages, a missing value pointer, a wording claim about a duration) led to [D12](DECISIONS.md); after it, two fresh runs matched 5 of 5. One D12 fix was made after seeing this packet's output, so that 5 of 5 is not a clean holdout; the next unseen set is ([results](results/family_c.md)). |
@@ -159,4 +159,5 @@ Each guard has a test; counterfactual tests show what gets through without it.
 - [`results/family_c.md`](results/family_c.md): a third document set, preregistered: 2 of 5, D12, then 5 of 5.
 - [`results/family_tax.md`](results/family_tax.md): US tax statutes, preregistered holdout, domain unchanged.
 - [`results/live_irs.md`](results/live_irs.md): IRS limits uploaded through the app (not preregistered).
+- [`results/metrics.md`](results/metrics.md): accuracy by category, refusal precision and recall, precedence accuracy, derivation validity, cost per packet; reproduce with `scripts/metrics.py`.
 - Earlier version (ContractNLI evidence graph): git history up to `14264f0`.

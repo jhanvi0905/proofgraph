@@ -25,7 +25,7 @@ Upload, confirm, type the claim, find the lines, check.
 | HSA self-only limit is $4,300 | right | **right** | Rev. Proc. 2024-25 controls over 2023-23: a later effective date overrides an earlier one. The first time this rule decided a claim on uploaded documents. |
 | HSA self-only limit is $4,150 | wrong | **wrong** | Same rule; governing $4,300. |
 | 401(k) elective deferral limit is $23,500 | right | **right** | Notice 2024-80 controls. Each "from X to Y" line came back with the right figure already pointed at, so no pick was needed. |
-| 401(k) elective deferral limit is $23,000, every line confirmed | wrong | **can't be settled** | For this claim the reads also pointed at the "from **$23,000**" figure inside Notice 2024-80. The newer notice then appeared to state two amounts, so the later-date rule would not pick, and the check refused. |
+| 401(k) elective deferral limit is $23,000, every line confirmed | wrong | **can't be settled** (documents disagree) | For this claim the reads also pointed at the "from **$23,000**" figure inside Notice 2024-80. The newer notice then appeared to state two amounts, so the later-date rule would not pick, and the check refused. |
 | Same claim, that line set aside by a person ("the old figure, superseded within this notice") | wrong | **wrong** | Notice 2024-80 controls and states $23,500. The set-aside line and its reason are shown on the result. |
 
 ## What this shows
