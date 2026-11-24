@@ -34,6 +34,10 @@ _FALLBACK_BETA = "server-side-fallback-2026-07-01"
 EMBED_MODEL = os.environ.get("PROOFGRAPH_EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 EMBED_REVISION = os.environ.get("PROOFGRAPH_EMBED_REVISION", "1110a243fdf4706b3f48f1d95db1a4f5529b4d41")  # pinned weights
 EMBED_CACHE = CACHE_DIR.parent / "embed"
+# Vectors committed to the repo for the worked examples (their passages and claims), so a replay never loads the
+# embedding model: PyTorch and sentence-transformers take about 450 MB of memory before any text is encoded.
+# Same key scheme as EMBED_CACHE (model, pinned revision, sha256 of the exact text); read-only.
+RECORDED_EMBED = Path(__file__).resolve().parent.parent / "data" / "recorded" / "embed"
 _encoder = None
 
 
@@ -103,31 +107,37 @@ def embed(texts: list[str]):
     """L2-normalised vectors, one row per text, as an (n, d) float32 numpy array.
 
     Each vector is cached at cache/embed/<model>/<sha256(text)[:24]>.npy, so the
-    same text under the same model is never recomputed.
+    same text under the same model is never recomputed. A vector recorded in
+    data/recorded/embed under the same key is used as is (the worked examples).
     """
     import numpy as np
 
-    folder = EMBED_CACHE / f'{EMBED_MODEL.replace("/", "__")}@{EMBED_REVISION[:12]}'
+    name = f'{EMBED_MODEL.replace("/", "__")}@{EMBED_REVISION[:12]}'
+    folder, recorded = EMBED_CACHE / name, RECORDED_EMBED / name
     folder.mkdir(parents=True, exist_ok=True)
     keys = [hashlib.sha256(t.encode("utf-8")).hexdigest()[:24] for t in texts]
     out: list = [None] * len(texts)
     missing = []
     for i, k in enumerate(keys):
-        f = folder / f"{k}.npy"
-        if f.exists():
-            out[i] = np.load(f)
+        f, r = folder / f"{k}.npy", recorded / f"{k}.npy"
+        if f.exists() or r.exists():
+            out[i] = np.load(f if f.exists() else r)
         else:
             missing.append(i)
     if missing:
         global _encoder
         if _encoder is None:
+            import torch
             from sentence_transformers import SentenceTransformer
+
+            torch.set_num_threads(1)  # less memory per batch on a small server; the vectors do not change
 
             # CPU, not Apple MPS: torch 2.15's MPS backend crashes on macOS 14.4
             # (MPSNDArray arrayViewWithShape:strides: unrecognized selector). CPU is
             # also deterministic, which the embedding cache relies on.
             _encoder = SentenceTransformer(EMBED_MODEL, device="cpu", revision=EMBED_REVISION)
-        vecs = _encoder.encode([texts[i] for i in missing], normalize_embeddings=True, convert_to_numpy=True)
+        # Small batches keep the peak down: 64 texts at once measured 730 MB in the container, against 490 MB loaded.
+        vecs = _encoder.encode([texts[i] for i in missing], batch_size=8, normalize_embeddings=True, convert_to_numpy=True)
         for i, v in zip(missing, vecs):
             v = v.astype("float32")
             np.save(folder / f"{keys[i]}.npy", v)
