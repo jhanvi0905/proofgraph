@@ -1,151 +1,100 @@
 # Decisions
 
-Each one is numbered, dated, and has a reason. The code cites them by number. A decision changes only by a new entry that supersedes it.
+Numbered and dated. The code cites them by number. A decision changes only through a later one, which says what it supersedes. The full wording, with build notes, is in git history (`c75b230` and earlier).
+
+| # | Decision | Status |
+|---|---|---|
+| D1 | Every field cites its source, or is "not stated" | in force |
+| D2 | A cross-document mapping is a record, on every side | in force |
+| D3 | Precedence rules apply only within one policy; rule 2 uses effective dates | in force |
+| D4 | Two-digit years are expanded in code | in force |
+| D5 | Rule 1 never fires in family A | in force |
+| D6 | An uncompared pair is recorded and counts as unresolved | comparability rule replaced by D9 |
+| D7 | `unresolved` carries a reason | reason renamed by D9 |
+| D8 | The domain layer is frozen and hashed | re-taken at D9 and D12; question list replaced by D11 |
+| D9 | Compare the claim, refuse a missing base, quote wording | in force |
+| D10 | A confirmed upload is admitted whole | in force |
+| D11 | A typed claim plus a confirmed grouping replaces the question list | in force |
+| D12 | Verdict inputs come from verified text in a bounded region | in force |
+| D13 | Effective dates from the printed line; a person picks the figure | in force |
 
 ## D1. One atom, one span (2026-11-22)
-
-Every data field on an atom or statement carries its source: a value plus a span id (or a claim-text offset range for claim atoms). A field with no source is explicitly *not stated*. It is never filled in.
-**Why:** a field that must be filled and can't be sourced gets invented, and it gets invented plausibly. The retention claim showed this. USD and "each claim" in the claim text were copied from the FD960228 cover note, so Item VII looked as if it supported fields it never states.
-**Consequence:** currency and basis may be absent. Two quantities whose currency is not stated are not comparable until a shown mapping supplies one.
+**Decision:** every field on an atom or statement carries its source (a span id, or an offset range in the claim). A field with no source is *not stated*, never filled in.
+**Why:** a field that must be filled gets invented plausibly. The Gillette claim copied USD and "each claim" from one cover note onto a document that states neither.
 
 ## D2. Mappings across documents are records, on every side (2026-11-22)
+**Decision:** when a span reaches a question through anything but its own words (a position in a composite cell, a label, a normalised policy number), a `SlotMapping` records the span, target, justifying spans and method. Every side needs one.
+**Why:** map one side only and two assertions land on different questions, so the conflict disappears with no record.
 
-When a span reaches a slot through anything other than its own words, a `SlotMapping` records the span, the target slot, the spans that justify it, and the method (position in a composite cell, a label, normalising a policy number). Every asserter of a slot needs a mapping, not only one side.
-**Why:** Item VII reaches `FD960228.corp_reimbursement.retention` through position 3 of `NIL/NIL/1,000,000`, and through `757/FD960228` → `FD960228`. Reliance reaches the same slot through the label "Corporate Reimbursement". Map one side only and the two assertions land on different slots, so the conflict drops for a reason nobody wrote down.
-
-## D3. Rule 2 compares instrument effective dates, scoped to the slot's policy (2026-11-22)
-
-`later_effective_date` compares `Instrument.effective_date`. It fires only between instruments issued under the policy that the slot's first segment names. `endorsement_over_base` has the same scope. Coverage periods (`6/1/96-99`) are evidence on the atom (`period`, used by `effective_during`) and never reach the arbiter.
-**Why:** overlapping intervals have no "later", and there is no precedence order for them that we could defend. Unscoped, rule 2 would let Reliance (effective 12/31/96) override Item VII (effective 6/1/96), but Reliance is an excess carrier describing another insurer's primary, not amending it.
-**Source in the packet:** the FD960229 cover note states the scope principle itself: "NO AMENDMENTS TO THE PRIMARY POLICY SHALL BE BINDING UPON UNDERWRITERS UNDER THIS INSURANCE UNLESS SPECIFICALLY AGREED BY UNDERWRITERS AND ENDORSED HEREON" (`london_fd960229`, span `1db0f48fa77d4d72`, page 8, offsets 14324–14511). A change binds a policy only when it is endorsed on that policy. Limit of this citation: the clause is FD960229 protecting itself from changes to the primary. It supports the principle; it does not by itself prove that a binder on another layer cannot amend FD960228.
-**Consequence for the retention slot:** Item VII belongs to GS-212C and Reliance to NDA 0134456-96. Neither is issued under FD960228, so neither rule fires. If the values conflict, the result is `unresolved_conflict` and so `documents_disagree`: the arbiter refuses to pick a winner without a rule.
+## D3. Rule 2 compares effective dates, within one policy (2026-11-22)
+**Decision:** `later_effective_date` compares instrument effective dates, never coverage periods. Both rules fire only between instruments issued under the question's policy.
+**Why:** overlapping periods have no "later". Unscoped, the Reliance binder (an excess carrier describing another insurer's policy) would override Item VII. The FD960229 cover note states the principle: a change binds only when endorsed on that policy.
 
 ## D4. Dates are expanded in code (2026-11-22)
+**Decision:** two-digit years become 19xx or 20xx by a fixed rule in code, never by the model. In `6/1/96-99` the end year is expanded against the start year.
 
-Two-digit years become 19xx or 20xx by a fixed rule in code, never by the model. In an interval like `6/1/96-99`, the end year is expanded against the start year (`99` → 1999), never parsed as a date of its own.
+## D5. Rule 1 never fires in family A (2026-11-22)
+**Decision:** recorded as expected, not fixed. The packet's only endorsements amend GS-212C, whose base wording is not in the packet, and nothing amends FD960228.
 
-## D5. Rule 1 never fires in Family A (2026-11-22, closes O2)
+## D6. An uncompared pair counts as unresolved (2026-11-22)
+**Decision:** every pair of values on a question is recorded, with `compared=false` and the reason when they cannot be compared. An uncompared pair with differing values is unresolved, never an agreement and never dropped. No equivalence (such as "each loss" = "each claim") without a cited span.
+**Why:** every earlier version of the Gillette conflict was lost to a silent drop.
+**Superseded in part:** D9 replaced the comparability rule; the recording rule stands.
 
-The packet's only endorsements are Nos. 12 and 13, both to GS-212C (`data/instruments.json`). The FD960228 cover note is the document that places that policy, not an amendment to it. Nothing in the packet amends FD960228, so `endorsement_over_base` has nothing to fire on for its slots. Within GS-212C, Endorsement 13 replaces Item VII, but the base GS-212C wording is not in the packet. So there is no base span for rule 1 to override either.
-**Consequence:** in Family A, precedence questions end in `later_effective_date` (if two instruments issued under one policy conflict) or in `unresolved_conflict`. The README says so next to the four verdicts.
-
-## D6. An uncompared pair is recorded and counts as unresolved (2026-11-22, closes O1)
-
-The FD960228 cover note says USD 1,000,000 *each claim*. Reliance says $500,000 Corporate Reimbursement *each loss*. Item VII states no basis. Numbers compares only on equal currency and basis, so the comparator returns `mismatch` with its reason. It is never treated as an agreement and never dropped.
-The arbiter records every pair of asserters on a slot: `compared=false` plus the reason (`basis_mismatch: each_claim vs each_loss`, `currency_not_stated`). An uncompared pair on a slot with differing raw values is `unresolved_conflict`, so the verdict is `documents_disagree`, not `supported`. The eval counts these pairs separately as unresolved.
-**Why:** a mismatch nobody wrote down is a drop, and every earlier version of this conflict was lost to a silent drop. No lexicon entry makes "each loss" equal "each claim" unless a cited span supports it.
-
-## D7. `documents_disagree` becomes `unresolved`, with a reason (2026-11-22)
-
-Still four verdicts: supported, contradicted, unresolved, not found. `unresolved` carries a typed reason:
-- `documents_disagree`: the numerals differ and no rule picks one;
-- `uncompared_agreement`: the numerals agree, but currency or basis blocked the comparison, so the agreement was never tested.
-
-**Supported** means nothing contradicts the answer, and nothing that could have been compared was left uncompared. One assertion with no pairs is supported, the ordinary case. A pair with no numeral (NIL) could never be compared, so it does not block supported.
-**Why:** the counterfactual without Reliance returned `supported` on two assertions whose comparison was blocked by Item VII's unstated currency. A reader would draw an agreement the arbiter never tested. Nothing disagrees there, so it needs its own name, not `documents_disagree`.
+## D7. `unresolved` carries a reason (2026-11-22)
+**Decision:** `documents_disagree` became `unresolved` with a typed reason. *Supported* means nothing contradicts it and nothing comparable was left uncompared.
+**Why:** a result of "supported" over a comparison that never ran reads as an agreement nobody tested.
+**Amended:** D9 renamed `uncompared_agreement` to `amounts_not_comparable`.
 
 ## D8. The domain layer is frozen before family B (2026-11-22)
+**Decision:** the arbiter, comparators, assertions, checker, prompts, schema, predicates and family A's labels are hashed in `data/freeze.json`; `tests/test_freeze.py` fails on any change. Parser, ingest, retrieval and CLI may change. Family B's labels go in new files, committed before the first run.
+**Why:** a label sharpened after seeing output is contamination; a hash means nobody has to trust that the freeze held.
+**Since:** re-hashed at D9 and D12, each by an approved decision. D11 replaced the frozen question list as the input; it remains a regression fixture.
 
-The claim "no code change for family B" is no longer true: the column gutter was fixed on the ISO form. The narrower claim, which can be tested, has two layers:
-- **May change:** parser, ingest, retrieval, fetch, the CLI, the trace writer, `data/instruments.json`. Column gutters and line breaks have nothing to do with insurance meaning.
-- **Frozen, byte-identical from the freeze commit to the family B verdict commit:** the arbiter, comparators (`numbers.py`), assertions, claims and slot resolution, the checker, the passes and atomize prompts, the schema, `predicates.json`, and family A's slots, claims, citations and document mappings. Their sha256 values are in `data/freeze.json`, and `tests/test_freeze.py` fails if any file differs.
+## D9. Compare the claim, refuse a missing base, quote wording (2026-11-23, after the freeze, approved)
+**Decision:**
+1. A claim declares its kind (`amount` or `wording`) and, for amounts, its value as written.
+2. Two amounts are comparable when currency matches (or neither states one) and basis matches (or neither states one). Otherwise the mismatch is named (`currency_not_stated`, `basis_mismatch`, …). The same rule applies between documents and between the claim and the governing value.
+3. After the arbiter picks the governing value: equal is `supported`, different is `contradicted` with both shown, not comparable is `unresolved (amounts_not_comparable)`. A rule's winner is `resolved_by_rule` only when compared values differ; otherwise `no_conflict`.
+4. If an asserting document amends an instrument of the question's policy that is not in the packet: `unresolved (governing_instrument_absent)`, naming both. An amended instrument outside the policy is recorded as excluded, never dropped.
+5. Reasons: `unresolved` has `documents_disagree`, `amounts_not_comparable`, `governing_instrument_absent`; `not_found` has `no_addressing_span`.
+6. Wording claims get no verdict: the same checks pick the controlling clause, which is quoted with its page as `quoted`, marked not checked.
 
-Family B's claims, slot keys, document mappings and expected verdicts go in new files under `data/family_b/`, never appended to a frozen file. They are written with the system not running, and committed with the preregistration before the first family B run, so the labels provably predate the output.
-**Why:** a label written, run, seen wrong and quietly sharpened is the other way contamination gets in. A hash check means nobody has to trust that the freeze held.
+**Why:** without (3) a wrong amount read as supported; without (4) a packet missing its base form was answered from what was left. Under D6's rule a claim, which states no basis, could never be compared with anything.
+**Effect:** family B's recorded run is unchanged; its D9 expectations are in `data/family_b/labels_d9.json` (not preregistered). What moved is in [results/family_b.md](results/family_b.md).
 
-## D9. The claim's value is compared, a missing base document is refused, wording is quoted (2026-11-23, post-freeze)
+## D10. A confirmed upload is admitted whole (2026-11-23, after the freeze)
+**Decision:** an upload has no hand-marked scope, so once a person confirms it and its identifying line verifies, the whole document is admitted (`scope: "document"`; every hand-labelled route keeps `"citation"`). An endorsement's printed amends line ("Form HO 00 03 Only") feeds the D9 missing-document check, by string containment of another confirmed file's form number.
+**Why:** otherwise only an upload's identifying line reaches the model and every upload ends not found.
 
-**Post-freeze.** This changes the domain layer frozen at D8. The user approved the extension: record it here, make the changes, take new hashes (`data/freeze.json`). Family B's recorded run (`eeb9a2f`) stays as run; [results/family_b.md](results/family_b.md) gains a dated section saying what moves under D9, and its recorded tables are not edited. `data/family_b/labels.json` is unchanged and is still scored; D9's expectations are in a new file, `data/family_b/labels_d9.json`, written by the person who built the rules, so they are not preregistered.
+## D11. A typed claim plus a confirmed grouping replaces the question list (2026-11-23)
+**Decision:** a person types a claim. Code reads its kind, value, currency, basis and any policy number in it. The for and against reads run on the claim's text; a person confirms which returned lines are about the claim; the unchanged decision tree runs on the confirmed lines. The eight hand-written questions become a regression fixture.
+**Why:** the fixed list mixed a guard (the model never names the question) with scaffolding (every question written in advance). The guard stays: a person confirms the grouping.
+**Rules:**
+- A policy number found in the claim is shown for the person to accept, never applied silently.
+- Gather and decide are separate steps; the frozen files do not change.
+- A basis missing from the claim may be set at confirmation, recorded as `set_at_confirmation` and shown on the result.
+- Every run records `grouping_mode`, `basis_source`, `policy_source`, the lines set aside with reasons, and documents where nothing was found.
+- Refusals are named: unreadable claim, more than one value, a date with no amount, no candidate line, no line confirmed.
+- No auto-accept: that needs a second confirmer and its own decision.
 
-What changed, each approved as worded:
-1. **A claim declares its kind and value.** `Claim.kind` is `amount` or `wording`; an amount claim declares `value`, the amount as the author wrote it (`"USD 1,000,000"`). Neither is inferred at run time; an unreadable declared value fails at load.
-2. **Comparability (supersedes D6's rule, keeps its record).** Two amounts are comparable when the currencies match, or neither states one, **and** both state the same basis, or neither states one: the question already fixes the quantity. One side stating a currency or basis and the other not, two different currencies, or two different bases is a named mismatch saying which side lacked what (`currency_not_stated`, `basis_not_stated`, `currency_mismatch`, `basis_mismatch`). The same rule applies to two asserters (`numbers.compare`) and to the claim against the governing value (`numbers.compare_claim`). D6 still holds: every pair is recorded, an uncompared pair counts as unresolved, and no lexicon makes two bases equal.
-3. **The claim against the governing value.** After the arbiter picks the governing assertion (by a precedence rule, or the sole asserter, or the agreeing asserters), it compares that value with the claim's: equal is `supported`, different is `contradicted` with both amounts shown, not comparable is `unresolved (amounts_not_comparable)` naming the mismatch between claim and governing value.
-   **Bug fixed:** a rule's winner is `resolved_by_rule` only when some pair was compared and its numerals differ. Equal pairs are no dispute: the rule still names the governing document, with reason `no_conflict`. A rule ordering pairs that could not be compared is also `no_conflict` under this wording; the pairs stay recorded with their mismatch.
-4. **Missing-document check.** A document mapping may carry `amends`: the instrument the document amends as printed, its catalogue id if any, the policy it belongs to, and a citation to the printed words, verified by `checker.verify_citation` before any model call (a broken one stops the run), with a route strength. Before the precedence rules: if a document asserting on the question amends an instrument of the question's policy set and that instrument is not in the packet, the verdict is `unresolved (governing_instrument_absent)`, naming both. The policy set is the slot registry entry's optional `policies`, defaulting to the key's first segment. An amended instrument outside the policy set is skipped **and recorded** as excluded with the reason; it is never dropped. Routes added: HO 00 15 page 1, "Form HO 00 03 Only" (judgment: the form is named in its words, its tie to SPECIMEN-HO3 is the packet author's); CODA Endorsement 13, "ATTACHED TO AND FORMING PART OF POLICY NO.   GS-212C" (read).
-5. **Reasons, each named.** `unresolved` has three: `documents_disagree` (no rule picks), `amounts_not_comparable`, `governing_instrument_absent`; `not_found` has `no_addressing_span`. Two moves, both recorded: `uncompared_agreement` is renamed `amounts_not_comparable`, because the same refusal now also covers the claim against the governing value, and one name for one refusal is clearer than two; `governing_instrument_absent` moves from `not_found` to `unresolved`, because the packet does address the question, and what is missing is the instrument the asserting document amends. `SlotVerdict.unresolved_detail` names the mismatch or both documents. `governing_reason` (no_conflict or resolved_by_rule) says how the governing value was chosen whatever the verdict, so a `contradicted` verdict names its rule too.
-6. **Wording claims.** `kind = "wording"` gets no amount verdict. `arbitrate_wording` runs the same missing-document check and precedence rules over documents and returns the governing clause verbatim with document and page, marked not checked. The verdict is `quoted`, a fifth value that is explicitly not an answer, chosen over a separate flag so no reader can take a wording run for `supported`. Attack-pass clauses are surfaced as `clashes`, each a judgment route with its quote, never a code verdict.
+**Check:** the five regression answers were written to `data/regression_d11.json` before any code changed; typed claims reproduce all five.
 
-**Why:** without (3) `contradicted` could never be produced and a wrong amount read as supported; without (4) a packet missing its base form was answered from what was left (README limitations, D5). The comparability change is what (3) needs: a claim states no basis, and under D6's rule no claim could ever have been compared with anything.
+## D12. Verdict inputs come from verified text in a bounded region (2026-11-24, built)
+Written after family C, where every miss came before the decision tree.
+**Decision:**
+1. **Value.** One amount in the verified quote: code reads it. Several: the model's pointer, only if it lies inside the quote. Otherwise `value_ambiguous` (several, no pointer) or `value_not_in_verified_span` (none).
+2. **Identity.** A quote is the page plus the region the model was shown, plus a text hash; it must occur once in that region, as consecutive lines in one column. A hash mismatch is stale, never repaired.
+3. **Columns** come from page coordinates (`proofgraph/geometry.py`), not the page midpoint.
+4. **Wording first.** A claim's kind is decided before the amount checks.
+5. **Currency and basis are data** (`data/currencies.json`, ISO 4217; `data/basis_phrases.json`, each phrase its own basis). An unknown currency token is refused by name. "$" is "dollars, country not printed": it compares with "$"; against a named currency it is not comparable until a person sets the claim's currency at confirmation.
 
-**Every verdict that moved** (before: as recorded; after: `pgrun familyb`, `pgrun verdict`, `pgrun derive`, replayed with no key):
-- Family A, `pgrun verdict` and `pgrun derive`: unchanged, `unresolved (documents_disagree)`. New in the record: Endorsement 13 is excluded from the missing-document check (it amends GS-212C, outside FD960228). No value governs, so the claim is not compared.
-- B-jewelry-endorsed, B-firearms-endorsed, B-silverware-endorsed: `supported (resolved_by_rule, endorsement_over_base → ho_00_15)` → `supported (no_conflict, endorsement_over_base → ho_00_15)`. The pairs ($1000 vs $1,000, etc.) are now compared and equal, so the rule named the governing form over agreeing values. Each claim equals the governing value.
-- The five other family B packets: unchanged, `supported (no_conflict)`, now with the claim compared and equal.
-- `--ablate`, comparator with rules disabled, the three endorsed packets: `unresolved (uncompared_agreement)` → `supported (no_conflict)`. Under D9 precedence is no longer what makes these three supported.
-- Counterfactual tests: Reliance moved into scope (`later_effective_date` fires) went from `supported (resolved_by_rule)` to `unresolved (amounts_not_comparable)` against the author's claim, which states no basis while Reliance states "each loss"; a claim of "$500,000 each loss" is `supported (no_conflict)`. The cover note alone went from `supported` to `unresolved (amounts_not_comparable)` for the same reason ("each Claim" vs no basis).
-- New packets (`data/family_b/labels_d9.json`): B-jewelry-wrong-endorsed ($1,500) `contradicted`, governing ho_00_15; B-jewelry-endorsement-alone `unresolved (governing_instrument_absent)`; B-jewelry-wording-endorsed `quoted`, HO 00 15 item 5 governing, HO 00 03 item 5 shown as a judgment clash.
+**Check:** the D11 regression and families A and B give the same answers; family C went from 2 of 5 to 5 of 5 on two live runs ([results/family_c.md](results/family_c.md)). One fix was made after seeing family C's output, so that result is not a clean holdout.
 
-## D10. A confirmed upload is admitted whole; its printed amends line feeds the missing-document check (2026-11-23, post-freeze)
+## D13. Effective dates from the printed line; a person picks the figure (2026-11-24, built)
+Decided before any tax document was opened, so the tax run stayed a holdout.
+**Decision:**
+1. **Effective date.** The upload proposer quotes the printed effective-date line; code parses the date from the verified quote; the person confirms, corrects or clears it. A date typed with no verified quote is a judgment and needs a reason. The form's edition date is never an effective date. With no date, rule 2 cannot fire on that document.
+2. **Figure.** When a confirmed line states several amounts and has no valid pointer, the person picks one from the list code found, by position. Recorded as `set_at_confirmation` and shown on the result. Code never matches the claim's words to a figure; with no pick, `value_ambiguous` stands.
 
-An uploaded file has no hand-marked scope block. Under the D3 admission rule only its identifying line would reach the model, so every upload would end not found. `DocumentRoute.scope` gains a value: `"citation"` (the default, every existing mapping) admits only text inside the citation; `"document"` admits the whole document once its identifying citation verifies. Only the upload flow writes `"document"`, and only after a person has confirmed the row.
-An uploaded endorsement's printed amends line (for example "Form HO 00 03 Only") becomes its `amends` route when the line verifies on its page. The amended document counts as present when another confirmed file's printed form number, edition dropped, appears in that line. This is string containment on printed text, nothing more; a line that repeats on its page is not recorded, so the check never rests on an ambiguous citation.
-**Consequence:** no existing verdict moves (every hand-labelled route keeps `"citation"`). An upload of HO 00 15 without HO 00 03 reaches `governing_instrument_absent`. `proofgraph/schema.py` is re-hashed in `data/freeze.json`.
-
-## D11. A confirmed grouping replaces the hand-written question list (2026-11-23, accepted)
-
-**Decision.** A claim is typed. Code reads its kind (amount, date or wording), its value, currency and basis, and any policy number in its text. The for and against reads run on the claim's own text. A person confirms which returned lines are about the claim's subject; the question is created from the confirmed lines (the policy, plus a label from the printed wording) and the decision tree runs unchanged on it. The eight questions in `slots.json` stay as a regression fixture, not as the accepted input. Supersedes D8's frozen question list as the interface, not as a fixture.
-
-**Why.** The fixed list bundled a guard (the model must not name or reinterpret the question) with scaffolding (a list written before every question there will ever be). The guard is kept: the model still names nothing; a person confirms the grouping. The list was harness that leaked into the product.
-
-**How, against the code** (the four fixes accepted with D11):
-1. **Policy before the reads.** Admission needs the question's policy before any model call (`pipeline.py`). The claim box takes the policy from the packet's confirmed document assignments. If code finds an exact policy number from those assignments in the claim text, the match is shown and the person accepts or changes it; it is never applied silently. Only the label comes from the confirmed lines.
-2. **Two phases with a frozen record between them.** *Gather*: atomize, retrieve and the for and against reads run under a run-local key (policy plus a slug of the claim text); every quote is verified as today; candidate lines are stored. *Decide*: after confirmation, the confirmed lines are re-keyed to the final key and `arbitrate` or `arbitrate_wording` runs. `arbiter.py`, `numbers.py`, `assertions.py`, `checker.py`, `passes.py`, `atomize.py` and `schema.py` stay byte-identical (`tests/test_freeze.py`).
-3. **The regression needs live calls.** Retrieval adds the key's words to its query, so a typed claim with no key sends the model a different top ten and recorded responses do not replay. A different answer on the regression is a finding, recorded, not a bug to tune away.
-4. **The basis can be set at confirmation.** When confirmed lines state a basis and the claim does not, the person sets the claim's basis on the confirmation screen. The run records that it was set there, not written by the claimant, and the result shows it the way it shows `grouping_mode`. D9's comparison rule is unchanged.
-
-**Recorded on every run:** `grouping_mode` (`person`, or `prefilled_from_mapping` with the row id), `basis_source` (`claimant` or `set_at_confirmation`), `policy_source` (`chosen` or `matched_in_claim` with the matched text), the dropped lines with text and reason, and documents with nothing found. Auto-accept is out of D11: unattended trust needs a second named confirmer and its own decision.
-
-**Refusals, each named:** the claim does not parse as an amount, a date or wording; it states more than one value; dates (until a comparator exists); no admitted document yielded a candidate line; no line was confirmed; plus every existing D9 reason.
-
-**Mapping rows** are keyed on form number and edition, never carrier or wording alone. Conflicting rows within one form switch pre-fill off and send the grouping to a person.
-
-**Before any code changed:** the five amount claims' expected answers and cited pages were written to `data/regression_d11.json` and hashed into `data/freeze.json`.
-
-## D12. Verdict inputs come from verified text and a bounded region (2026-11-24, accepted, built 2026-11-24)
-
-Status: accepted, built 2026-11-24. Differs from the text in one place: a passage's region is its box in each column it covers, not one box (note 3 below).
-
-Written after Family C (`results/family_c.md`): every miss there came from a step before the decision tree, each shaped by the first two document sets. Amends D2 and D6 and the checker; D11 is unchanged. Build order: 3, 2, 1, 4, 5; one re-hash after all five land.
-
-1. **Value from the verified quote, or the pointer inside it.** One amount in the quote: code reads it (derived). Several amounts: the model's pointer, used only if it lies inside the verified quote (Endorsement 13's "$10M NIL/NIL/1,000,000" needs it). Several and no pointer: `value_ambiguous`. None: `value_not_in_verified_span`. The prompt is unchanged, so recordings still replay.
-2. **Identity is the page plus the region the model was shown**, never an offset in our extracted text (the checker stays independent of the parser). The quote must occur once inside that region, as consecutive lines in one column; repeats elsewhere on the page are not ambiguity. A hash mismatch means stale: read again, never substitute. Raw text keeps file offsets.
-3. **Columns from page coordinates**, per page, with the geometry recorded on each passage; no separable columns means single, whole-page reading order. Lands before 2.
-4. **Wording first.** Claims are classified before the amount-shaped atom check; wording claims use the D9 precedence rules to pick the controlling clause, then quote it, not checked.
-5. **Currency and basis are data.** ISO 4217 codes with minor units; a (phrase, basis) table where each phrase is its own basis (no equivalence without a decision, D6). `unknown_currency` names the token; a phrase outside the table reads as no basis. **"$" is recorded as "dollars, country not printed"**: it compares with "$"; against a named currency it is not comparable until a person sets the currency at confirmation, recorded as set there and shown on the result, as the basis is under D11.
-
-**Checks when built:** the D11 regression and families A and B return the same answers; Family C re-runs against its preregistered answers.
-**Open:** label normalisation once mapping rows key on form number and edition; whether conflicting rows within one form switch pre-fill off.
-
-**Built: 2026-11-24, with notes.** Commits `64172ba` (3, 2), `865ccdf` (1), `e2f23d8` (4), `639c1d3` (5), `1a246ef` (2, regions); one re-hash of `data/freeze.json` after all five. Where the text left a choice, the conservative option was taken:
-1. **Columns (3).** `proofgraph/geometry.py`, shared by the parser and the checker, reads gutters from pdfplumber's word boxes: a whitespace band at least 8pt wide that few rows enter, with column text on both sides (enough rows, lines that fill at least 60% of the column by median). A page where no split passes is `single`; a table's label and amount stay on one line. Three gutters read as four columns (tested on a generated 2-up page). Two-column pages keep the gutter the parser used before D12, so the ISO forms' text is byte-identical and every recording replays. Correction to `results/family_c.md`: the Chubb pages are not two printed pages side by side; they are two columns whose gutter sits near x=280, left of the page midpoint (306), with the right column's list numbers at x=292. The midpoint test split one column in two (C3).
-2. **One column, consecutive (2).** Besides one column (coordinate-derived, replacing the midpoint), the checker now requires that no other line lies between two lines of a quoted block. The old rule let lines 1 and 3 of a block pass as one quote.
-3. **Region (2).** The region is the passage's box in each column it covers. Found on the first live Family C run: a passage running from the foot of the left column into the right one had a single box covering the page, and a line printed again higher in the left column counted twice inside it (C1, C2 returned no lines). Citations with no region (hand-written ones, upload anchors) keep the whole-page rule. The text hash is recorded on every page quote the passes build; a mismatch is `stale`, never repaired.
-4. **Value (1).** One amount in the verified quote and a pointer elsewhere in it: `value_ambiguous` (code and model disagree, so nothing is read). A pointer outside the quote is discarded and recorded; it no longer fails the pass, so no repair call is made for it. `value_ambiguous` is a named refusal at the decide step, shown on the confirmation screen beside the line: the arbiter is frozen and its answers unchanged, so the refusal is made before any comparison, not as a new arbiter verdict. `value_not_in_verified_span` lines are recorded as invalid, as no-value lines were before, and are not offered for confirmation.
-5. **Wording first (4).** The claim's kind (declared, or read by code for a typed claim) is passed to atom validation; a wording claim skips the amount-shaped checks but keeps the structural ones (slot, unresolved reference, conjunction).
-6. **Currency (5).** `data/currencies.json`: 164 active ISO 4217 codes with minor units, and printed signs mapped only where they name one country's currency. In a claim or a value, a leading token outside the table (three capitals, letters before "$", or another currency sign) is `unknown_currency`, naming it. In running text only table codes count, so all-caps prose ("AND 1,000") is never read as a currency; an unknown code there leaves the amount's currency not stated. An amount with more decimals than its currency's minor units does not parse; amounts are still held in hundredths, so a three-decimal amount ("BHD 1.500") does not parse either (refused, not rounded).
-7. **"$" (5).** Recorded as `dollars_country_not_printed`. Only the claim's currency can be set at confirmation, and only when the claim wrote "$"; a document's "$" is never filled in, so "$" against "USD" between two documents stays not comparable (`currency_country_not_printed`). Records that moved, no verdict: Gillette's cover note ("USD 1,000,000 each Claim") against Reliance ("$500,000 ... each loss") now stops at the currency (was `basis_mismatch`); in the Reliance-in-scope counterfactual the author's claim against Reliance is still `unresolved (amounts_not_comparable)`, now for `currency_country_not_printed` (was `basis_not_stated`); Reliance's currency reads "dollars, country not printed" (was USD).
-8. **Basis (5).** `data/basis_phrases.json` keeps the six D9 phrases and adds per coverage period, per policy period, per occurrence, per claim, any one occurrence, each its own basis. None of the five appears in the family A or B sources. The atomize prompt keeps its D9 list of bases, so its text and recordings do not move.
-9. **Freeze.** `proofgraph/geometry.py`, `data/currencies.json` and `data/basis_phrases.json` join the frozen files: the checker and the comparator read them.
-
-**Checks:** the D11 regression (5/5), family A (`pgrun verdict`, `pgrun derive`: `unresolved (documents_disagree)`) and family B (`pgrun familyb`: 11/11 D9 expectations, 5/8 preregistered as recorded) replay with no API key and the same answers. Family C, two fresh live runs: 5 of 5 preregistered answers each (`results/family_c.md`, "Under D12").
-
-
-## D13. Effective dates are read from the page; a person picks the figure in a multi-amount line (2026-11-24, accepted, built 2026-11-24)
-
-Status: accepted, built 2026-11-24.
-
-Both come from gaps in the insurance product, decided before any tax document was opened, so the tax run that follows stays a holdout.
-
-1. **Effective dates come from printed text, never from the form edition.** Today an upload's effective date is taken from the form's edition (`upload.py`, `edition_date`), which is when the form was printed, not when the coverage took effect; two endorsements on different editions could let rule 2 pick a winner for the wrong reason. Now the proposer quotes the printed effective-date line (as it quotes form number and title); code parses the date from the verified quote and records the phrase as printed ("effective 12/31/96", "for taxable years beginning after December 31, 2025"); the person confirms or corrects it on the confirmation row. A date typed by the person with no verified quote is a judgment and needs a reason. No quote and no entry: no effective date, so rule 2 cannot fire on that document. The edition is never used as an effective date. Code orders documents by the parsed date only; it does not interpret "after" or "on or after".
-2. **When a confirmed line holds several amounts and no valid pointer, the person picks the figure.** The confirmation screen lists the amounts code found in the verified quote; the person picks the one the claim means. Recorded as `value_source: set_at_confirmation` with the line and the figure, shown on the result as basis and currency already are (D11, D12). Code never matches the claim's wording to a figure; with no pick, `value_ambiguous` stands.
-
-**Not decided here:** a claim about an amount as of a date ("the cap for tax year 2026"). That is a new claim kind and the expected break of the tax test; it gets its own decision after that test, written in response to what breaks.
-**Checks:** every existing test, the D11 regression, families A, B and C unchanged (Gillette's hand-typed dates are correct; the ISO forms have none). One re-hash after both land.
-
-**Built: 2026-11-24, with notes.** Commits `4f99170` (1), `e2ff5b2` (2). No frozen file changed (the arbiter, assertions, schema and checker are byte-identical), so the hashes in `data/freeze.json` stand; its note names D13. The support, attack and atomize prompts are unchanged; only the upload proposer's prompt gained a field, and no recorded response or replayed verdict depends on it. Where the text left a choice, the conservative option was taken:
-1. **Parsing (1).** `printed_date` in `proofgraph/propose.py` reads month-name dates ("June 1, 1996", "Dec. 31, 2025", "1 June 1996"), slash dates as month/day/year (as US forms print them; a two-digit year is 19yy from 50, else 20yy) and ISO dates. A line with no date, an impossible one, or two different dates ("6/1/96 to 6/1/99") gives none. The words around the date are kept in the phrase and never read.
-2. **Confirmation (1).** The row's effective date is prefilled with the parsed date and can be confirmed, corrected or cleared. The same date written another way counts as the printed one; a different date, or any date on a file with no verified line, is `typed_at_confirmation` and needs a reason; a cleared printed date is recorded as `cleared_at_confirmation`, and the document has no effective date. Recorded in `confirmed.json` with the phrase and the verified quote (page, occurrence, count). `InstrumentLabel` is unchanged, so the schema did not move. The edition is still kept as the instrument's version.
-3. **Which lines take a pick (2).** Only a value_ambiguous line whose verified quote states several amounts lists them. A quote with one amount and a pointer elsewhere in it (code and model disagree) is not offered a pick and stays `value_ambiguous`. A pick outside the list, or for a line that lists none, is ignored, so the line stays `value_ambiguous`.
-4. **The pick (2).** A pick is the position of a figure in the line's list, never its text, so a figure printed twice in one line is not ambiguous. The figure goes through the unchanged assertion step as a pointer inside the verified quote; its reading route is recorded as `set_at_confirmation`, a judgment. A picked figure that does not parse is refused (`figure_not_read`). To build that assertion after the reads, `PacketRun` now keeps the admitted instruments (`pipeline.py`, not frozen).
-
+**Not decided:** a claim about an amount as of a date ("the 2024 limit"). Today code does not read the year in such a claim (README, Limitations). It needs its own decision.
