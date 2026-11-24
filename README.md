@@ -6,7 +6,12 @@
 - **With ProofGraph:** an answer you can check in seconds, or a named reason it cannot answer.
 - **The line it never crosses:** the model finds and quotes. Code compares and applies the rules. A model never decides which document wins.
 
-**Not:** a document store, a coverage opinion or legal advice. Tested on three document sets: a 1996 D&O program filed with the SEC, ISO homeowners forms, and a Chubb cyber policy it was never built on ([2 of 5, then 5 of 5 after D12](results/family_c.md)).
+**Not:** a document store, a coverage opinion or legal advice. Tested on five document sets:
+- a 1996 D&O program filed with the SEC;
+- ISO homeowners forms;
+- a Chubb cyber policy it was never built on ([2 of 5, then 5 of 5 after D12](results/family_c.md));
+- US tax statutes, a preregistered holdout ([5 of 12 right, 0 wrong, 7 refused with a reason](results/family_tax.md));
+- IRS annual-limit notices uploaded through the app ([results](results/live_irs.md)).
 
 **Bring your own claim** ([D11](DECISIONS.md)). Type any amount or wording claim. Code reads it; the for and against reads find lines in every document of that policy; a person confirms which lines are about the claim (or sets one aside, with a reason, shown on the result); the unchanged decision tree runs. The eight hand-written questions are now the regression test: typed as plain text, all five amount claims give the same answers ([results](results/d11_regression.md)).
 
@@ -14,10 +19,10 @@
 
 | Answer | When | Seen on real documents? |
 |---|---|---|
-| **supported** (right) | The controlling document states the claim's amount. | Yes: 8 family B packets. |
-| **contradicted** (wrong) | It states a different amount. Both are shown. | Yes: jewelry claim $1,500 vs HO 00 15's $1,000. |
+| **supported** (right) | The controlling document states the claim's amount. | Yes: 8 family B packets; the SALT and 1099-K holdout claims; IRS HSA and 401(k) uploads. |
+| **contradicted** (wrong) | It states a different amount. Both are shown. | Yes: jewelry claim $1,500 vs HO 00 15's $1,000; HSA $4,150 vs $4,300. |
 | **unresolved** (can't be settled), with one reason | `documents_disagree`: amounts differ, no rule picks one. | Yes: Gillette retention, $1,000,000 vs $500,000. |
-| | `amounts_not_comparable`: currency or basis differs or is missing; the mismatch is named. | In tests only. |
+| | `amounts_not_comparable`: currency or basis differs or is missing; the mismatch is named. | Yes: a typed Gillette retention claim with the Reliance binder set aside (the rest omit a basis or a currency). |
 | | `governing_instrument_absent`: an endorsement is here, the document it changes is not. | Yes: HO 00 15 without HO 00 03. |
 | **not found** | No document addresses the question. | In a unit test only. |
 | **quoted** | Wording claims. The controlling clause is quoted with its page, marked not checked. No verdict. | Yes: HO 00 15 item 5. |
@@ -26,7 +31,7 @@ Two amounts are compared only when both state the same currency, and either the 
 
 **Two precedence rules, nothing else** ([D3](DECISIONS.md)). Each applies only between documents issued under the question's policy.
 1. **Endorsement over base form.** Fires in family B (HO 00 15 is printed "Form HO 00 03 Only"). Never in family A: its endorsements amend GS-212C, whose base wording is not in the packet ([D5](DECISIONS.md)).
-2. **Later effective date over earlier.** Compares effective dates, never coverage periods.
+2. **Later effective date over earlier.** Compares effective dates, never coverage periods. Fired on uploaded IRS notices, with the dates read from the printed line ([D13](DECISIONS.md), [results](results/live_irs.md)).
 
 No rule applies and the documents disagree? It refuses to pick.
 
@@ -43,7 +48,8 @@ uv run uvicorn app.server:app --port 8765
 
 Open http://localhost:8765.
 - **Five worked examples** (right, wrong, can't be settled, base form missing, wording quoted) replay recorded model responses: no key, no cost.
-- **Upload your own PDFs** with `ANTHROPIC_API_KEY` set. The model proposes what each file is from its printed form number, edition and title; code checks the quote is on the page; a person confirms every row. Name and time are frozen with the run ([D10](DECISIONS.md)).
+- **Upload your own PDFs** with `ANTHROPIC_API_KEY` set. The model proposes what each file is and its effective date from what is printed on it; code checks the quote is on the page; a person confirms ([D10](DECISIONS.md), [D13](DECISIONS.md)).
+- **Every result** has its own link (`/?review=<id>`), a print view and an "Approved by" sign-off. Results are saved under `data/reviews/` on the machine that ran them, so links survive a restart.
 
 ## Run it
 
@@ -137,16 +143,20 @@ Each guard has a test; counterfactual tests show what gets through without it.
 | Right/wrong only for amounts | Wording is quoted, never judged. |
 | Missing-document check needs an `amends` route | Recorded by hand or read from an upload's printed line. Out-of-policy amendments (Gillette's Endorsement 13 → GS-212C) are listed as set aside, not checked. |
 | Endorsement rule only on an assembled packet | Fired 3 of 3 on two ISO forms paired under a specimen policy; both state the same amount, so no value dispute has yet been settled by a rule. |
-| Small sample | 20 packets (12 Gillette dev, 8 ISO holdout) plus 5 typed claims on a third set. Shows the design; not a rate. |
+| Small sample | 20 packets (12 Gillette dev, 8 ISO holdout), 5 typed claims on the Chubb set, 12 tax holdout claims, 5 IRS upload claims. Shows the design; not a rate. |
+| Amending language | Text that changes a figure ("by striking '$10,000'", "increased from $23,000 to $23,500") is not recognised by code. A verified quote of the old figure can be read as what the amending document states. So far it has refused or needed a person to set the line aside; in one tax diagnostic it would have answered wrong ([family_tax](results/family_tax.md), [live_irs](results/live_irs.md)). |
+| Prompts still shaped by insurance | The upload proposer and the claim splitter describe their input as insurance; on tax documents that cost 2 refusals and left kinds unproposed ([family_tax](results/family_tax.md)). Percentages are not compared as amounts. |
 | New layouts | On the Chubb cyber sample: 2 of 5 preregistered answers at first, none wrong. The misses (columns, repeated wording across coverages, a missing value pointer, a wording claim about a duration) led to [D12](DECISIONS.md); after it, two fresh runs matched 5 of 5. One D12 fix was made after seeing this packet's output, so that 5 of 5 is not a clean holdout; the next unseen set is ([results](results/family_c.md)). |
-| Typed claims | A person confirms every grouping; pre-fill from past confirmations and auto-accept are not built. Dates are refused (no comparator). Proposer checked on the two ISO forms and one Chubb form. No public API. |
+| Typed claims | A person confirms every grouping; pre-fill from past confirmations and auto-accept are not built. A claim about a date ("the cap for tax year 2026") is refused: no date comparator. No public API. |
 
 ## Repo map
 
 - [`DECISIONS.md`](DECISIONS.md): numbered design decisions, cited by the code.
 - [`DEFERRED.md`](DEFERRED.md): found and deliberately left, with reasons.
-- [`data/SOURCES.md`](data/SOURCES.md): both document sets, read from the files.
+- [`data/SOURCES.md`](data/SOURCES.md): the first two document sets, read from the files; later sets record their sources in their preregistration files.
 - [`results/family_b.md`](results/family_b.md): the holdout run.
 - [`results/d11_regression.md`](results/d11_regression.md): typed claims reproduce the frozen answers.
 - [`results/family_c.md`](results/family_c.md): a third document set, preregistered: 2 of 5, D12, then 5 of 5.
+- [`results/family_tax.md`](results/family_tax.md): US tax statutes, preregistered holdout, domain unchanged.
+- [`results/live_irs.md`](results/live_irs.md): IRS limits uploaded through the app (not preregistered).
 - Earlier version (ContractNLI evidence graph): git history up to `14264f0`.
