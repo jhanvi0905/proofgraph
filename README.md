@@ -107,7 +107,7 @@ Every route carries a strength: **read** off the page, **derived** by code, or *
 - **Currencies and bases are data.** [`currencies.json`](data/currencies.json) (ISO 4217) and [`basis_phrases.json`](data/basis_phrases.json), each phrase its own basis. "$" is recorded as dollars, country not printed; against a named currency it isn't comparable until a person sets the claim's currency, recorded on the result. An unknown currency token is refused by name.
 - **The pipeline matches the hand labels, and found more.** `pgrun derive` reaches the same verdict (*unresolved, documents disagree*) from four assertions instead of three: support found the FD960229 cover note restating the retention, which the hand labels missed.
 
-**The measure is reviewer trust:** can someone check the answer without rereading the packet? Accuracy is reported with its denominator, but it is not the headline.
+**What is measured** ([metrics](results/metrics.md)): wrong answers first (0 of 19 on clean holdouts, 0 of 30 overall), then whether every answer is checkable and every refusal named, then coverage, the cost of the caution (19 of 35 answerable claims on clean holdouts, with the 16 it declined traced to 10 small fixes, 4 design gaps and 2 already fixed).
 
 ## How it is kept honest
 
@@ -159,5 +159,5 @@ Each guard has a test; counterfactual tests show what gets through without it.
 - [`results/family_c.md`](results/family_c.md): a third document set, preregistered: 2 of 5, D12, then 5 of 5.
 - [`results/family_tax.md`](results/family_tax.md): US tax statutes, preregistered holdout, domain unchanged.
 - [`results/live_irs.md`](results/live_irs.md): IRS limits uploaded through the app (not preregistered).
-- [`results/metrics.md`](results/metrics.md): accuracy by category, refusal precision and recall, precedence accuracy, derivation validity, cost per packet; reproduce with `scripts/metrics.py`.
+- [`results/metrics.md`](results/metrics.md): wrong answers, answer precision, checkability, named refusals and coverage first; then accuracy by category, refusal precision and recall, precedence, derivation validity and cost. Reproduce with `scripts/metrics.py`.
 - Earlier version (ContractNLI evidence graph): git history up to `14264f0`.

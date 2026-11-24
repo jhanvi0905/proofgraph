@@ -2,15 +2,22 @@
 
 Computed by `scripts/metrics.py` over every recorded run set. The tables below are that script's output, pasted unedited (the 2026-11-24 state of the repo). Nothing here is a new run: no model call was made.
 
-## In short
+## What matters for this system
 
-- **No wrong verdict in any set.** Every miss is a refusal with a named reason.
-- **Accuracy 54% on clean holdouts (20 of 37):** the share of claims where the answer matched the real one. The other 17 were refusals.
-  - 14 were tax claims, counted once per run. Their causes: prompts still worded for insurance (4), percentages not read as amounts (4), "IRC" read as a currency (2), claims about a date (2), and "by striking" amending text (2).
-  - 3 were Chubb claims, since fixed by D12.
-- **Refusal precision 7% (1 of 15):** of the refusals on clean holdouts, one was a case where refusing was the right answer. The other 14 were over-cautious refusals of answerable claims, not wrong judgments.
-- **Refusal recall 100% (1 of 1):** it never answered when it should have refused.
-- **The trade:** it fails safe and refuses too often. The causes are listed above; three of them are small.
+ProofGraph's promise is not "answers most questions". It is that a confident answer is never wrong, every answer can be checked, and a refusal says why. So the headline measures are those, then the cost of the caution.
+
+| Measure | Clean holdouts (37 claim-runs) | All sets (56) | Why it matters |
+|---|---|---|---|
+| **Wrong answers**, of answers given | **0 of 19** | **0 of 30** | A wrong verdict with a citation is the failure that costs a claims file or a tax position |
+| **Answer precision** (right, of answers given) | 19/19 | 30/30 | When it answers, the answer can be relied on |
+| **Refused when it should** (of claims with no answer in the documents) | 1/1 | 5/5 | It does not invent an answer where the documents do not settle one |
+| **Refusals with a named reason** | 15/15 | 20/20 | A refusal is a result a person can act on, not a silence |
+| **Every answer checkable** | by construction | by construction | An answer can only rest on lines the checker verified against the source file; 31 of 31 replayed proposals passed it, 0 rejected |
+| **Coverage** (answered right, of answerable claims) | **19 of 35 (54%)** | 30 of 47 (64%) | The cost of the caution: answerable claims it declined |
+
+**Who can resolve the 16 answerable claims it declined (clean holdouts):** 10 need small system fixes (prompts worded for insurance, percentages not read as amounts, "IRC" read as a currency); 4 are design gaps (claims about a date, amending "by striking" text); 2 were fixed by D12. None needed a better model.
+
+**Read it as:** safe, checkable, over-cautious, with the over-caution traced to named causes. The older measures (accuracy by category, refusal precision and recall, precedence, derivation validity, cost) follow and say the same thing from the other side: refusal precision is low (1 of 15 on clean holdouts) because most refusals were of answerable claims, and recall is 100%.
 
 ## Reproduce
 
@@ -30,6 +37,7 @@ Needs no network or key once the pinned local embedding model (all-MiniLM-L6-v2)
 
 ## Definitions
 
+0. **What matters.** An *answer* is supported or contradicted (quoted is a third outcome for wording claims, never a refusal). Wrong answers = answers whose verdict differs from the expected label, including answering where a refusal was expected. Answer precision = right answers / answers given. Coverage = right answers / claims whose expected label is supported or contradicted. Refusals with a named reason = refusals carrying a recorded reason code. "Who can resolve it" is assigned by code from the recorded reason and run set (`resolver()` in the script), not item by item.
 1. **Bucket accuracy.** Per expected category (supported, contradicted, unresolved split by reason, not_found, quoted, refuse before a verdict, and "any refusal" for Family C's C5, whose label is "not_found or refused"): n, and the share where the system's category equals the expected one. Table 1 is category only; Table 1b also requires the reason to match where the label gives one (for supported, no_conflict vs resolved_by_rule counts as a reason).
 2. **Refusal precision and recall.** A system refusal is any output that is not supported, contradicted or quoted: unresolved, not_found, or a refusal before a verdict (claim unreadable, atomize refused, no lines, value_ambiguous, ...). An expected refusal is an expected unresolved, not_found or refuse. TP = refusal where a refusal was expected. FP = refusal where an answer (supported, contradicted or quoted) was expected: **over-refusal**. FN = no refusal where one was expected: **under-refusal**. Precision = TP/(TP+FP). Recall = TP/(TP+FN). A system that refuses everything has recall 100% and precision equal to the share of expected refusals (here 5 of 56 pooled = 9%; 1 of 37 in the clean holdout pool = 3%). A system that never refuses has precision undefined and recall 0. Neither rate means anything without the other.
 3. **Precedence accuracy.** Items = those where the label names a governing document or rule, or where a rule fired in the output. Match = the output's governing document equals the label's (family B, D11: also the rule). For the tax holdout the label names no rule and the governing document is derived by the script's author from each claim's `real_world_why` (always the Public Law); only the document is scored. Family C, IRS and the tax predictions carry no governing-document label, so the metric is not scored there.
@@ -43,7 +51,7 @@ Needs no network or key once the pinned local embedding model (all-MiniLM-L6-v2)
 - **B-pre is replayed under the current rules.** It scores 5 of 8 on reason (the three endorsed packets were labelled `resolved_by_rule`, which D9 calls a mislabel) and 8 of 8 on category. The as-run table (`results/family_b.md`) was 8 of 8 at `eeb9a2f`.
 - **The tax refusals count as over-refusals against real-world labels.** The real answer existed and the system declined, so by the definition they are false refusals, even though each was a named refusal and none was a wrong verdict. Against the preregistered predictions, the same outputs score as under-refusals, because the author predicted `governing_instrument_absent` and it never occurred. Both views are shown, not netted.
 - **Wrong verdicts.** None in any set (no supported where contradicted was expected, or the reverse). The tax diagnostic with the S2 line set aside (supported, wrong) is not a scored run and is not in the tables.
-- **IRS.** Row 4's refusal reason is not recorded in the results doc (recorded as `unresolved`); row 5 has a line set aside by a person. Not preregistered.
+- **IRS.** Row 4 is unresolved (documents disagree); row 5 has a line set aside by a person. Not preregistered.
 - **Tax derivation validity** is over lines shown to the person, so it excludes pass-level rejects and overstates validity. In family A, B and D11 every proposal passed both stages (31 of 31): the pass check and assertion step have not yet rejected anything in a replay. The rejects that exist are in live runs (tax: value_ambiguous on the strike line; Family C: value_not_in_verified_span on an exclusion line, no count given) and only the tax count is in a record.
 - **Latency was not recorded for any claim run.** The tax, Family C and IRS live traces were not committed. The only latencies in the working tree are 6 document-proposal calls in gitignored `data/uploads`, not claim runs, and they are not reproducible from the repo.
 - **Cost.** Replay cost counts duplicated prompts that the cache would have saved. The live cost of family B was 20 real calls as run, not 32. Per-claim max cost is only available for replayed sets; tax and Family C give a mean from the run total.
@@ -67,9 +75,33 @@ Needs no network or key once the pinned local embedding model (all-MiniLM-L6-v2)
 | C-orig2 | Family C, original run 2 (watermark glyphs dropped), C4 not re-run | not clean | 4 | parser fix made after seeing run 1 |
 | C-D12-1 | Family C under D12, run 1 | not clean | 5 | D12 fixes made after seeing Family C output |
 | C-D12-2 | Family C under D12, run 2 | not clean | 5 | D12 fixes made after seeing Family C output |
-| IRS | IRS live runs (results/live_irs.md) | not clean | 5 | not preregistered; row 5 has one line set aside by a person; the reason for row 4's refusal is not recorded |
+| IRS | IRS live runs (results/live_irs.md) | not clean | 5 | not preregistered; row 5 has one line set aside by a person |
 
-### 1. Bucket accuracy by expected category (category match, k/n)
+## 0. What matters for this system
+
+| set | n | wrong answers (of answers given) | answer precision | coverage (answered right, of answerable) | refused when it should (of expected refusals) | wording claims quoted | refusals with a named reason |
+|---|---|---|---|---|---|---|---|
+| A | 1 | n=0 wrong | n=0 | n=0 | 1/1 (100%) | n=0 | 1/1 (100%) |
+| B-pre | 8 | 0/8 (0%) wrong | 8/8 (100%) | 8/8 (100%) | n=0 | n=0 | n=0 |
+| B-D9 | 11 | 0/9 (0%) wrong | 9/9 (100%) | 9/9 (100%) | 1/1 (100%) | 1/1 (100%) | 1/1 (100%) |
+| Tax-real-1 | 12 | 0/5 (0%) wrong | 5/5 (100%) | 5/12 (42%) | n=0 | n=0 | 6/6 (100%) |
+| Tax-real-2 | 12 | 0/5 (0%) wrong | 5/5 (100%) | 5/12 (42%) | n=0 | n=0 | 5/5 (100%) |
+| C-orig1 | 5 | 0/1 (0%) wrong | 1/1 (100%) | 1/3 (33%) | 1/1 (100%) | 0/1 (0%) | 4/4 (100%) |
+| C-D12-1 | 5 | 0/3 (0%) wrong | 3/3 (100%) | 3/3 (100%) | 1/1 (100%) | 1/1 (100%) | 1/1 (100%) |
+| C-D12-2 | 5 | 0/3 (0%) wrong | 3/3 (100%) | 3/3 (100%) | 1/1 (100%) | 1/1 (100%) | 1/1 (100%) |
+| IRS | 5 | 0/4 (0%) wrong | 4/4 (100%) | 4/5 (80%) | n=0 | n=0 | 1/1 (100%) |
+| Holdouts pooled, clean (B-pre, Tax-real x2 runs, C-orig1) | 37 | 0/19 (0%) wrong | 19/19 (100%) | 19/35 (54%) | 1/1 (100%) | 0/1 (0%) | 15/15 (100%) |
+| All sets pooled (A, B-D9, Tax-real x2, C-orig1, C-D12 x2, IRS) | 56 | 0/30 (0%) wrong | 30/30 (100%) | 30/47 (64%) | 5/5 (100%) | 3/4 (75%) | 20/20 (100%) |
+
+### Over-refusals: answerable claims it declined, by who can resolve them
+
+| who can resolve it | over-refusals in the clean holdout pool |
+|---|---|
+| small system fix | 10 |
+| design gap | 4 |
+| fixed since (D12) | 2 |
+
+## 1. Bucket accuracy by expected category (category match, k/n)
 
 | set | supported | contradicted | unresolved: documents_disagree | unresolved: governing_instrument_absent | unresolved: amounts_not_comparable | not_found | quoted | refuse | refusal_any | all |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -89,7 +121,7 @@ Needs no network or key once the pinned local embedding model (all-MiniLM-L6-v2)
 | Holdouts pooled, clean (B-pre, Tax-real x2 runs, C-orig1) | 15/22 | 4/13 | - | - | - | - | 0/1 | - | 1/1 | 20/37 (54%) |
 | All sets pooled (A, B-D9, Tax-real x2, C-orig1, C-D12 x2, IRS) | 21/28 | 9/19 | 1/1 | 1/1 | - | - | 3/4 | - | 3/3 | 38/56 (68%) |
 
-#### 1b. Same, requiring the reason to match where the label gives one
+### 1b. Same, requiring the reason to match where the label gives one
 
 | set | supported | contradicted | unresolved: documents_disagree | unresolved: governing_instrument_absent | unresolved: amounts_not_comparable | not_found | quoted | refuse | refusal_any | all |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -109,7 +141,7 @@ Needs no network or key once the pinned local embedding model (all-MiniLM-L6-v2)
 | Holdouts pooled, clean (B-pre, Tax-real x2 runs, C-orig1) | 12/22 | 4/13 | - | - | - | - | 0/1 | - | 1/1 | 17/37 (46%) |
 | All sets pooled (A, B-D9, Tax-real x2, C-orig1, C-D12 x2, IRS) | 21/28 | 9/19 | 1/1 | 1/1 | - | - | 3/4 | - | 3/3 | 38/56 (68%) |
 
-### 2. Refusal precision and recall
+## 2. Refusal precision and recall
 
 | set | n | TP | FP | FN | precision | recall | over-refusals (=FP) | under-refusals (=FN) | system refusals | expected refusals |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -129,7 +161,7 @@ Needs no network or key once the pinned local embedding model (all-MiniLM-L6-v2)
 | Holdouts pooled, clean (B-pre, Tax-real x2 runs, C-orig1) | 37 | 1 | 14 | 0 | 1/15 (7%) | 1/1 (100%) | 14 | 0 | 15 | 1 |
 | All sets pooled (A, B-D9, Tax-real x2, C-orig1, C-D12 x2, IRS) | 56 | 5 | 15 | 0 | 5/20 (25%) | 5/5 (100%) | 15 | 0 | 20 | 5 |
 
-### 3. Precedence accuracy
+## 3. Precedence accuracy
 
 | set | n items | governing document matches | rule matches (labelled items) | note |
 |---|---|---|---|---|
@@ -149,7 +181,7 @@ Needs no network or key once the pinned local embedding model (all-MiniLM-L6-v2)
 | Holdouts pooled, clean (B-pre, Tax-real x2 runs, C-orig1) | 27 | 13/27 (48%) | 3/3 (100%) | rule fired on 13; of those governing (+rule where labelled) match 13/13 |
 | All sets pooled (A, B-D9, Tax-real x2, C-orig1, C-D12 x2, IRS) | 29 | 15/29 (52%) | 5/5 (100%) | rule fired on 15; of those governing (+rule where labelled) match 15/15 |
 
-### 4. Derivation validity
+## 4. Derivation validity
 
 | set | claims with lines / packet runs | evidence items proposed by the model | passed pass-level check | of those: became Assertion/Clause | end to end: accepted / proposed | invalid assertions | repairs |
 |---|---|---|---|---|---|---|---|
@@ -169,7 +201,7 @@ Reject reasons:
 | Tax-real-1 | not recorded | states several amounts; the reads did not say which is the c: 1 |
 | Tax-real-2 | not recorded | states several amounts; the reads did not say which is the c: 1 |
 
-### 5. Cost and latency
+## 5. Cost and latency
 
 | set (replayed) | packets | model calls | calls per packet mean / max | input tokens | output tokens | cost if every call were live | mean per packet | max per packet |
 |---|---|---|---|---|---|---|---|---|
@@ -236,4 +268,4 @@ Latency: replays record 0 ms (no call is made). The repo holds no latency for an
 | C-orig1 | C4 | quoted | None | refuse | atomize_refused |
 | C-orig2 | C2 | contradicted | None | refuse | no_lines |
 | C-orig2 | C3 | supported | None | refuse | no_lines |
-| IRS | 401k $23,000, all lines confirmed | contradicted | None | unresolved | None |
+| IRS | 401k $23,000, all lines confirmed | contradicted | None | unresolved | documents_disagree |

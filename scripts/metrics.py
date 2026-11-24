@@ -343,9 +343,9 @@ def load_family_c_irs() -> dict[str, SetInfo]:
                       "D12 fixes made after seeing Family C output"),
     }
     irs = SetInfo("IRS", "IRS live runs (results/live_irs.md)", "not clean",
-                  note="not preregistered; row 5 has one line set aside by a person; the reason for row 4's refusal is not recorded")
+                  note="not preregistered; row 5 has one line set aside by a person")
     rows = [("HSA $4,300", S, S, None, "later_effective_date"), ("HSA $4,150", C, C, None, "later_effective_date"),
-            ("401k $23,500", S, S, None, "later_effective_date"), ("401k $23,000, all lines confirmed", C, "unresolved", None, None),
+            ("401k $23,500", S, S, None, "later_effective_date"), ("401k $23,000, all lines confirmed", C, "unresolved", "documents_disagree", None),
             ("401k $23,000, one line set aside", C, C, None, "later_effective_date")]
     for item, e, g, gr, rule in rows:
         irs.obs.append(Obs("IRS", item, e, None, g, gr, None, None, "named" if rule else None, rule, prec_labelled=False))
@@ -407,6 +407,58 @@ def refusal_counts(obs):
     fp = sum(is_refusal(o.got) and not exp_is_refusal(o.exp) for o in obs)
     fn = sum((not is_refusal(o.got)) and exp_is_refusal(o.exp) for o in obs)
     return tp, fp, fn
+
+
+# ------------------------------------------------------------------ what matters for this system
+
+VERDICTS = ("supported", "contradicted")  # an answer with a verdict; "quoted" is an answer without one
+
+
+def resolver(o: Obs) -> str:
+    """Who can turn this non-answer into an answer: classified from the recorded reason and run set, never by hand per item."""
+    r = o.got_reason or ""
+    if o.set_id.startswith("C-orig"):
+        return "fixed since (D12)"
+    if r in ("atomize_refused", "more_than_one_value") or o.got == "quoted" or r == "no_lines":
+        return "small system fix"  # prompts worded for insurance; "IRC" read as a currency; percentages not amounts
+    if r in ("dates_not_supported", "value_ambiguous"):
+        return "design gap"  # claims about a date; amending ("by striking") text
+    if o.set_id == "IRS":
+        return "person at confirmation"  # the "from $23,000" line, set aside in the next row
+    return "other"
+
+
+def what_matters(o_list) -> dict:
+    real = [o for o in o_list]
+    answered = [o for o in real if o.got in VERDICTS]
+    wrong = [o for o in answered if o.got != o.exp]
+    answerable = [o for o in real if o.exp in VERDICTS]
+    right = [o for o in answerable if o.got == o.exp]
+    wording = [o for o in real if o.exp == "quoted"]
+    over = [o for o in answerable if o.got not in VERDICTS]
+    exp_ref = [o for o in real if exp_is_refusal(o.exp)]
+    refusals = [o for o in real if is_refusal(o.got)]
+    named = [o for o in refusals if o.got_reason]
+    return dict(n=len(real), answered=len(answered), wrong=len(wrong), right=len(right), answerable=len(answerable),
+                wording=len(wording), wording_ok=sum(o.got == "quoted" for o in wording), over=over,
+                exp_ref=len(exp_ref), ref_ok=sum(is_refusal(o.got) for o in exp_ref), refusals=len(refusals), named=len(named))
+
+
+def table0(sets) -> tuple[str, str]:
+    groups = [(sid, sets[sid].obs) for sid in ["A", "B-pre", "B-D9", "Tax-real-1", "Tax-real-2", "C-orig1", "C-D12-1", "C-D12-2", "IRS"] if sid in sets]
+    groups += [(name, [o for m in members if m in sets for o in sets[m].obs]) for name, members in POOLS]
+    rows, over_all = [], Counter()
+    for name, obs in groups:
+        w = what_matters(obs)
+        rows.append([name, str(w["n"]), pct(w["wrong"], w["answered"]) + " wrong", pct(w["answered"] - w["wrong"], w["answered"]),
+                     pct(w["right"], w["answerable"]), pct(w["ref_ok"], w["exp_ref"]), pct(w["wording_ok"], w["wording"]),
+                     pct(w["named"], w["refusals"])])
+        if name.startswith("Holdouts pooled"):
+            over_all = Counter(resolver(o) for o in w["over"])
+    t = md(["set", "n", "wrong answers (of answers given)", "answer precision", "coverage (answered right, of answerable)",
+            "refused when it should (of expected refusals)", "wording claims quoted", "refusals with a named reason"], rows)
+    o = md(["who can resolve it", "over-refusals in the clean holdout pool"], [[k, str(v)] for k, v in over_all.most_common()])
+    return t, o
 
 
 def table2(sets) -> str:
@@ -538,6 +590,11 @@ def main() -> None:
     print(md(["id", "set", "status", "n", "note"], [[s.set_id, s.title, s.status, str(len(s.obs)), s.note] for sid in ORDER if (s := sets.get(sid))]))
     if skipped:
         print("\nSkipped (needed a live call; none made): " + "; ".join(skipped))
+    t0, o0 = table0(sets)
+    print("\n## 0. What matters for this system\n")
+    print(t0)
+    print("\n### Over-refusals: answerable claims it declined, by who can resolve them\n")
+    print(o0)
     print("\n## 1. Bucket accuracy by expected category (category match, k/n)\n")
     print(table1(sets, False))
     print("\n### 1b. Same, requiring the reason to match where the label gives one\n")
