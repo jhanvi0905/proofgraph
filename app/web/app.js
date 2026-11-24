@@ -427,8 +427,12 @@
     var b = el("button", cls, LABEL[s.id] || s.title); b.type = "button"; b.title = s.title;
     b.addEventListener("click", function () { runSample(s); }); return b;
   }
+  var NO_ISO = "This example's source documents could not be fetched on this server. It runs when you install ProofGraph yourself.";
   fetch("/api/samples").then(function (r) { return r.json(); }).then(function (list) {
-    samples = list;
+    samples = list.filter(function (s) { return s.available !== false; });
+    Array.prototype.forEach.call(document.querySelectorAll(".r-run"), function (b) {
+      if (!sampleById(b.dataset.sample)) { var n = el("p", "r-note", NO_ISO); b.replaceWith(n); }
+    });
     var q = new URLSearchParams(location.search), sid = q.get("sample"), rk = q.get("run");
     if (sid && sampleById(sid)) runSample(sampleById(sid));
     else if (rk && /^[\w-]+\/[\w.-]+$/.test(rk)) { current = null; run("/api/run/" + rk, new FormData(), ""); }
@@ -447,6 +451,11 @@
     var panel = document.querySelector('.r-panel[data-ex="' + l.dataset.needs + '"]'); if (!panel || !panel.children.length) l.hidden = true;
   });
   tabs.addEventListener("change", showEx); showEx();
+  // Pictures cropped from the ISO forms: a server without the forms says so instead of a broken image.
+  Array.prototype.forEach.call(document.querySelectorAll("img.frame-pic"), function (img) {
+    function gone() { var n = el("p", "r-note", "A crop of an ISO form. " + NO_ISO); img.replaceWith(n); }
+    if (img.complete && !img.naturalWidth) gone(); else img.addEventListener("error", gone);
+  });
   // Two doors: worked packets and your own documents, as tabs in the check section.
   function door(which) {
     var up = which === "upload";

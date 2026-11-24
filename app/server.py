@@ -34,6 +34,10 @@ from proofgraph.trace import Trace
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 WEB = Path(__file__).resolve().parent / "web"
+# Where saved results and uploads live. A deploy points this at its persistent disk; locally it is data/.
+STATE = Path(os.environ.get("PROOFGRAPH_STATE", DATA))
+MISSING_SOURCE = ("This example's source documents could not be fetched on this server, so it cannot run here. "
+                  "It runs when you install ProofGraph yourself (README, Run it).")
 KEEP = 50
 
 
@@ -186,6 +190,10 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
     info_main, named_main = maps(DATA)
     info, named = info_main, named_main
 
+    def have(docs) -> bool:
+        """Every source file a worked packet needs is on this machine (the ISO forms are never redistributed)."""
+        return all((DATA / "raw" / named_main[d][0].file).exists() for d in docs)
+
     def stream(sample: dict):
         claim = sample["claim"]
         data = sample.get("data", DATA)  # an uploaded packet runs from its own folder: raw/, instruments.json, predicates.json
@@ -222,13 +230,16 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
 
     @app.get("/api/samples")
     def samples():
-        return [{"id": s["id"], "title": s["title"], "claim": s["claim"].text, "docs": s["docs"]} for s in _samples()]
+        return [{"id": s["id"], "title": s["title"], "claim": s["claim"].text, "docs": s["docs"], "available": have(s["docs"])}
+                for s in _samples()]
 
     @app.post("/api/sample/{sample_id}")
     def run_sample(sample_id: str):
         sample = next((s for s in _samples() if s["id"] == sample_id), None)
         if sample is None:
             return JSONResponse({"refusal": "That example is not available."}, status_code=404)
+        if not have(sample["docs"]):
+            return JSONResponse({"refusal": MISSING_SOURCE}, status_code=404)
         sample = {**sample, "rerun": f"/?sample={sample_id}"}
         return StreamingResponse(stream(sample), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
 
@@ -236,6 +247,8 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
     def packets():
         out = []
         for p in _packets():
+            if not have(p["docs"]):
+                continue
             maps = {d.doc_id: d for d in p["mappings"].documents}
             docs = []
             for d in p["docs"]:
@@ -258,6 +271,8 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
         p = next((x for x in _packets() if x["id"] == packet_id), None)
         if p is None:
             return JSONResponse({"refusal": "That packet is not available."}, status_code=404)
+        if not have(p["docs"]):
+            return JSONResponse({"refusal": MISSING_SOURCE}, status_code=404)
         claim = next((c for c in p["choices"] if c.claim_id == key), None) or p["claims"].get(key)
         if claim is None and key not in p["slots"]:
             return JSONResponse({"refusal": "That question is not on the fixed list for these documents, so nothing ran."}, status_code=400)
@@ -502,8 +517,9 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
         start = raw.index("ITEM VII Schedule of Underlying")
         lines = [ln.rstrip() for ln in raw[start:raw.index("</TABLE>", start)].split("\n")
                  if ln.strip() and not ln.strip().startswith("<")]
-        font = ImageFont.truetype("/System/Library/Fonts/Menlo.ttc", 26) if Path("/System/Library/Fonts/Menlo.ttc").exists() \
-            else ImageFont.load_default()
+        mono = next((f for f in ("/System/Library/Fonts/Menlo.ttc", "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf")
+                     if Path(f).exists()), None)  # macOS, then the Debian font the container installs
+        font = ImageFont.truetype(mono, 26) if mono else ImageFont.load_default(size=26)
         lh, pad = 40, 28
         width = int(max(font.getlength(ln) for ln in lines)) + 2 * pad
         img = Image.new("RGB", (width, lh * len(lines) + 2 * pad), "white")
@@ -541,4 +557,4 @@ def create_app(complete=complete_json, uploads_dir: Path | None = None, limit: L
     return app
 
 
-app = create_app(reviews_dir=DATA / "reviews")
+app = create_app(reviews_dir=STATE / "reviews", uploads_dir=STATE / "uploads")

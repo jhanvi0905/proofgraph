@@ -95,7 +95,9 @@ SEC_USER_AGENT="Your Name you@example.com" uv run pgrun demo
 
 - `ANTHROPIC_API_KEY` makes new model calls instead.
 - First run downloads `all-MiniLM-L6-v2` (pinned, ~90 MB); `uv sync` installs PyTorch.
-- The ISO forms are copyrighted and not redistributed: `pgrun fetch` says where to save them and checks the hash.
+- The ISO forms are copyrighted and never stored here: `pgrun fetch` downloads public copies by pinned URL and refuses them unless the sha256 matches. If a URL stops serving those bytes, it says where to save a copy.
+
+**Deploy.** `docker build -t proofgraph . && docker run -p 8000:8000 -e SEC_USER_AGENT="Your Name you@example.com" proofgraph`. The image holds no source document: the server fetches them by pinned URL and hash when it starts, and a worked example whose sources it cannot fetch says so instead of running. [`render.yaml`](render.yaml) sets up the same image on Render, with a disk so saved results survive a deploy (it needs about 720 MB of memory, so the 2 GB plan).
 
 ## Who decides what
 

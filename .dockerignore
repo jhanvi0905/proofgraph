@@ -1,0 +1,22 @@
+.git
+.venv
+.env
+.env.*
+.claude
+cache
+runs
+notes
+results
+docs
+tests
+scripts
+graphify-out
+.impeccable
+.archify
+.taste-skill
+**/__pycache__
+**/*.pyc
+# Never in the image: the ISO forms are copyrighted, and the Gillette filing is fetched at start.
+data/raw
+data/uploads
+data/reviews
