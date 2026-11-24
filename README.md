@@ -97,7 +97,7 @@ SEC_USER_AGENT="Your Name you@example.com" uv run pgrun demo
 - First run downloads `all-MiniLM-L6-v2` (pinned, ~90 MB); `uv sync` installs PyTorch.
 - The ISO forms are copyrighted and never stored here: `pgrun fetch` downloads public copies by pinned URL and refuses them unless the sha256 matches. If a URL stops serving those bytes, it says where to save a copy.
 
-**Deploy.** `docker build -t proofgraph . && docker run -p 8000:8000 -e SEC_USER_AGENT="Your Name you@example.com" proofgraph`. The image holds no source document: the server fetches them by pinned URL and hash when it starts, and a worked example whose sources it cannot fetch says so instead of running. [`render.yaml`](render.yaml) sets up the same image on Render, with a disk so saved results survive a deploy (it needs about 720 MB of memory, so the 2 GB plan).
+**Deploy.** `docker build -t proofgraph . && docker run -p 8000:8000 -e SEC_USER_AGENT="Your Name you@example.com" proofgraph`. The image holds no source document: the server fetches them by pinned URL and hash when it starts, and a worked example whose sources it cannot fetch says so instead of running. [`render.yaml`](render.yaml) runs the same image on Render's free plan. Measured under a 512 MB cap: 231 MB after the worked examples, 461 MB peak for a live check. With no disk, saved result links last until the next restart.
 
 ## Who decides what
 
@@ -155,6 +155,7 @@ Each guard has a test; counterfactual tests show what gets through without it.
 **Replay and cost**
 - One JSON line per stage: served model, prompt hash, tokens, rejects, verdict (`runs/trace.jsonl`).
 - Every response cached; a clean clone replays with no key.
+- The worked examples' embedding vectors are recorded too (`data/recorded/embed`, keyed by model, pinned revision and the text's sha256), so a replay never loads PyTorch: 231 MB of memory instead of about 700 MB.
 - Cost from real token counts: support + attack on the retention claim ≈ $0.03.
 
 ## Limitations

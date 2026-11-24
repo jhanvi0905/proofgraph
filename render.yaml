@@ -1,23 +1,20 @@
-# Render blueprint: one Docker web service with a persistent disk for saved results and uploads.
+# Render blueprint: one Docker web service on the free plan.
 # Create it with New > Blueprint, or match an existing service's settings to this file. Fill the values marked sync: false.
+# Memory, measured in the image under a 512 MB cap: 58 MB idle; 231 MB after the worked examples (they replay recorded
+# model responses and recorded embedding vectors, so PyTorch never loads); 461 MB peak for a live check that embeds
+# new text. The free plan has no disk, so saved result links last until the next deploy or restart.
 services:
   - type: web
     name: proofgraph
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: standard           # 2 GB: the server holds the embedding model (about 720 MB measured); starter's 512 MB is too small
+    plan: free
     healthCheckPath: /api/config
     autoDeploy: false        # a merge to main does not go live until you deploy it
-    disk:
-      name: proofgraph-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
-      - key: PROOFGRAPH_STATE
-        value: /var/data/state   # saved results (/?review= links) and uploads survive a deploy
       - key: LIVE_RUNS_PER_HOUR
-        value: "3"           # live runs (uploads, typed claims) per visitor per hour; worked examples replay and are not limited
+        value: "3"           # live runs (uploads, typed claims) per visitor per hour; worked examples are not limited
       - key: SEC_USER_AGENT
         sync: false          # "Name email" for SEC EDGAR, which the Gillette filing is fetched from at start
       - key: ANTHROPIC_API_KEY
-        sync: false          # secret, for uploads and typed claims; without it the worked examples still replay
+        sync: false          # secret, for uploads and typed claims; leave it unset and only the worked examples run, at no cost
